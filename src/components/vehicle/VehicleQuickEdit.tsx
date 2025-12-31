@@ -29,6 +29,7 @@ interface VehicleStage {
 interface Branch {
   id: string;
   name: string;
+  is_active?: boolean;
 }
 
 interface VehicleRow {
@@ -253,11 +254,13 @@ export function VehicleQuickEdit({
                   <SelectValue placeholder="Seleccionar" />
                 </SelectTrigger>
                 <SelectContent>
-                  {branches.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.name}
-                    </SelectItem>
-                  ))}
+                  {branches
+                    .filter(b => b.is_active !== false || b.id === form.branch_id)
+                    .map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.name}{b.is_active === false ? " (Inactiva)" : ""}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

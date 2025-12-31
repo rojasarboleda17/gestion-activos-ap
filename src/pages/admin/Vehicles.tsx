@@ -36,6 +36,7 @@ interface VehicleStage {
 interface Branch {
   id: string;
   name: string;
+  is_active?: boolean;
 }
 
 interface VehicleListing {
@@ -128,8 +129,8 @@ export default function AdminVehicles() {
             .order("sort_order"),
           supabase
             .from("branches")
-            .select("id, name")
-            .eq("is_active", true),
+            .select("id, name, is_active")
+            .order("name"),
           supabase
             .from("vehicle_listing")
             .select("vehicle_id, is_listed, listed_price_cop"),

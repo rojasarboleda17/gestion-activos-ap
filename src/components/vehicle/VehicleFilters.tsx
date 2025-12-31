@@ -12,6 +12,7 @@ interface VehicleStage {
 interface Branch {
   id: string;
   name: string;
+  is_active?: boolean;
 }
 
 interface Filters {
@@ -81,11 +82,13 @@ export function VehicleFilters({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">Todas sedes</SelectItem>
-          {branches.map((b) => (
-            <SelectItem key={b.id} value={b.id}>
-              {b.name}
-            </SelectItem>
-          ))}
+          {branches
+            .filter(b => b.is_active !== false || b.id === filters.branch_id)
+            .map((b) => (
+              <SelectItem key={b.id} value={b.id}>
+                {b.name}{b.is_active === false ? " (Inactiva)" : ""}
+              </SelectItem>
+            ))}
         </SelectContent>
       </Select>
 

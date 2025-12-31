@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { formatCOP, formatKm } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { GripVertical } from "lucide-react";
-
+import { useAudit } from "@/hooks/use-audit";
 interface VehicleStage {
   code: string;
   name: string;
@@ -43,7 +43,7 @@ export function VehicleKanban({
 }: VehicleKanbanProps) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
-
+  const { log: auditLog } = useAudit();
   const sortedStages = [...stages].sort((a, b) => a.sort_order - b.sort_order);
 
   const getVehiclesForStage = (stageCode: string) =>
@@ -80,6 +80,19 @@ export function VehicleKanban({
         .eq("id", vehicleId);
 
       if (error) throw error;
+      
+      // Audit log
+      auditLog({
+        action: "stage_change",
+        entity: "vehicle",
+        entity_id: vehicleId,
+        payload: {
+          from_stage: vehicle.stage_code,
+          to_stage: newStageCode,
+          license_plate: vehicle.license_plate,
+        },
+      });
+      
       toast.success("Estado actualizado");
       onRefresh();
     } catch (err: any) {

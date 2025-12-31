@@ -21,6 +21,11 @@ export default function AdminSales() {
   const { profile } = useAuth();
   const [activeTab, setActiveTab] = useState("customers");
 
+  // Refresh keys to trigger refetch in child components
+  const [salesRefreshKey, setSalesRefreshKey] = useState(0);
+  const [reservationsRefreshKey, setReservationsRefreshKey] = useState(0);
+  const [paymentsRefreshKey, setPaymentsRefreshKey] = useState(0);
+
   // Convert to sale dialog
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [convertingReservation, setConvertingReservation] = useState<any>(null);
@@ -50,48 +55,85 @@ export default function AdminSales() {
   };
 
   const handleConfirmConvert = async () => {
-    if (!profile?.org_id || !convertingReservation) return;
+    if (!profile?.org_id || !convertingReservation) {
+      toast.error("No se pudo obtener la información del perfil o la reserva");
+      return;
+    }
 
+    // Validate required fields
+    if (!convertingReservation.vehicle_id) {
+      toast.error("Error: La reserva no tiene un vehículo asociado");
+      return;
+    }
+    if (!convertingReservation.customer_id) {
+      toast.error("Error: La reserva no tiene un cliente asociado");
+      return;
+    }
     if (!convertForm.final_price_cop || parseInt(convertForm.final_price_cop) <= 0) {
       toast.error("El precio final es requerido y debe ser mayor a 0");
+      return;
+    }
+    if (!convertForm.payment_method_code) {
+      toast.error("Selecciona un método de pago");
       return;
     }
 
     setConverting(true);
     try {
-      // Create sale
+      // Create sale with all required fields
+      const salePayload = {
+        org_id: profile.org_id,
+        vehicle_id: convertingReservation.vehicle_id,
+        customer_id: convertingReservation.customer_id,
+        final_price_cop: parseInt(convertForm.final_price_cop),
+        payment_method_code: convertForm.payment_method_code,
+        reservation_id: convertingReservation.id,
+        status: "active",
+        created_by: profile.id,
+        notes: convertForm.notes?.trim() || null,
+      };
+
       const { data: saleData, error: saleError } = await supabase
         .from("sales")
-        .insert({
-          org_id: profile.org_id,
-          vehicle_id: convertingReservation.vehicle_id,
-          customer_id: convertingReservation.customer_id,
-          final_price_cop: parseInt(convertForm.final_price_cop),
-          payment_method_code: convertForm.payment_method_code,
-          notes: convertForm.notes || null,
-          reservation_id: convertingReservation.id,
-          status: "active",
-          created_by: profile.id,
-        })
+        .insert(salePayload)
         .select("id")
         .single();
 
-      if (saleError) throw saleError;
+      if (saleError) {
+        console.error("Error creating sale:", saleError);
+        toast.error(`Error al crear venta: ${saleError.message}${saleError.details ? ` - ${saleError.details}` : ""}`);
+        return;
+      }
+
+      if (!saleData || !saleData.id) {
+        toast.error("No se creó la venta (0 filas insertadas). Verifica permisos y datos.");
+        return;
+      }
 
       // Update reservation to converted
-      await supabase
+      const { error: resError } = await supabase
         .from("reservations")
         .update({ status: "converted" })
         .eq("id", convertingReservation.id);
 
-      // Update vehicle to 'vendido'
-      await supabase
+      if (resError) {
+        console.error("Error updating reservation:", resError);
+        toast.warning("Venta creada, pero hubo un error al actualizar la reserva");
+      }
+
+      // Update vehicle to 'vendido' (trigger should do this, but ensure)
+      const { error: vehError } = await supabase
         .from("vehicles")
         .update({ stage_code: "vendido" })
         .eq("id", convertingReservation.vehicle_id);
 
+      if (vehError) {
+        console.error("Error updating vehicle:", vehError);
+        toast.warning("Venta creada, pero hubo un error al actualizar el vehículo");
+      }
+
       // Register deposit as payment
-      await supabase.from("sale_payments").insert({
+      const { error: paymentError } = await supabase.from("sale_payments").insert({
         org_id: profile.org_id,
         sale_id: saleData.id,
         amount_cop: convertingReservation.deposit_amount_cop,
@@ -101,11 +143,24 @@ export default function AdminSales() {
         created_by: profile.id,
       });
 
+      if (paymentError) {
+        console.error("Error creating payment:", paymentError);
+        toast.warning("Venta creada, pero hubo un error al registrar el depósito como pago");
+      }
+
       toast.success("Venta registrada exitosamente");
       setConvertDialogOpen(false);
+      setConvertingReservation(null);
+      
+      // Trigger refresh in child components
+      setSalesRefreshKey((k) => k + 1);
+      setReservationsRefreshKey((k) => k + 1);
+      setPaymentsRefreshKey((k) => k + 1);
+      
       setActiveTab("sales");
     } catch (err: any) {
-      toast.error(err.message || "Error al convertir a venta");
+      console.error("Unexpected error:", err);
+      toast.error(`Error inesperado: ${err.message || "Error desconocido"}`);
     } finally {
       setConverting(false);
     }
@@ -141,9 +196,9 @@ export default function AdminSales() {
         </TabsList>
 
         <TabsContent value="customers"><CustomersTab /></TabsContent>
-        <TabsContent value="reservations"><ReservationsTab onConvertToSale={handleConvertToSale} /></TabsContent>
-        <TabsContent value="sales"><SalesTab /></TabsContent>
-        <TabsContent value="payments"><PaymentsTab /></TabsContent>
+        <TabsContent value="reservations"><ReservationsTab key={reservationsRefreshKey} onConvertToSale={handleConvertToSale} /></TabsContent>
+        <TabsContent value="sales"><SalesTab key={salesRefreshKey} /></TabsContent>
+        <TabsContent value="payments"><PaymentsTab key={paymentsRefreshKey} /></TabsContent>
         <TabsContent value="documents"><DocumentsTab /></TabsContent>
       </Tabs>
 

@@ -238,14 +238,14 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
                           </SelectContent>
                         </Select>
                         <Select
-                          value={item.assigned_to || ""}
-                          onValueChange={(v) => updateItem(item.id, { assigned_to: v || null })}
+                          value={item.assigned_to || "unassigned"}
+                          onValueChange={(v) => updateItem(item.id, { assigned_to: v === "unassigned" ? null : v })}
                         >
                           <SelectTrigger className="w-[160px] h-8">
                             <SelectValue placeholder="Sin asignar" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Sin asignar</SelectItem>
+                            <SelectItem value="unassigned">Sin asignar</SelectItem>
                             {profiles.map((p) => (
                               <SelectItem key={p.id} value={p.id}>{p.full_name || "Usuario"}</SelectItem>
                             ))}

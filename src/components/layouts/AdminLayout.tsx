@@ -158,13 +158,13 @@ export function AdminLayout({
       </aside>
 
       {/* Main content */}
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col min-w-0">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 lg:px-6">
+        <header className="sticky top-0 z-30 flex min-h-[56px] items-center gap-2 border-b bg-background/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:gap-4 sm:px-4 lg:px-6 safe-area-top">
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden"
+            className="shrink-0 lg:hidden"
             onClick={() => setSidebarOpen(true)}
           >
             <Menu className="h-5 w-5" />
@@ -172,19 +172,19 @@ export function AdminLayout({
 
           {/* Breadcrumbs */}
           {breadcrumbs && breadcrumbs.length > 0 && (
-            <nav className="hidden items-center gap-2 text-sm md:flex">
+            <nav className="hidden items-center gap-2 text-sm md:flex min-w-0">
               {breadcrumbs.map((crumb, idx) => (
-                <span key={idx} className="flex items-center gap-2">
-                  {idx > 0 && <span className="text-muted-foreground">/</span>}
+                <span key={idx} className="flex items-center gap-2 min-w-0">
+                  {idx > 0 && <span className="text-muted-foreground shrink-0">/</span>}
                   {crumb.href ? (
                     <Link
                       to={crumb.href}
-                      className="text-muted-foreground hover:text-foreground"
+                      className="text-muted-foreground hover:text-foreground truncate"
                     >
                       {crumb.label}
                     </Link>
                   ) : (
-                    <span className="text-foreground font-medium">
+                    <span className="text-foreground font-medium truncate">
                       {crumb.label}
                     </span>
                   )}
@@ -195,20 +195,24 @@ export function AdminLayout({
 
           {/* Title (mobile) */}
           {title && (
-            <h1 className="text-lg font-semibold md:hidden truncate">{title}</h1>
+            <h1 className="text-base font-semibold md:hidden truncate min-w-0 flex-1">{title}</h1>
           )}
 
           {/* Spacer */}
-          <div className="flex-1" />
+          <div className="flex-1 md:flex-initial" />
 
           {/* Actions */}
-          {actions && <div className="flex items-center gap-2">{actions}</div>}
+          {actions && (
+            <div className="flex items-center gap-1 sm:gap-2 shrink-0 overflow-x-auto max-w-[50vw] sm:max-w-none scrollbar-thin">
+              {actions}
+            </div>
+          )}
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-auto p-4 lg:p-6">
+        <main className="flex-1 overflow-auto p-3 sm:p-4 lg:p-6 safe-area-bottom">
           {title && (
-            <h1 className="mb-6 text-2xl font-bold text-foreground hidden md:block">
+            <h1 className="mb-4 sm:mb-6 text-xl sm:text-2xl font-bold text-foreground hidden md:block">
               {title}
             </h1>
           )}

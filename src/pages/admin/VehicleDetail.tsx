@@ -165,9 +165,9 @@ export default function VehicleDetail() {
         { label: vehicle.license_plate || "Detalle" },
       ]}
       actions={
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1 sm:gap-2">
           <Select value={vehicle.stage_code} onValueChange={handleStageChange} disabled={changingStage}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className="w-[120px] sm:w-[140px] text-xs sm:text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -176,17 +176,25 @@ export default function VehicleDetail() {
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" onClick={handleArchive}>
+          <Button variant="outline" size="sm" onClick={handleArchive} className="hidden sm:flex">
             <Archive className="h-4 w-4 mr-1" />
             {vehicle.is_archived ? "Desarchivar" : "Archivar"}
           </Button>
+          <Button variant="outline" size="icon" onClick={handleArchive} className="sm:hidden h-8 w-8">
+            <Archive className="h-4 w-4" />
+          </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="sm">
+              <Button variant="destructive" size="sm" className="hidden sm:flex">
                 <Trash2 className="h-4 w-4 mr-1" />Eliminar
               </Button>
             </AlertDialogTrigger>
-            <AlertDialogContent>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="icon" className="sm:hidden h-8 w-8">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent className="max-w-[90vw] sm:max-w-lg">
               <AlertDialogHeader>
                 <AlertDialogTitle>¿Eliminar vehículo?</AlertDialogTitle>
                 <AlertDialogDescription>
@@ -215,19 +223,21 @@ export default function VehicleDetail() {
 
         {/* Tabs */}
         <Tabs defaultValue="summary" className="w-full">
-          <TabsList className="flex flex-wrap h-auto gap-1">
-            <TabsTrigger value="summary">Resumen</TabsTrigger>
-            <TabsTrigger value="info">Información</TabsTrigger>
-            <TabsTrigger value="listing">Comercial</TabsTrigger>
-            <TabsTrigger value="compliance">Cumplimiento</TabsTrigger>
-            <TabsTrigger value="financials">Financiero</TabsTrigger>
-            <TabsTrigger value="legal">Legal</TabsTrigger>
-            <TabsTrigger value="workorders">Alistamiento</TabsTrigger>
-            <TabsTrigger value="expenses">Gastos</TabsTrigger>
-            <TabsTrigger value="files">Archivos</TabsTrigger>
-            <TabsTrigger value="history">Historial</TabsTrigger>
-            <TabsTrigger value="sales">Ventas</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 scrollbar-thin">
+            <TabsList className="inline-flex h-auto gap-1 min-w-max p-1">
+              <TabsTrigger value="summary" className="text-xs sm:text-sm px-2 sm:px-3">Resumen</TabsTrigger>
+              <TabsTrigger value="info" className="text-xs sm:text-sm px-2 sm:px-3">Info</TabsTrigger>
+              <TabsTrigger value="listing" className="text-xs sm:text-sm px-2 sm:px-3">Comercial</TabsTrigger>
+              <TabsTrigger value="compliance" className="text-xs sm:text-sm px-2 sm:px-3">Legal</TabsTrigger>
+              <TabsTrigger value="financials" className="text-xs sm:text-sm px-2 sm:px-3">Finanzas</TabsTrigger>
+              <TabsTrigger value="legal" className="text-xs sm:text-sm px-2 sm:px-3">Tarjeta</TabsTrigger>
+              <TabsTrigger value="workorders" className="text-xs sm:text-sm px-2 sm:px-3">Órdenes</TabsTrigger>
+              <TabsTrigger value="expenses" className="text-xs sm:text-sm px-2 sm:px-3">Gastos</TabsTrigger>
+              <TabsTrigger value="files" className="text-xs sm:text-sm px-2 sm:px-3">Archivos</TabsTrigger>
+              <TabsTrigger value="history" className="text-xs sm:text-sm px-2 sm:px-3">Historial</TabsTrigger>
+              <TabsTrigger value="sales" className="text-xs sm:text-sm px-2 sm:px-3">Ventas</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="summary" className="mt-4">
             <VehicleSummaryTab vehicle={vehicle} onRefresh={fetchVehicle} />

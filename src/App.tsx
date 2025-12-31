@@ -18,6 +18,7 @@ import NotFound from "./pages/NotFound";
 // Admin Pages
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminVehicles from "./pages/admin/Vehicles";
+import AdminVehicleNew from "./pages/admin/VehicleNew";
 import AdminVehicleDetail from "./pages/admin/VehicleDetail";
 import AdminOperations from "./pages/admin/Operations";
 import AdminSales from "./pages/admin/Sales";
@@ -59,7 +60,7 @@ const AppRoutes = () => (
     {/* Admin routes */}
     <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
     <Route path="/admin/vehicles" element={<ProtectedRoute requiredRole="admin"><AdminVehicles /></ProtectedRoute>} />
-    <Route path="/admin/vehicles/new" element={<ProtectedRoute requiredRole="admin"><AdminVehicleDetail /></ProtectedRoute>} />
+    <Route path="/admin/vehicles/new" element={<ProtectedRoute requiredRole="admin"><AdminVehicleNew /></ProtectedRoute>} />
     <Route path="/admin/vehicles/:id" element={<ProtectedRoute requiredRole="admin"><AdminVehicleDetail /></ProtectedRoute>} />
     <Route path="/admin/operations" element={<ProtectedRoute requiredRole="admin"><AdminOperations /></ProtectedRoute>} />
     <Route path="/admin/sales" element={<ProtectedRoute requiredRole="admin"><AdminSales /></ProtectedRoute>} />

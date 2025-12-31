@@ -28,13 +28,26 @@ export default function AdminVehicles() {
 
   useEffect(() => {
     const fetchVehicles = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("vehicles")
-        .select("id, license_plate, brand, line, model_year, vehicle_class, stage_code, mileage_km, branches(name), vehicle_listing(is_listed, listed_price_cop)")
+        .select(`
+          id, license_plate, brand, line, model_year, vehicle_class, stage_code, mileage_km,
+          branches:branch_id(name),
+          vehicle_listing(is_listed, listed_price_cop)
+        `)
         .eq("is_archived", false)
         .order("created_at", { ascending: false })
         .limit(100);
-      setVehicles((data as VehicleRow[]) || []);
+      
+      if (data) {
+        // Transform the data to match our type
+        const transformed = data.map((item: any) => ({
+          ...item,
+          branches: item.branches || null,
+          vehicle_listing: item.vehicle_listing || null,
+        }));
+        setVehicles(transformed);
+      }
       setLoading(false);
     };
     fetchVehicles();

@@ -445,15 +445,16 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
                 </div>
               </div>
 
-              <p className="text-xs text-muted-foreground">
-                Abierta: {formatDate(openWorkOrder.opened_at)}
-              </p>
-              {totalCost > 0 && (
-                <p className="text-sm flex items-center gap-1">
-                  <DollarSign className="h-3 w-3" />
-                  Costo total: <strong>{formatCOP(totalCost)}</strong>
+              <div className="flex items-center justify-between text-sm">
+                <p className="text-xs text-muted-foreground">
+                  Abierta: {formatDate(openWorkOrder.opened_at)}
                 </p>
-              )}
+                <div className="flex items-center gap-1 bg-primary/10 px-2 py-1 rounded">
+                  <DollarSign className="h-3 w-3 text-primary" />
+                  <span className="text-muted-foreground">Costo alistamiento:</span>
+                  <strong className="text-primary">{formatCOP(totalCost)}</strong>
+                </div>
+              </div>
             </CardContent>
           </Card>
 

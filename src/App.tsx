@@ -54,8 +54,8 @@ const AppRoutes = () => (
     <Route path="/inactive" element={<Inactive />} />
     <Route path="/unauthorized" element={<Unauthorized />} />
     
-    {/* Debug (accessible to authenticated users) */}
-    <Route path="/debug" element={<Debug />} />
+    {/* Debug (only in development) */}
+    {import.meta.env.DEV && <Route path="/debug" element={<Debug />} />}
     
     {/* Admin routes */}
     <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />

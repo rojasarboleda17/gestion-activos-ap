@@ -485,11 +485,12 @@ export function WorkOrderSheet({
                       <p className="text-muted-foreground">Bloq.</p>
                     </div>
                   </div>
-                  {scope === "vehicle" && totalCost > 0 && (
-                    <p className="text-sm text-muted-foreground flex items-center gap-1">
-                      <DollarSign className="h-3 w-3" />
-                      Costo total: <strong>{formatCOP(totalCost)}</strong>
-                    </p>
+                  {scope === "vehicle" && (
+                    <div className="flex items-center gap-1 bg-primary/10 px-2 py-1 rounded text-sm">
+                      <DollarSign className="h-3 w-3 text-primary" />
+                      <span className="text-muted-foreground">Costo alistamiento:</span>
+                      <strong className="text-primary">{formatCOP(totalCost)}</strong>
+                    </div>
                   )}
                 </CardContent>
               </Card>

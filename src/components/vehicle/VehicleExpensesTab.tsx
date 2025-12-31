@@ -613,16 +613,16 @@ export function VehicleExpensesTab({ vehicleId }: Props) {
               <div className="space-y-2">
                 <Label>Vincular a ítem de alistamiento</Label>
                 <Select
-                  value={form.work_order_item_id}
+                  value={form.work_order_item_id || "__none__"}
                   onValueChange={(v) =>
-                    setForm({ ...form, work_order_item_id: v })
+                    setForm({ ...form, work_order_item_id: v === "__none__" ? "" : v })
                   }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Ninguno" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Ninguno</SelectItem>
+                    <SelectItem value="__none__">Ninguno</SelectItem>
                     {workOrderItems.map((item) => (
                       <SelectItem key={item.id} value={item.id}>
                         {item.title}
@@ -637,16 +637,16 @@ export function VehicleExpensesTab({ vehicleId }: Props) {
               <div className="space-y-2">
                 <Label>Proveedor</Label>
                 <Select
-                  value={form.vendor_profile_id}
+                  value={form.vendor_profile_id || "__none__"}
                   onValueChange={(v) =>
-                    setForm({ ...form, vendor_profile_id: v })
+                    setForm({ ...form, vendor_profile_id: v === "__none__" ? "" : v })
                   }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Ninguno" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Ninguno</SelectItem>
+                    <SelectItem value="__none__">Ninguno</SelectItem>
                     {vendors.map((v) => (
                       <SelectItem key={v.id} value={v.id}>
                         {v.full_name || "Usuario"}

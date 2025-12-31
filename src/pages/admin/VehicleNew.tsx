@@ -25,6 +25,7 @@ interface VehicleStage {
 interface Branch {
   id: string;
   name: string;
+  is_active: boolean;
 }
 
 const VEHICLE_CLASSES = [
@@ -83,13 +84,15 @@ export default function VehicleNew() {
     const fetchData = async () => {
       const [stagesRes, branchesRes] = await Promise.all([
         supabase.from("vehicle_stages").select("code, name").order("sort_order"),
-        supabase.from("branches").select("id, name").eq("is_active", true),
+        supabase.from("branches").select("id, name, is_active").order("name"),
       ]);
       if (stagesRes.data) setStages(stagesRes.data);
       if (branchesRes.data) {
         setBranches(branchesRes.data);
-        if (branchesRes.data.length && !form.branch_id) {
-          setForm((f) => ({ ...f, branch_id: branchesRes.data[0].id }));
+        // Default to first active branch
+        const activeBranches = branchesRes.data.filter(b => b.is_active);
+        if (activeBranches.length && !form.branch_id) {
+          setForm((f) => ({ ...f, branch_id: activeBranches[0].id }));
         }
       }
     };
@@ -387,7 +390,7 @@ export default function VehicleNew() {
                   <SelectValue placeholder="Seleccionar sede" />
                 </SelectTrigger>
                 <SelectContent>
-                  {branches.map((b) => (
+                  {branches.filter(b => b.is_active).map((b) => (
                     <SelectItem key={b.id} value={b.id}>
                       {b.name}
                     </SelectItem>

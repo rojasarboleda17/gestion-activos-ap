@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 interface Vehicle {
   id: string;
@@ -22,6 +24,12 @@ const Debug = () => {
   const [financialsCount, setFinancialsCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState<{ vehicles?: string; financials?: string }>({});
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/login");
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -70,7 +78,14 @@ const Debug = () => {
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="mx-auto max-w-4xl space-y-6">
-        <h1 className="text-3xl font-bold text-foreground">Debug - Supabase Connection</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-foreground">Debug - Supabase Connection</h1>
+          {user && (
+            <Button variant="outline" onClick={handleLogout}>
+              Cerrar sesión
+            </Button>
+          )}
+        </div>
 
         {/* Usuario autenticado */}
         <Card>

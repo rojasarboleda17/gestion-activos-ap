@@ -93,6 +93,10 @@ export function VehicleExpensesTab({ vehicleId }: Props) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Group by item toggle
+  const [groupByItem, setGroupByItem] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+
   // Form
   const [form, setForm] = useState({
     amount_cop: "",
@@ -257,10 +261,6 @@ export function VehicleExpensesTab({ vehicleId }: Props) {
     }
   };
 
-  if (loading) return <LoadingState variant="table" />;
-
-  const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount_cop || 0), 0);
-
   // Group expenses by work_order_item
   const groupedExpenses = useMemo(() => {
     const groups: Record<string, { title: string; total: number; expenses: Expense[] }> = {};
@@ -285,12 +285,13 @@ export function VehicleExpensesTab({ vehicleId }: Props) {
     return { groups, ungrouped };
   }, [expenses]);
 
-  const [groupByItem, setGroupByItem] = useState(false);
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
-
   const toggleGroup = (id: string) => {
     setExpandedGroups((prev) => ({ ...prev, [id]: !prev[id] }));
   };
+
+  if (loading) return <LoadingState variant="table" />;
+
+  const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount_cop || 0), 0);
 
   return (
     <div className="space-y-6">

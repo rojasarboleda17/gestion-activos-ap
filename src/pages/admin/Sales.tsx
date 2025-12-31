@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatCOP, formatDate } from "@/lib/format";
+import { validateCustomerData } from "@/lib/validations";
 import { ShoppingCart, Users2, Calendar, CreditCard, Plus, ExternalLink, Pencil } from "lucide-react";
 
 interface Customer {
@@ -133,19 +134,16 @@ export default function AdminSales() {
   };
 
   const handleSaveCustomer = async () => {
-    if (!customerForm.full_name.trim()) {
-      toast({ title: "Error", description: "El nombre es requerido", variant: "destructive" });
+    // Validate using zod schema
+    const validation = validateCustomerData(customerForm);
+    if (!validation.success) {
+      toast({ title: "Error", description: validation.error, variant: "destructive" });
       return;
     }
 
     setSaving(true);
 
-    const data = {
-      full_name: customerForm.full_name.trim(),
-      email: customerForm.email.trim() || null,
-      phone: customerForm.phone.trim() || null,
-      document_id: customerForm.document_id.trim() || null,
-    };
+    const data = validation.data;
 
     if (editingCustomer) {
       const { error } = await supabase.from("customers").update(data).eq("id", editingCustomer.id);

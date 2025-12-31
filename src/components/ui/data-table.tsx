@@ -174,22 +174,31 @@ export function DataTable<T extends Record<string, any>>({
           </div>
 
           {/* Mobile Cards */}
-          <div className="space-y-3 md:hidden">
+          <div className="space-y-2 md:hidden">
             {paginatedData.map((row, idx) => (
               <div
                 key={getRowId ? getRowId(row) : idx}
                 className={cn(
-                  "rounded-lg border bg-card p-4 space-y-2",
-                  onRowClick && "cursor-pointer hover:border-primary/30"
+                  "rounded-lg border bg-card p-3 space-y-1.5",
+                  onRowClick && "cursor-pointer active:bg-muted/50"
                 )}
                 onClick={() => onRowClick?.(row)}
               >
-                {columns.map((column) => (
-                  <div key={column.key} className="flex justify-between gap-2">
-                    <span className="text-sm text-muted-foreground">
+                {columns.map((column, colIdx) => (
+                  <div 
+                    key={column.key} 
+                    className={cn(
+                      "flex justify-between gap-2 items-start",
+                      colIdx === 0 && "pb-1.5 border-b border-border/50 mb-1"
+                    )}
+                  >
+                    <span className="text-xs text-muted-foreground shrink-0">
                       {column.header}
                     </span>
-                    <span className="text-sm font-medium text-right">
+                    <span className={cn(
+                      "text-xs text-right min-w-0 break-words",
+                      colIdx === 0 ? "font-semibold" : "font-medium"
+                    )}>
                       {column.cell ? column.cell(row) : row[column.key] ?? "-"}
                     </span>
                   </div>
@@ -200,27 +209,27 @@ export function DataTable<T extends Record<string, any>>({
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                Mostrando {(currentPage - 1) * pageSize + 1} -{" "}
-                {Math.min(currentPage * pageSize, filteredData.length)} de{" "}
-                {filteredData.length}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
+                {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredData.length)} de {filteredData.length}
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center gap-2">
                 <Button
                   variant="outline"
                   size="icon"
+                  className="h-8 w-8"
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <span className="text-sm">
+                <span className="text-xs sm:text-sm min-w-[60px] text-center">
                   {currentPage} / {totalPages}
                 </span>
                 <Button
                   variant="outline"
                   size="icon"
+                  className="h-8 w-8"
                   onClick={() =>
                     setCurrentPage((p) => Math.min(totalPages, p + 1))
                   }

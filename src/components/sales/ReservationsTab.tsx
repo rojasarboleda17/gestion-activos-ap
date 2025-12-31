@@ -43,7 +43,7 @@ import { toast } from "sonner";
 import { LoadingState } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatCOP, formatDate } from "@/lib/format";
-import { Calendar, Plus, Search, X, ArrowRight, Eye } from "lucide-react";
+import { Calendar, Plus, Search, X, ArrowRight, AlertTriangle } from "lucide-react";
 
 interface Reservation {
   id: string;
@@ -82,6 +82,8 @@ interface PaymentMethod {
 
 interface Props {
   onConvertToSale?: (reservation: Reservation) => void;
+  onRefresh?: () => void;
+  preselectedVehicleId?: string;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -91,7 +93,7 @@ const STATUS_LABELS: Record<string, string> = {
   expired: "Expirada",
 };
 
-export function ReservationsTab({ onConvertToSale }: Props) {
+export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicleId }: Props) {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -107,7 +109,7 @@ export function ReservationsTab({ onConvertToSale }: Props) {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    vehicle_id: "",
+    vehicle_id: preselectedVehicleId || "",
     customer_id: "",
     deposit_amount_cop: "",
     payment_method_code: "",
@@ -117,17 +119,20 @@ export function ReservationsTab({ onConvertToSale }: Props) {
   // Quick create customer
   const [quickCustomerOpen, setQuickCustomerOpen] = useState(false);
   const [quickCustomerForm, setQuickCustomerForm] = useState({ full_name: "", phone: "" });
+  const [quickCustomerSaving, setQuickCustomerSaving] = useState(false);
 
   // Cancel dialog
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelingReservation, setCancelingReservation] = useState<Reservation | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const [canceling, setCanceling] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!profile?.org_id) return;
     setLoading(true);
 
     try {
+      console.log("[Reservations] Fetching data...");
       const [resRes, vehRes, custRes, pmRes] = await Promise.all([
         supabase
           .from("reservations")
@@ -156,6 +161,11 @@ export function ReservationsTab({ onConvertToSale }: Props) {
           .eq("is_active", true),
       ]);
 
+      if (resRes.error) {
+        console.error("[Reservations] Error fetching reservations:", resRes.error);
+        toast.error(`Error al cargar reservas: ${resRes.error.message}`);
+      }
+
       setReservations(
         (resRes.data || []).map((r: any) => ({
           ...r,
@@ -166,8 +176,10 @@ export function ReservationsTab({ onConvertToSale }: Props) {
       setVehicles(vehRes.data || []);
       setCustomers(custRes.data || []);
       setPaymentMethods(pmRes.data || []);
+      console.log("[Reservations] Data loaded successfully");
     } catch (err) {
-      console.error("Error fetching data:", err);
+      console.error("[Reservations] Unexpected error fetching data:", err);
+      toast.error("Error al cargar datos");
     } finally {
       setLoading(false);
     }
@@ -179,7 +191,7 @@ export function ReservationsTab({ onConvertToSale }: Props) {
 
   const openCreate = () => {
     setForm({
-      vehicle_id: "",
+      vehicle_id: preselectedVehicleId || "",
       customer_id: "",
       deposit_amount_cop: "",
       payment_method_code: paymentMethods[0]?.code || "",
@@ -191,6 +203,7 @@ export function ReservationsTab({ onConvertToSale }: Props) {
   const handleCreate = async () => {
     if (!profile?.org_id) return;
 
+    // Validations
     if (!form.vehicle_id) {
       toast.error("Selecciona un vehículo");
       return;
@@ -199,8 +212,9 @@ export function ReservationsTab({ onConvertToSale }: Props) {
       toast.error("Selecciona un cliente");
       return;
     }
-    if (!form.deposit_amount_cop || parseInt(form.deposit_amount_cop) <= 0) {
-      toast.error("El depósito debe ser mayor a 0");
+    const depositAmount = parseInt(form.deposit_amount_cop);
+    if (!form.deposit_amount_cop || isNaN(depositAmount) || depositAmount <= 0) {
+      toast.error("El depósito debe ser mayor a 0 (regla de negocio: no hay reserva sin dinero)");
       return;
     }
     if (!form.payment_method_code) {
@@ -209,44 +223,78 @@ export function ReservationsTab({ onConvertToSale }: Props) {
     }
 
     // Check for existing active reservation
-    const { data: existing } = await supabase
+    console.log("[Reservations] Checking for existing active reservations...");
+    const { data: existing, error: existingError } = await supabase
       .from("reservations")
       .select("id")
       .eq("vehicle_id", form.vehicle_id)
       .eq("status", "active")
       .maybeSingle();
 
+    if (existingError) {
+      console.error("[Reservations] Error checking existing:", existingError);
+      toast.error(`Error al verificar reservas existentes: ${existingError.message}`);
+      return;
+    }
+
     if (existing) {
-      toast.error("Este vehículo ya tiene una reserva activa");
+      toast.error("Este vehículo ya tiene una reserva activa. Cancélala primero.");
       return;
     }
 
     setSaving(true);
     try {
-      const { error } = await supabase.from("reservations").insert({
+      const payload = {
         org_id: profile.org_id,
         vehicle_id: form.vehicle_id,
         customer_id: form.customer_id,
-        deposit_amount_cop: parseInt(form.deposit_amount_cop),
+        deposit_amount_cop: depositAmount,
         payment_method_code: form.payment_method_code,
-        notes: form.notes || null,
+        notes: form.notes?.trim() || null,
         status: "active",
         created_by: profile.id,
-      });
+      };
+      console.log("[Reservations] Creating reservation:", payload);
 
-      if (error) throw error;
+      const { data, error } = await supabase
+        .from("reservations")
+        .insert(payload)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("[Reservations] Create error:", error);
+        toast.error(`Error al crear reserva: ${error.message}${error.details ? ` - ${error.details}` : ""}`);
+        return;
+      }
+
+      if (!data) {
+        console.error("[Reservations] No data returned after insert");
+        toast.error("Error: No se creó la reserva (0 filas insertadas)");
+        return;
+      }
+
+      console.log("[Reservations] Reservation created:", data.id);
 
       // Update vehicle stage to 'bloqueado'
-      await supabase
+      console.log("[Reservations] Updating vehicle stage to 'bloqueado'...");
+      const { error: vehError } = await supabase
         .from("vehicles")
         .update({ stage_code: "bloqueado" })
         .eq("id", form.vehicle_id);
 
+      if (vehError) {
+        console.error("[Reservations] Vehicle update error:", vehError);
+        toast.warning(`Reserva creada, pero el vehículo no se actualizó: ${vehError.message}`);
+      }
+
       toast.success("Reserva creada exitosamente");
       setCreateDialogOpen(false);
       fetchData();
+      onRefresh?.();
     } catch (err: any) {
-      toast.error(err.message || "Error al crear reserva");
+      console.error("[Reservations] Unexpected error:", err);
+      toast.error(`Error inesperado: ${err.message || "Error desconocido"}`);
     } finally {
       setSaving(false);
     }
@@ -259,26 +307,41 @@ export function ReservationsTab({ onConvertToSale }: Props) {
       return;
     }
 
+    setQuickCustomerSaving(true);
     try {
+      console.log("[Reservations] Creating quick customer:", quickCustomerForm);
       const { data, error } = await supabase
         .from("customers")
         .insert({
           org_id: profile.org_id,
           full_name: quickCustomerForm.full_name.trim(),
-          phone: quickCustomerForm.phone || null,
+          phone: quickCustomerForm.phone?.trim() || null,
         })
         .select("id, full_name, phone")
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("[Reservations] Quick customer error:", error);
+        toast.error(`Error al crear cliente: ${error.message}${error.details ? ` - ${error.details}` : ""}`);
+        return;
+      }
 
+      if (!data) {
+        toast.error("Error: No se creó el cliente");
+        return;
+      }
+
+      console.log("[Reservations] Customer created:", data.id);
       setCustomers((prev) => [...prev, data]);
       setForm({ ...form, customer_id: data.id });
       setQuickCustomerOpen(false);
       setQuickCustomerForm({ full_name: "", phone: "" });
       toast.success("Cliente creado");
     } catch (err: any) {
-      toast.error(err.message || "Error al crear cliente");
+      console.error("[Reservations] Unexpected error:", err);
+      toast.error(`Error inesperado: ${err.message}`);
+    } finally {
+      setQuickCustomerSaving(false);
     }
   };
 
@@ -289,20 +352,35 @@ export function ReservationsTab({ onConvertToSale }: Props) {
   };
 
   const handleCancel = async () => {
-    if (!cancelingReservation) return;
+    if (!cancelingReservation || !profile?.id) return;
 
+    setCanceling(true);
     try {
-      const { error } = await supabase
+      console.log("[Reservations] Cancelling reservation:", cancelingReservation.id);
+      const { error, data } = await supabase
         .from("reservations")
         .update({
           status: "cancelled",
-          cancel_reason: cancelReason || null,
+          cancel_reason: cancelReason?.trim() || null,
           cancelled_at: new Date().toISOString(),
-          cancelled_by: profile?.id,
+          cancelled_by: profile.id,
         })
-        .eq("id", cancelingReservation.id);
+        .eq("id", cancelingReservation.id)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("[Reservations] Cancel error:", error);
+        toast.error(`Error al cancelar: ${error.message}${error.details ? ` - ${error.details}` : ""}`);
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        console.error("[Reservations] Cancel returned no rows");
+        toast.error("Error: La reserva no se actualizó (puede que no tengas permisos)");
+        return;
+      }
+
+      console.log("[Reservations] Reservation cancelled successfully");
 
       // Check if there are other active reservations for this vehicle
       const { data: otherActive } = await supabase
@@ -314,18 +392,28 @@ export function ReservationsTab({ onConvertToSale }: Props) {
 
       if (!otherActive || otherActive.length === 0) {
         // Return vehicle to 'publicado'
-        await supabase
+        console.log("[Reservations] No other active reservations, returning vehicle to 'publicado'...");
+        const { error: vehError } = await supabase
           .from("vehicles")
           .update({ stage_code: "publicado" })
           .eq("id", cancelingReservation.vehicle_id);
+
+        if (vehError) {
+          console.error("[Reservations] Vehicle update error:", vehError);
+          toast.warning(`Reserva cancelada, pero el vehículo no se actualizó: ${vehError.message}`);
+        }
       }
 
       toast.success("Reserva cancelada");
       setCancelDialogOpen(false);
       setCancelingReservation(null);
       fetchData();
+      onRefresh?.();
     } catch (err: any) {
-      toast.error(err.message || "Error al cancelar reserva");
+      console.error("[Reservations] Unexpected error:", err);
+      toast.error(`Error inesperado: ${err.message}`);
+    } finally {
+      setCanceling(false);
     }
   };
 
@@ -337,6 +425,7 @@ export function ReservationsTab({ onConvertToSale }: Props) {
 
   // Filter
   const filtered = reservations.filter((r) => {
+    if (preselectedVehicleId && r.vehicle_id !== preselectedVehicleId) return false;
     if (statusFilter !== "all" && r.status !== statusFilter) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -348,12 +437,13 @@ export function ReservationsTab({ onConvertToSale }: Props) {
     return true;
   });
 
-  // Available vehicles (not already reserved active)
+  // Available vehicles (not already reserved active, or is the preselected one)
   const availableVehicles = vehicles.filter((v) => {
+    if (v.stage_code === "vendido") return false;
     const hasActiveReservation = reservations.some(
       (r) => r.vehicle_id === v.id && r.status === "active"
     );
-    return !hasActiveReservation;
+    return !hasActiveReservation || v.id === preselectedVehicleId;
   });
 
   if (loading) return <LoadingState variant="table" />;
@@ -361,40 +451,49 @@ export function ReservationsTab({ onConvertToSale }: Props) {
   return (
     <div className="space-y-4">
       {/* Filters */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por placa, marca, cliente..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+      {!preselectedVehicleId && (
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por placa, marca, cliente..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="active">Activas</SelectItem>
+              <SelectItem value="converted">Convertidas</SelectItem>
+              <SelectItem value="cancelled">Canceladas</SelectItem>
+              <SelectItem value="expired">Expiradas</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nueva Reserva
+          </Button>
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Estado" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="active">Activas</SelectItem>
-            <SelectItem value="converted">Convertidas</SelectItem>
-            <SelectItem value="cancelled">Canceladas</SelectItem>
-            <SelectItem value="expired">Expiradas</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button onClick={openCreate}>
+      )}
+
+      {preselectedVehicleId && (
+        <Button onClick={openCreate} className="w-full sm:w-auto">
           <Plus className="h-4 w-4 mr-2" />
           Nueva Reserva
         </Button>
-      </div>
+      )}
 
       {/* Table */}
       {filtered.length === 0 ? (
         <EmptyState
           icon={Calendar}
           title="Sin reservas"
-          description="No hay reservas que coincidan con los filtros."
+          description={preselectedVehicleId ? "Este vehículo no tiene reservas." : "No hay reservas que coincidan con los filtros."}
           action={{ label: "Crear Reserva", onClick: openCreate }}
         />
       ) : (
@@ -405,7 +504,7 @@ export function ReservationsTab({ onConvertToSale }: Props) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Fecha</TableHead>
-                  <TableHead>Vehículo</TableHead>
+                  {!preselectedVehicleId && <TableHead>Vehículo</TableHead>}
                   <TableHead>Cliente</TableHead>
                   <TableHead>Depósito</TableHead>
                   <TableHead>Método</TableHead>
@@ -419,16 +518,18 @@ export function ReservationsTab({ onConvertToSale }: Props) {
                     <TableCell className="whitespace-nowrap">
                       {formatDate(r.reserved_at)}
                     </TableCell>
-                    <TableCell>
-                      <div>
-                        <p className="font-mono text-sm">
-                          {r.vehicle?.license_plate || "S/P"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {r.vehicle?.brand} {r.vehicle?.line || ""} {r.vehicle?.model_year || ""}
-                        </p>
-                      </div>
-                    </TableCell>
+                    {!preselectedVehicleId && (
+                      <TableCell>
+                        <div>
+                          <p className="font-mono text-sm">
+                            {r.vehicle?.license_plate || "S/P"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {r.vehicle?.brand} {r.vehicle?.line || ""} {r.vehicle?.model_year || ""}
+                          </p>
+                        </div>
+                      </TableCell>
+                    )}
                     <TableCell>
                       <div>
                         <p className="font-medium">{r.customer?.full_name || "—"}</p>
@@ -456,7 +557,7 @@ export function ReservationsTab({ onConvertToSale }: Props) {
                     </TableCell>
                     <TableCell className="text-right">
                       {r.status === "active" && (
-                        <>
+                        <div className="flex justify-end gap-1">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -473,7 +574,7 @@ export function ReservationsTab({ onConvertToSale }: Props) {
                           >
                             <X className="h-4 w-4" />
                           </Button>
-                        </>
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
@@ -489,12 +590,16 @@ export function ReservationsTab({ onConvertToSale }: Props) {
                 <CardContent className="py-4">
                   <div className="flex justify-between items-start mb-2">
                     <div>
-                      <p className="font-mono text-sm">
-                        {r.vehicle?.license_plate || "S/P"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {r.vehicle?.brand} {r.vehicle?.line || ""}
-                      </p>
+                      {!preselectedVehicleId && (
+                        <>
+                          <p className="font-mono text-sm">
+                            {r.vehicle?.license_plate || "S/P"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {r.vehicle?.brand} {r.vehicle?.line || ""}
+                          </p>
+                        </>
+                      )}
                     </div>
                     <Badge
                       variant={
@@ -542,29 +647,34 @@ export function ReservationsTab({ onConvertToSale }: Props) {
             <DialogTitle>Nueva Reserva</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Vehículo *</Label>
-              <Select
-                value={form.vehicle_id}
-                onValueChange={(v) => setForm({ ...form, vehicle_id: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar vehículo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableVehicles.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.license_plate || "S/P"} - {v.brand} {v.line || ""} {v.model_year || ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {availableVehicles.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  No hay vehículos disponibles para reservar
-                </p>
-              )}
-            </div>
+            {!preselectedVehicleId ? (
+              <div className="space-y-2">
+                <Label>Vehículo *</Label>
+                <Select
+                  value={form.vehicle_id}
+                  onValueChange={(v) => setForm({ ...form, vehicle_id: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar vehículo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableVehicles.map((v) => (
+                      <SelectItem key={v.id} value={v.id}>
+                        {v.license_plate || "S/P"} - {v.brand} {v.line || ""} {v.model_year || ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {availableVehicles.length === 0 && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    No hay vehículos disponibles para reservar
+                  </p>
+                )}
+              </div>
+            ) : (
+              <input type="hidden" value={preselectedVehicleId} />
+            )}
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -605,6 +715,7 @@ export function ReservationsTab({ onConvertToSale }: Props) {
                   onChange={(e) => setForm({ ...form, deposit_amount_cop: e.target.value })}
                   placeholder="1000000"
                 />
+                <p className="text-xs text-muted-foreground">Debe ser &gt; 0</p>
               </div>
               <div className="space-y-2">
                 <Label>Método de pago *</Label>
@@ -679,7 +790,9 @@ export function ReservationsTab({ onConvertToSale }: Props) {
             <Button variant="outline" onClick={() => setQuickCustomerOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleQuickCreateCustomer}>Crear</Button>
+            <Button onClick={handleQuickCreateCustomer} disabled={quickCustomerSaving}>
+              {quickCustomerSaving ? "Creando..." : "Crear"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -704,7 +817,9 @@ export function ReservationsTab({ onConvertToSale }: Props) {
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Volver</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCancel}>Cancelar Reserva</AlertDialogAction>
+            <AlertDialogAction onClick={handleCancel} disabled={canceling}>
+              {canceling ? "Cancelando..." : "Cancelar Reserva"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

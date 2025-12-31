@@ -49,7 +49,7 @@ import { toast } from "sonner";
 import { LoadingState } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatCOP, formatDate } from "@/lib/format";
-import { ShoppingCart, Search, Eye, XCircle, DollarSign, FileText, CreditCard } from "lucide-react";
+import { ShoppingCart, Search, Eye, XCircle, DollarSign, CreditCard, Plus } from "lucide-react";
 
 interface Sale {
   id: string;
@@ -87,17 +87,39 @@ interface VehicleStage {
   name: string;
 }
 
+interface Vehicle {
+  id: string;
+  license_plate: string | null;
+  brand: string;
+  line: string | null;
+  model_year: number | null;
+  stage_code: string;
+}
+
+interface Customer {
+  id: string;
+  full_name: string;
+  phone: string | null;
+}
+
+interface Props {
+  onRefresh?: () => void;
+  preselectedVehicleId?: string;
+}
+
 const STATUS_LABELS: Record<string, string> = {
   active: "Activa",
   voided: "Anulada",
 };
 
-export function SalesTab() {
+export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [sales, setSales] = useState<Sale[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [vehicleStages, setVehicleStages] = useState<VehicleStage[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState("all");
@@ -108,6 +130,17 @@ export function SalesTab() {
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [salePayments, setSalePayments] = useState<SalePayment[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
+
+  // Create sale dialog
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    vehicle_id: preselectedVehicleId || "",
+    customer_id: "",
+    final_price_cop: "",
+    payment_method_code: "",
+    notes: "",
+  });
 
   // Void dialog
   const [voidDialogOpen, setVoidDialogOpen] = useState(false);
@@ -124,7 +157,8 @@ export function SalesTab() {
     setLoading(true);
 
     try {
-      const [salesRes, pmRes, stagesRes] = await Promise.all([
+      console.log("[Sales] Fetching data...");
+      const queries = [
         supabase
           .from("sales")
           .select(`
@@ -143,7 +177,26 @@ export function SalesTab() {
           .select("code, name")
           .eq("is_terminal", false)
           .order("sort_order"),
-      ]);
+        supabase
+          .from("vehicles")
+          .select("id, license_plate, brand, line, model_year, stage_code")
+          .eq("org_id", profile.org_id)
+          .eq("is_archived", false)
+          .in("stage_code", ["publicado", "bloqueado"])
+          .order("brand"),
+        supabase
+          .from("customers")
+          .select("id, full_name, phone")
+          .eq("org_id", profile.org_id)
+          .order("full_name"),
+      ];
+
+      const [salesRes, pmRes, stagesRes, vehiclesRes, customersRes] = await Promise.all(queries);
+
+      if (salesRes.error) {
+        console.error("[Sales] Error fetching sales:", salesRes.error);
+        toast.error(`Error al cargar ventas: ${salesRes.error.message}`);
+      }
 
       setSales(
         (salesRes.data || []).map((s: any) => ({
@@ -154,8 +207,12 @@ export function SalesTab() {
       );
       setPaymentMethods(pmRes.data || []);
       setVehicleStages(stagesRes.data || []);
+      setVehicles(vehiclesRes.data || []);
+      setCustomers(customersRes.data || []);
+      console.log("[Sales] Data loaded successfully");
     } catch (err) {
-      console.error("Error fetching sales:", err);
+      console.error("[Sales] Unexpected error:", err);
+      toast.error("Error al cargar datos");
     } finally {
       setLoading(false);
     }
@@ -171,20 +228,126 @@ export function SalesTab() {
     setLoadingDetail(true);
 
     try {
-      const { data } = await supabase
+      console.log("[Sales] Fetching payments for sale:", sale.id);
+      const { data, error } = await supabase
         .from("sale_payments")
         .select("*")
         .eq("sale_id", sale.id)
         .order("paid_at", { ascending: false });
 
+      if (error) {
+        console.error("[Sales] Error fetching payments:", error);
+        toast.error(`Error al cargar pagos: ${error.message}`);
+      }
+
       setSalePayments(data || []);
     } catch (err) {
-      console.error("Error fetching sale payments:", err);
+      console.error("[Sales] Unexpected error fetching payments:", err);
     } finally {
       setLoadingDetail(false);
     }
   };
 
+  // Create sale
+  const openCreate = () => {
+    setCreateForm({
+      vehicle_id: preselectedVehicleId || "",
+      customer_id: "",
+      final_price_cop: "",
+      payment_method_code: paymentMethods[0]?.code || "",
+      notes: "",
+    });
+    setCreateDialogOpen(true);
+  };
+
+  const handleCreateSale = async () => {
+    if (!profile?.org_id) return;
+
+    // Validations
+    if (!createForm.vehicle_id) {
+      toast.error("Selecciona un vehículo");
+      return;
+    }
+    if (!createForm.customer_id) {
+      toast.error("Selecciona un cliente");
+      return;
+    }
+    const finalPrice = parseInt(createForm.final_price_cop);
+    if (!createForm.final_price_cop || isNaN(finalPrice) || finalPrice <= 0) {
+      toast.error("El precio final debe ser mayor a 0");
+      return;
+    }
+    if (!createForm.payment_method_code) {
+      toast.error("Selecciona un método de pago");
+      return;
+    }
+
+    // Check if vehicle is already sold
+    const selectedVehicle = vehicles.find(v => v.id === createForm.vehicle_id);
+    if (selectedVehicle?.stage_code === "vendido") {
+      toast.error("Este vehículo ya está marcado como vendido");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const payload = {
+        org_id: profile.org_id,
+        vehicle_id: createForm.vehicle_id,
+        customer_id: createForm.customer_id,
+        final_price_cop: finalPrice,
+        payment_method_code: createForm.payment_method_code,
+        status: "active",
+        created_by: profile.id,
+        notes: createForm.notes?.trim() || null,
+      };
+      console.log("[Sales] Creating sale:", payload);
+
+      const { data, error } = await supabase
+        .from("sales")
+        .insert(payload)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("[Sales] Create error:", error);
+        toast.error(`Error al crear venta: ${error.message}${error.details ? ` - ${error.details}` : ""}`);
+        return;
+      }
+
+      if (!data) {
+        console.error("[Sales] No data returned");
+        toast.error("Error: No se creó la venta (0 filas insertadas)");
+        return;
+      }
+
+      console.log("[Sales] Sale created:", data.id);
+
+      // Update vehicle to 'vendido'
+      console.log("[Sales] Updating vehicle to 'vendido'...");
+      const { error: vehError } = await supabase
+        .from("vehicles")
+        .update({ stage_code: "vendido" })
+        .eq("id", createForm.vehicle_id);
+
+      if (vehError) {
+        console.error("[Sales] Vehicle update error:", vehError);
+        toast.warning(`Venta creada, pero el vehículo no se actualizó: ${vehError.message}`);
+      }
+
+      toast.success("Venta creada exitosamente");
+      setCreateDialogOpen(false);
+      fetchData();
+      onRefresh?.();
+    } catch (err: any) {
+      console.error("[Sales] Unexpected error:", err);
+      toast.error(`Error inesperado: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Void sale
   const openVoidDialog = () => {
     if (!selectedSale) return;
     setVoidForm({
@@ -205,8 +368,10 @@ export function SalesTab() {
 
     setVoiding(true);
     try {
-      // Update sale to voided
-      const { error: saleError } = await supabase
+      console.log("[Sales] Voiding sale:", selectedSale.id);
+      
+      // Step 1: Update sale to voided
+      const { error: saleError, data: saleData } = await supabase
         .from("sales")
         .update({
           status: "voided",
@@ -215,35 +380,63 @@ export function SalesTab() {
           voided_by: profile.id,
           return_stage_code: voidForm.return_stage_code,
         })
-        .eq("id", selectedSale.id);
+        .eq("id", selectedSale.id)
+        .select();
 
-      if (saleError) throw saleError;
+      if (saleError) {
+        console.error("[Sales] Void error:", saleError);
+        toast.error(`Error al anular venta: ${saleError.message}${saleError.details ? ` - ${saleError.details}` : ""}`);
+        return;
+      }
 
-      // Update vehicle stage
-      await supabase
+      if (!saleData || saleData.length === 0) {
+        console.error("[Sales] Void returned no rows");
+        toast.error("Error: La venta no se actualizó (puede que no tengas permisos)");
+        return;
+      }
+
+      console.log("[Sales] Sale voided successfully");
+
+      // Step 2: Update vehicle stage
+      console.log("[Sales] Updating vehicle stage to:", voidForm.return_stage_code);
+      const { error: vehError } = await supabase
         .from("vehicles")
         .update({ stage_code: voidForm.return_stage_code })
         .eq("id", selectedSale.vehicle_id);
 
-      // Create refund payment if amount > 0
-      if (voidForm.refund_amount && parseInt(voidForm.refund_amount) > 0) {
-        await supabase.from("sale_payments").insert({
+      if (vehError) {
+        console.error("[Sales] Vehicle update error:", vehError);
+        toast.warning(`Venta anulada, pero el vehículo no se actualizó: ${vehError.message}`);
+      }
+
+      // Step 3: Create refund payment if amount > 0
+      const refundAmount = parseInt(voidForm.refund_amount);
+      if (voidForm.refund_amount && !isNaN(refundAmount) && refundAmount > 0) {
+        console.log("[Sales] Creating refund payment:", refundAmount);
+        const { error: refundError } = await supabase.from("sale_payments").insert({
           org_id: profile.org_id,
           sale_id: selectedSale.id,
-          amount_cop: parseInt(voidForm.refund_amount),
+          amount_cop: refundAmount,
           direction: "out",
           payment_method_code: voidForm.refund_method,
           notes: "Reembolso por anulación",
           created_by: profile.id,
         });
+
+        if (refundError) {
+          console.error("[Sales] Refund error:", refundError);
+          toast.warning(`Venta anulada, pero el reembolso no se registró: ${refundError.message}`);
+        }
       }
 
       toast.success("Venta anulada exitosamente");
       setVoidDialogOpen(false);
       setDetailOpen(false);
       fetchData();
+      onRefresh?.();
     } catch (err: any) {
-      toast.error(err.message || "Error al anular venta");
+      console.error("[Sales] Unexpected error:", err);
+      toast.error(`Error inesperado: ${err.message}`);
     } finally {
       setVoiding(false);
     }
@@ -251,6 +444,7 @@ export function SalesTab() {
 
   // Filter
   const filtered = sales.filter((s) => {
+    if (preselectedVehicleId && s.vehicle_id !== preselectedVehicleId) return false;
     if (statusFilter !== "all" && s.status !== statusFilter) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -269,39 +463,56 @@ export function SalesTab() {
     .filter((p) => p.direction === "out")
     .reduce((sum, p) => sum + p.amount_cop, 0);
 
+  // Available vehicles for new sale
+  const availableVehicles = vehicles.filter(v => v.stage_code !== "vendido");
+
   if (loading) return <LoadingState variant="table" />;
 
   return (
     <div className="space-y-4">
       {/* Filters */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por placa, marca, cliente..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+      {!preselectedVehicleId && (
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por placa, marca, cliente..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="active">Activas</SelectItem>
+              <SelectItem value="voided">Anuladas</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nueva Venta
+          </Button>
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Estado" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="active">Activas</SelectItem>
-            <SelectItem value="voided">Anuladas</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      )}
+
+      {preselectedVehicleId && (
+        <Button onClick={openCreate} className="w-full sm:w-auto">
+          <Plus className="h-4 w-4 mr-2" />
+          Registrar Venta
+        </Button>
+      )}
 
       {/* Table */}
       {filtered.length === 0 ? (
         <EmptyState
           icon={ShoppingCart}
           title="Sin ventas"
-          description="No hay ventas que coincidan con los filtros."
+          description={preselectedVehicleId ? "Este vehículo no tiene ventas." : "No hay ventas que coincidan con los filtros."}
+          action={!preselectedVehicleId ? { label: "Nueva Venta", onClick: openCreate } : undefined}
         />
       ) : (
         <>
@@ -311,7 +522,7 @@ export function SalesTab() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Fecha</TableHead>
-                  <TableHead>Vehículo</TableHead>
+                  {!preselectedVehicleId && <TableHead>Vehículo</TableHead>}
                   <TableHead>Cliente</TableHead>
                   <TableHead>Precio Final</TableHead>
                   <TableHead>Método</TableHead>
@@ -325,16 +536,18 @@ export function SalesTab() {
                     <TableCell className="whitespace-nowrap">
                       {formatDate(s.sale_date)}
                     </TableCell>
-                    <TableCell>
-                      <div>
-                        <p className="font-mono text-sm">
-                          {s.vehicle?.license_plate || "S/P"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {s.vehicle?.brand} {s.vehicle?.line || ""} {s.vehicle?.model_year || ""}
-                        </p>
-                      </div>
-                    </TableCell>
+                    {!preselectedVehicleId && (
+                      <TableCell>
+                        <div>
+                          <p className="font-mono text-sm">
+                            {s.vehicle?.license_plate || "S/P"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {s.vehicle?.brand} {s.vehicle?.line || ""} {s.vehicle?.model_year || ""}
+                          </p>
+                        </div>
+                      </TableCell>
+                    )}
                     <TableCell>
                       <div>
                         <p className="font-medium">{s.customer?.full_name || "—"}</p>
@@ -371,12 +584,16 @@ export function SalesTab() {
                 <CardContent className="py-4">
                   <div className="flex justify-between items-start mb-2">
                     <div>
-                      <p className="font-mono text-sm">
-                        {s.vehicle?.license_plate || "S/P"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {s.vehicle?.brand} {s.vehicle?.line || ""}
-                      </p>
+                      {!preselectedVehicleId && (
+                        <>
+                          <p className="font-mono text-sm">
+                            {s.vehicle?.license_plate || "S/P"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {s.vehicle?.brand} {s.vehicle?.line || ""}
+                          </p>
+                        </>
+                      )}
                     </div>
                     <Badge variant={s.status === "active" ? "default" : "destructive"}>
                       {STATUS_LABELS[s.status] || s.status}
@@ -393,6 +610,105 @@ export function SalesTab() {
           </div>
         </>
       )}
+
+      {/* Create Sale Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Nueva Venta (sin reserva)</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {!preselectedVehicleId ? (
+              <div className="space-y-2">
+                <Label>Vehículo *</Label>
+                <Select
+                  value={createForm.vehicle_id}
+                  onValueChange={(v) => setCreateForm({ ...createForm, vehicle_id: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar vehículo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableVehicles.map((v) => (
+                      <SelectItem key={v.id} value={v.id}>
+                        {v.license_plate || "S/P"} - {v.brand} {v.line || ""} {v.model_year || ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+
+            <div className="space-y-2">
+              <Label>Cliente *</Label>
+              <Select
+                value={createForm.customer_id}
+                onValueChange={(v) => setCreateForm({ ...createForm, customer_id: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar cliente" />
+                </SelectTrigger>
+                <SelectContent>
+                  {customers.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.full_name} {c.phone ? `(${c.phone})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Precio Final (COP) *</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={createForm.final_price_cop}
+                  onChange={(e) => setCreateForm({ ...createForm, final_price_cop: e.target.value })}
+                  placeholder="35000000"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Método de Pago *</Label>
+                <Select
+                  value={createForm.payment_method_code}
+                  onValueChange={(v) => setCreateForm({ ...createForm, payment_method_code: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {paymentMethods.map((p) => (
+                      <SelectItem key={p.code} value={p.code}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Notas</Label>
+              <Textarea
+                value={createForm.notes}
+                onChange={(e) => setCreateForm({ ...createForm, notes: e.target.value })}
+                placeholder="Notas adicionales..."
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleCreateSale} disabled={saving}>
+              {saving ? "Guardando..." : "Registrar Venta"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Detail Sheet */}
       <Sheet open={detailOpen} onOpenChange={setDetailOpen}>

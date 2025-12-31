@@ -1,8 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -10,27 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "sonner";
-import { LoadingState } from "@/components/ui/loading-state";
-import { EmptyState } from "@/components/ui/empty-state";
-import { formatCOP, formatDate } from "@/lib/format";
-import {
-  Plus,
-  CheckCircle,
-  Clock,
-  AlertCircle,
-  Pause,
-  ClipboardList,
-  Lock,
-  Trash2,
-  DollarSign,
-} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -48,18 +32,42 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import { LoadingState } from "@/components/ui/loading-state";
+import { EmptyState } from "@/components/ui/empty-state";
+import { formatCOP, formatDate } from "@/lib/format";
+import {
+  Plus,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+  Pause,
+  ClipboardList,
+  Lock,
+  Trash2,
+  DollarSign,
+  Car,
+} from "lucide-react";
 
-interface Props {
-  vehicleId: string;
+interface Vehicle {
+  id: string;
+  license_plate: string | null;
+  brand: string;
+  line: string | null;
+  model_year: number | null;
+  stage_code: string;
 }
 
 interface WorkOrder {
   id: string;
   status: string;
   scope: string;
-  notes: string | null;
+  vehicle_id: string | null;
   opened_at: string;
   closed_at: string | null;
+  notes: string | null;
 }
 
 interface WorkOrderItem {
@@ -86,6 +94,15 @@ interface CatalogOp {
   category: string | null;
 }
 
+interface Props {
+  workOrderId: string | null;
+  vehicle?: Vehicle | null;
+  scope: "vehicle" | "business";
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onRefresh: () => void;
+}
+
 const STATUS_CONFIG: Record<
   string,
   { label: string; icon: any; color: string }
@@ -96,10 +113,17 @@ const STATUS_CONFIG: Record<
   blocked: { label: "Bloqueado", icon: Pause, color: "text-destructive" },
 };
 
-export function VehicleWorkOrdersTab({ vehicleId }: Props) {
+export function WorkOrderSheet({
+  workOrderId,
+  vehicle,
+  scope,
+  open,
+  onOpenChange,
+  onRefresh,
+}: Props) {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [openWorkOrder, setOpenWorkOrder] = useState<WorkOrder | null>(null);
+  const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
   const [items, setItems] = useState<WorkOrderItem[]>([]);
   const [catalog, setCatalog] = useState<CatalogOp[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -127,103 +151,85 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
   const [savingCost, setSavingCost] = useState(false);
 
   // Saving states
-  const [creating, setCreating] = useState(false);
   const [closing, setClosing] = useState(false);
 
   const fetchData = useCallback(async () => {
+    if (!workOrderId) return;
     setLoading(true);
     try {
       const [woRes, catalogRes, profilesRes] = await Promise.all([
-        supabase
-          .from("work_orders")
-          .select("*")
-          .eq("vehicle_id", vehicleId)
-          .order("opened_at", { ascending: false }),
+        supabase.from("work_orders").select("*").eq("id", workOrderId).single(),
         supabase
           .from("operation_catalog")
           .select("id, code, name, category")
-          .eq("scope", "vehicle")
+          .eq("scope", scope)
           .eq("is_active", true)
           .order("name"),
         supabase.from("profiles").select("id, full_name").eq("is_active", true),
       ]);
 
-      const orders = woRes.data || [];
-      const openOrder = orders.find((o) => o.status === "open") || null;
-      setOpenWorkOrder(openOrder);
-      setCatalog(catalogRes.data || []);
-      setProfiles(profilesRes.data || []);
+      if (woRes.data) {
+        setWorkOrder(woRes.data);
 
-      if (openOrder) {
+        // Fetch items with expenses
         const { data: itemsData } = await supabase
           .from("work_order_items")
           .select("*")
-          .eq("work_order_id", openOrder.id)
+          .eq("work_order_id", workOrderId)
           .order("updated_at", { ascending: false });
 
         // Fetch expense sums per item
         const itemIds = (itemsData || []).map((i) => i.id);
         let expenseMap: Record<string, number> = {};
-        if (itemIds.length > 0) {
+
+        if (itemIds.length > 0 && scope === "vehicle" && woRes.data.vehicle_id) {
           const { data: expData } = await supabase
             .from("vehicle_expenses")
             .select("work_order_item_id, amount_cop")
-            .eq("vehicle_id", vehicleId)
+            .eq("vehicle_id", woRes.data.vehicle_id)
             .in("work_order_item_id", itemIds);
+
           (expData || []).forEach((e) => {
             if (e.work_order_item_id) {
-              expenseMap[e.work_order_item_id] = (expenseMap[e.work_order_item_id] || 0) + (e.amount_cop || 0);
+              expenseMap[e.work_order_item_id] =
+                (expenseMap[e.work_order_item_id] || 0) + (e.amount_cop || 0);
             }
           });
         }
 
-        setItems((itemsData || []).map((i) => ({ ...i, accumulated_cost: expenseMap[i.id] || 0 })));
-      } else {
-        setItems([]);
+        setItems(
+          (itemsData || []).map((i) => ({
+            ...i,
+            accumulated_cost: expenseMap[i.id] || 0,
+          }))
+        );
       }
+
+      setCatalog(catalogRes.data || []);
+      setProfiles(profilesRes.data || []);
     } catch (err) {
-      console.error("Error fetching work order data:", err);
+      console.error("Error fetching work order:", err);
     } finally {
       setLoading(false);
     }
-  }, [vehicleId]);
+  }, [workOrderId, scope]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  // Create new work order
-  const createWorkOrder = async () => {
-    if (!profile?.org_id) return;
-    setCreating(true);
-    try {
-      const { error } = await supabase.from("work_orders").insert({
-        org_id: profile.org_id,
-        vehicle_id: vehicleId,
-        scope: "vehicle",
-        status: "open",
-        opened_by: profile.id,
-      });
-      if (error) throw error;
-      toast.success("Orden de alistamiento creada");
+    if (open && workOrderId) {
       fetchData();
-    } catch (err: any) {
-      toast.error(err.message || "Error al crear orden");
-    } finally {
-      setCreating(false);
     }
-  };
+  }, [open, workOrderId, fetchData]);
 
   // Add items from catalog
   const addItemsFromCatalog = async () => {
-    if (!openWorkOrder || !profile?.org_id || selectedOps.length === 0) return;
+    if (!workOrder || !profile?.org_id || selectedOps.length === 0) return;
 
     try {
       const newItems = selectedOps.map((opId) => {
         const op = catalog.find((c) => c.id === opId);
         return {
           org_id: profile.org_id,
-          work_order_id: openWorkOrder.id,
+          work_order_id: workOrder.id,
           operation_id: opId,
           title: op?.name || "Operación",
           status: "pending",
@@ -237,6 +243,7 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
       setSelectedOps([]);
       setCatalogDialogOpen(false);
       fetchData();
+      onRefresh();
     } catch (err: any) {
       toast.error(err.message || "Error al agregar ítems");
     }
@@ -244,7 +251,7 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
 
   // Add manual item
   const addManualItem = async () => {
-    if (!openWorkOrder || !profile?.org_id || !manualForm.title.trim()) {
+    if (!workOrder || !profile?.org_id || !manualForm.title.trim()) {
       toast.error("El título es requerido");
       return;
     }
@@ -252,7 +259,7 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
     try {
       const { error } = await supabase.from("work_order_items").insert({
         org_id: profile.org_id,
-        work_order_id: openWorkOrder.id,
+        work_order_id: workOrder.id,
         title: manualForm.title.trim(),
         notes: manualForm.notes.trim() || null,
         status: "pending",
@@ -263,6 +270,7 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
       setManualForm({ title: "", notes: "" });
       setManualDialogOpen(false);
       fetchData();
+      onRefresh();
     } catch (err: any) {
       toast.error(err.message || "Error al agregar ítem");
     }
@@ -274,16 +282,18 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
     updates: Partial<WorkOrderItem>
   ) => {
     try {
-      // Auto-set completed_at when status changes to done
+      const payload: any = { ...updates };
+      delete payload.accumulated_cost;
+
       if (updates.status === "done") {
-        updates.completed_at = new Date().toISOString();
+        payload.completed_at = new Date().toISOString();
       } else if (updates.status && updates.status !== "done") {
-        updates.completed_at = null;
+        payload.completed_at = null;
       }
 
       const { error } = await supabase
         .from("work_order_items")
-        .update(updates)
+        .update(payload)
         .eq("id", itemId);
 
       if (error) throw error;
@@ -292,6 +302,7 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
         prev.map((i) => (i.id === itemId ? { ...i, ...updates } : i))
       );
       toast.success("Actualizado");
+      onRefresh();
     } catch (err: any) {
       toast.error(err.message || "Error al actualizar");
     }
@@ -310,6 +321,7 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
       toast.success("Ítem eliminado");
       setItems((prev) => prev.filter((i) => i.id !== deleteItemId));
       setDeleteItemId(null);
+      onRefresh();
     } catch (err: any) {
       toast.error(err.message || "Error al eliminar");
     }
@@ -317,18 +329,19 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
 
   // Close work order
   const closeWorkOrder = async () => {
-    if (!openWorkOrder) return;
+    if (!workOrder) return;
     setClosing(true);
     try {
       const { error } = await supabase
         .from("work_orders")
         .update({ status: "closed", closed_at: new Date().toISOString() })
-        .eq("id", openWorkOrder.id);
+        .eq("id", workOrder.id);
 
       if (error) throw error;
       toast.success("Orden cerrada");
       setCloseDialogOpen(false);
-      fetchData();
+      onOpenChange(false);
+      onRefresh();
     } catch (err: any) {
       toast.error(err.message || "Error al cerrar orden");
     } finally {
@@ -349,9 +362,16 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
 
   // Save cost
   const saveCost = async () => {
-    if (!selectedItemForCost || !openWorkOrder || !profile?.org_id) return;
+    if (!selectedItemForCost || !workOrder || !profile?.org_id) return;
+
     if (!costForm.amount_cop || parseInt(costForm.amount_cop) <= 0) {
       toast.error("El monto debe ser mayor a 0");
+      return;
+    }
+
+    // Check if this is a vehicle work order
+    if (scope === "business" || !workOrder.vehicle_id) {
+      toast.error("Los costos solo se pueden registrar en órdenes de vehículo");
       return;
     }
 
@@ -359,14 +379,16 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
     try {
       const { error } = await supabase.from("vehicle_expenses").insert({
         org_id: profile.org_id,
-        vehicle_id: vehicleId,
+        vehicle_id: workOrder.vehicle_id,
         work_order_item_id: selectedItemForCost.id,
         amount_cop: parseInt(costForm.amount_cop),
         incurred_at: costForm.incurred_at || null,
         description: costForm.description.trim() || null,
         created_by: profile.id,
       });
+
       if (error) throw error;
+
       toast.success("Costo registrado");
       setCostDialogOpen(false);
       fetchData();
@@ -376,8 +398,6 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
       setSavingCost(false);
     }
   };
-
-  if (loading) return <LoadingState variant="table" />;
 
   // Calculate stats
   const stats = {
@@ -389,218 +409,219 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
   };
   const progress = stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0;
   const allDone = stats.total > 0 && stats.done === stats.total;
-  const totalCost = items.reduce((sum, i) => sum + (i.accumulated_cost || 0), 0);
+  const totalCost = items.reduce((sum, i) => sum + i.accumulated_cost, 0);
 
   return (
-    <div className="space-y-6">
-      {!openWorkOrder ? (
-        <Card>
-          <CardContent className="py-8">
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+          <SheetHeader className="pb-4">
+            <SheetTitle className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5" />
+              {scope === "vehicle" ? "Orden de Alistamiento" : "Orden de Negocio"}
+            </SheetTitle>
+          </SheetHeader>
+
+          {loading ? (
+            <LoadingState variant="table" />
+          ) : !workOrder ? (
             <EmptyState
               icon={ClipboardList}
-              title="Sin orden de alistamiento activa"
-              description="Crea una orden para gestionar las operaciones del vehículo."
-              action={{
-                label: creating ? "Creando..." : "Crear Orden de Alistamiento",
-                onClick: createWorkOrder,
-              }}
-            />
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          {/* Progress Card */}
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm">Progreso del Alistamiento</CardTitle>
-                <Badge variant={allDone ? "default" : "secondary"}>
-                  {progress}%
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Progress value={progress} className="h-2" />
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-center text-sm">
-                <div className="bg-muted rounded p-2">
-                  <p className="text-lg font-semibold">{stats.pending}</p>
-                  <p className="text-xs text-muted-foreground">Pendientes</p>
-                </div>
-                <div className="bg-primary/10 rounded p-2">
-                  <p className="text-lg font-semibold text-primary">
-                    {stats.in_progress}
-                  </p>
-                  <p className="text-xs text-muted-foreground">En Progreso</p>
-                </div>
-                <div className="bg-success/10 rounded p-2">
-                  <p className="text-lg font-semibold text-success">{stats.done}</p>
-                  <p className="text-xs text-muted-foreground">Completados</p>
-                </div>
-                <div className="bg-destructive/10 rounded p-2">
-                  <p className="text-lg font-semibold text-destructive">
-                    {stats.blocked}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Bloqueados</p>
-                </div>
-              </div>
-
-              <p className="text-xs text-muted-foreground">
-                Abierta: {formatDate(openWorkOrder.opened_at)}
-              </p>
-              {totalCost > 0 && (
-                <p className="text-sm flex items-center gap-1">
-                  <DollarSign className="h-3 w-3" />
-                  Costo total: <strong>{formatCOP(totalCost)}</strong>
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Actions */}
-          <div className="flex flex-wrap gap-2 justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCatalogDialogOpen(true)}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Desde Catálogo
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setManualDialogOpen(true)}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Ítem Manual
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setCloseDialogOpen(true)}
-              disabled={!allDone && stats.total > 0}
-            >
-              <Lock className="h-4 w-4 mr-1" />
-              Cerrar Orden
-            </Button>
-          </div>
-
-          {/* Items List */}
-          {items.length === 0 ? (
-            <EmptyState
-              icon={ClipboardList}
-              title="Sin ítems"
-              description="Agrega operaciones desde el catálogo o manualmente."
+              title="Orden no encontrada"
+              description="No se pudo cargar la orden de trabajo."
             />
           ) : (
-            <div className="space-y-3">
-              {items.map((item) => {
-                const cfg = STATUS_CONFIG[item.status] || STATUS_CONFIG.pending;
-                const Icon = cfg.icon;
-                const assignedProfile = profiles.find(
-                  (p) => p.id === item.assigned_to
-                );
+            <div className="space-y-4">
+              {/* Vehicle Info (if applicable) */}
+              {vehicle && (
+                <Card>
+                  <CardContent className="py-3">
+                    <div className="flex items-center gap-3">
+                      <Car className="h-8 w-8 text-muted-foreground" />
+                      <div>
+                        <p className="font-mono text-sm bg-secondary px-2 py-0.5 rounded inline-block">
+                          {vehicle.license_plate || "S/P"}
+                        </p>
+                        <p className="text-sm">
+                          {vehicle.brand} {vehicle.line || ""}{" "}
+                          {vehicle.model_year || ""}
+                        </p>
+                        <Badge variant="outline" className="mt-1">
+                          {vehicle.stage_code}
+                        </Badge>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
-                return (
-                  <Card key={item.id}>
-                    <CardContent className="py-4">
-                      <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-                        {/* Title & Status Icon */}
-                          <div className="flex items-start gap-3 flex-1 min-w-0">
-                            <Icon className={`h-5 w-5 mt-0.5 ${cfg.color}`} />
+              {/* Progress Card */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm">Progreso</CardTitle>
+                    <Badge variant={allDone ? "default" : "secondary"}>
+                      {progress}%
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Progress value={progress} className="h-2" />
+                  <div className="grid grid-cols-4 gap-1 text-center text-xs">
+                    <div className="bg-muted rounded p-1.5">
+                      <p className="font-semibold">{stats.pending}</p>
+                      <p className="text-muted-foreground">Pend.</p>
+                    </div>
+                    <div className="bg-primary/10 rounded p-1.5">
+                      <p className="font-semibold text-primary">{stats.in_progress}</p>
+                      <p className="text-muted-foreground">Prog.</p>
+                    </div>
+                    <div className="bg-green-100 dark:bg-green-900/30 rounded p-1.5">
+                      <p className="font-semibold text-green-600">{stats.done}</p>
+                      <p className="text-muted-foreground">Hecho</p>
+                    </div>
+                    <div className="bg-destructive/10 rounded p-1.5">
+                      <p className="font-semibold text-destructive">{stats.blocked}</p>
+                      <p className="text-muted-foreground">Bloq.</p>
+                    </div>
+                  </div>
+                  {scope === "vehicle" && totalCost > 0 && (
+                    <p className="text-sm text-muted-foreground flex items-center gap-1">
+                      <DollarSign className="h-3 w-3" />
+                      Costo total: <strong>{formatCOP(totalCost)}</strong>
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Actions */}
+              {workOrder.status === "open" && (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCatalogDialogOpen(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Catálogo
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setManualDialogOpen(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Manual
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setCloseDialogOpen(true)}
+                  >
+                    <Lock className="h-4 w-4 mr-1" />
+                    Cerrar
+                  </Button>
+                </div>
+              )}
+
+              {/* Items List */}
+              {items.length === 0 ? (
+                <EmptyState
+                  icon={ClipboardList}
+                  title="Sin ítems"
+                  description="Agrega operaciones desde el catálogo o manualmente."
+                />
+              ) : (
+                <div className="space-y-2">
+                  {items.map((item) => {
+                    const cfg = STATUS_CONFIG[item.status] || STATUS_CONFIG.pending;
+                    const Icon = cfg.icon;
+
+                    return (
+                      <Card key={item.id} className="overflow-hidden">
+                        <CardContent className="py-3 px-3">
+                          <div className="flex items-start gap-2 mb-2">
+                            <Icon className={`h-4 w-4 mt-0.5 ${cfg.color}`} />
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium">{item.title}</p>
+                              <p className="font-medium text-sm">{item.title}</p>
                               {item.accumulated_cost > 0 && (
                                 <p className="text-xs text-muted-foreground">
                                   Costo: {formatCOP(item.accumulated_cost)}
                                 </p>
                               )}
-                              {item.completed_at && (
-                                <p className="text-xs text-green-600">
-                                  Completado: {formatDate(item.completed_at)}
-                              </p>
-                            )}
+                            </div>
                           </div>
-                        </div>
 
-                        {/* Controls */}
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Select
-                            value={item.status}
-                            onValueChange={(v) => updateItem(item.id, { status: v })}
-                          >
-                            <SelectTrigger className="w-[130px] h-8">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pending">Pendiente</SelectItem>
-                              <SelectItem value="in_progress">En Progreso</SelectItem>
-                              <SelectItem value="done">Completado</SelectItem>
-                              <SelectItem value="blocked">Bloqueado</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          {workOrder.status === "open" && (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <Select
+                                value={item.status}
+                                onValueChange={(v) => updateItem(item.id, { status: v })}
+                              >
+                                <SelectTrigger className="w-[100px] h-7 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="pending">Pendiente</SelectItem>
+                                  <SelectItem value="in_progress">En Prog.</SelectItem>
+                                  <SelectItem value="done">Hecho</SelectItem>
+                                  <SelectItem value="blocked">Bloqueado</SelectItem>
+                                </SelectContent>
+                              </Select>
 
-                          <Select
-                            value={item.assigned_to || "unassigned"}
-                            onValueChange={(v) =>
-                              updateItem(item.id, {
-                                assigned_to: v === "unassigned" ? null : v,
-                              })
-                            }
-                          >
-                            <SelectTrigger className="w-[150px] h-8">
-                              <SelectValue placeholder="Asignar" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="unassigned">Sin asignar</SelectItem>
-                              {profiles.map((p) => (
-                                <SelectItem key={p.id} value={p.id}>
-                                  {p.full_name || "Usuario"}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                              <Select
+                                value={item.assigned_to || "unassigned"}
+                                onValueChange={(v) =>
+                                  updateItem(item.id, {
+                                    assigned_to: v === "unassigned" ? null : v,
+                                  })
+                                }
+                              >
+                                <SelectTrigger className="w-[110px] h-7 text-xs">
+                                  <SelectValue placeholder="Asignar" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="unassigned">Sin asignar</SelectItem>
+                                  {profiles.map((p) => (
+                                    <SelectItem key={p.id} value={p.id}>
+                                      {p.full_name || "Usuario"}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
 
-                          <Input
-                            type="date"
-                            className="w-[130px] h-8"
-                            value={item.due_date || ""}
-                            onChange={(e) =>
-                              updateItem(item.id, {
-                                due_date: e.target.value || null,
-                              })
-                            }
-                          />
+                              {scope === "vehicle" && workOrder.vehicle_id && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-xs"
+                                  onClick={() => openCostDialog(item)}
+                                >
+                                  <DollarSign className="h-3 w-3 mr-1" />
+                                  Costo
+                                </Button>
+                              )}
 
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8"
-                            onClick={() => openCostDialog(item)}
-                          >
-                            <DollarSign className="h-3 w-3 mr-1" />
-                            Costo
-                          </Button>
-
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => setDeleteItemId(item.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive"
+                                onClick={() => setDeleteItemId(item.id)}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
-        </>
-      )}
+        </SheetContent>
+      </Sheet>
 
       {/* Dialog: Add from Catalog */}
       <Dialog open={catalogDialogOpen} onOpenChange={setCatalogDialogOpen}>
@@ -611,7 +632,7 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
           <div className="space-y-3 py-2">
             {catalog.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No hay operaciones en el catálogo.
+                No hay operaciones en el catálogo para {scope === "vehicle" ? "vehículos" : "negocio"}.
               </p>
             ) : (
               catalog.map((op) => (
@@ -627,15 +648,10 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
                       );
                     }}
                   />
-                  <label
-                    htmlFor={op.id}
-                    className="text-sm flex-1 cursor-pointer"
-                  >
+                  <label htmlFor={op.id} className="text-sm flex-1 cursor-pointer">
                     <span className="font-medium">{op.name}</span>
                     {op.category && (
-                      <span className="text-muted-foreground ml-2">
-                        ({op.category})
-                      </span>
+                      <span className="text-muted-foreground ml-2">({op.category})</span>
                     )}
                   </label>
                 </div>
@@ -664,9 +680,7 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
               <Label>Título *</Label>
               <Input
                 value={manualForm.title}
-                onChange={(e) =>
-                  setManualForm({ ...manualForm, title: e.target.value })
-                }
+                onChange={(e) => setManualForm({ ...manualForm, title: e.target.value })}
                 placeholder="Nombre de la operación"
               />
             </div>
@@ -674,9 +688,7 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
               <Label>Notas</Label>
               <Textarea
                 value={manualForm.notes}
-                onChange={(e) =>
-                  setManualForm({ ...manualForm, notes: e.target.value })
-                }
+                onChange={(e) => setManualForm({ ...manualForm, notes: e.target.value })}
                 placeholder="Notas adicionales..."
               />
             </div>
@@ -691,26 +703,6 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Dialog: Close Work Order */}
-      <AlertDialog open={closeDialogOpen} onOpenChange={setCloseDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Cerrar orden de alistamiento?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {allDone
-                ? "Todos los ítems están completados. La orden se marcará como cerrada."
-                : "Aún hay ítems sin completar. ¿Deseas cerrar de todos modos?"}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={closeWorkOrder} disabled={closing}>
-              {closing ? "Cerrando..." : "Cerrar Orden"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Dialog: Assign Cost */}
       <Dialog open={costDialogOpen} onOpenChange={setCostDialogOpen}>
@@ -764,6 +756,26 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
         </DialogContent>
       </Dialog>
 
+      {/* Dialog: Close Work Order */}
+      <AlertDialog open={closeDialogOpen} onOpenChange={setCloseDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cerrar orden?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {allDone
+                ? "Todos los ítems están completados."
+                : "Aún hay ítems sin completar. ¿Deseas cerrar de todos modos?"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={closeWorkOrder} disabled={closing}>
+              {closing ? "Cerrando..." : "Cerrar Orden"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Dialog: Delete Item */}
       <AlertDialog open={!!deleteItemId} onOpenChange={() => setDeleteItemId(null)}>
         <AlertDialogContent>
@@ -777,6 +789,6 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 }

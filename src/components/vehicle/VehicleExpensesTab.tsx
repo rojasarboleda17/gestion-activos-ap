@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -19,13 +20,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatCOP, formatDate } from "@/lib/format";
-import { Plus, DollarSign, Pencil, Trash2 } from "lucide-react";
+import { Plus, DollarSign, Pencil, Trash2, ChevronDown, ChevronRight, Layers } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -255,6 +261,37 @@ export function VehicleExpensesTab({ vehicleId }: Props) {
 
   const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount_cop || 0), 0);
 
+  // Group expenses by work_order_item
+  const groupedExpenses = useMemo(() => {
+    const groups: Record<string, { title: string; total: number; expenses: Expense[] }> = {};
+    const ungrouped: Expense[] = [];
+
+    expenses.forEach((exp) => {
+      if (exp.work_order_item_id && exp.work_order_item_title) {
+        if (!groups[exp.work_order_item_id]) {
+          groups[exp.work_order_item_id] = {
+            title: exp.work_order_item_title,
+            total: 0,
+            expenses: [],
+          };
+        }
+        groups[exp.work_order_item_id].total += exp.amount_cop || 0;
+        groups[exp.work_order_item_id].expenses.push(exp);
+      } else {
+        ungrouped.push(exp);
+      }
+    });
+
+    return { groups, ungrouped };
+  }, [expenses]);
+
+  const [groupByItem, setGroupByItem] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+
+  const toggleGroup = (id: string) => {
+    setExpandedGroups((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
   return (
     <div className="space-y-6">
       {/* Total Card */}
@@ -273,8 +310,19 @@ export function VehicleExpensesTab({ vehicleId }: Props) {
         </CardContent>
       </Card>
 
-      {/* Add Button */}
-      <div className="flex justify-end">
+      {/* Actions */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Switch
+            id="group-by-item"
+            checked={groupByItem}
+            onCheckedChange={setGroupByItem}
+          />
+          <Label htmlFor="group-by-item" className="text-sm flex items-center gap-1">
+            <Layers className="h-4 w-4" />
+            Agrupar por ítem
+          </Label>
+        </div>
         <Button size="sm" onClick={openCreateDialog}>
           <Plus className="h-4 w-4 mr-1" />
           Registrar Gasto
@@ -288,7 +336,126 @@ export function VehicleExpensesTab({ vehicleId }: Props) {
           title="Sin gastos registrados"
           description="Registra los gastos asociados a este vehículo."
         />
+      ) : groupByItem ? (
+        /* Grouped View */
+        <div className="space-y-3">
+          {Object.entries(groupedExpenses.groups).map(([itemId, group]) => (
+            <Collapsible
+              key={itemId}
+              open={expandedGroups[itemId]}
+              onOpenChange={() => toggleGroup(itemId)}
+            >
+              <Card>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {expandedGroups[itemId] ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                        <span className="font-medium">{group.title}</span>
+                        <span className="text-xs text-muted-foreground">
+                          ({group.expenses.length} gasto{group.expenses.length !== 1 ? "s" : ""})
+                        </span>
+                      </div>
+                      <span className="font-bold">{formatCOP(group.total)}</span>
+                    </div>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="pt-0 space-y-2">
+                    {group.expenses.map((exp) => (
+                      <div
+                        key={exp.id}
+                        className="flex items-center justify-between p-2 bg-muted/30 rounded text-sm"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="truncate">{exp.description || "Sin descripción"}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {exp.incurred_at ? formatDate(exp.incurred_at) : "—"}
+                            {exp.vendor_name && ` · ${exp.vendor_name}`}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{formatCOP(exp.amount_cop)}</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => openEditDialog(exp)}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive"
+                            onClick={() => setDeleteId(exp.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
+          ))}
+
+          {/* Ungrouped expenses */}
+          {groupedExpenses.ungrouped.length > 0 && (
+            <Card>
+              <CardHeader className="py-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-muted-foreground">Sin vincular</span>
+                  <span className="font-bold">
+                    {formatCOP(groupedExpenses.ungrouped.reduce((s, e) => s + e.amount_cop, 0))}
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0 space-y-2">
+                {groupedExpenses.ungrouped.map((exp) => (
+                  <div
+                    key={exp.id}
+                    className="flex items-center justify-between p-2 bg-muted/30 rounded text-sm"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="truncate">{exp.description || "Sin descripción"}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {exp.incurred_at ? formatDate(exp.incurred_at) : "—"}
+                        {exp.vendor_name && ` · ${exp.vendor_name}`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{formatCOP(exp.amount_cop)}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => openEditDialog(exp)}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive"
+                        onClick={() => setDeleteId(exp.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </div>
       ) : (
+        /* Flat View */
         <>
           {/* Desktop Table */}
           <div className="hidden md:block rounded-lg border">

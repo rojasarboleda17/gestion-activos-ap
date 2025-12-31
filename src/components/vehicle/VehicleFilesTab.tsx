@@ -12,11 +12,13 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { formatDate } from "@/lib/format";
 import { Upload, FileText, Image, Download } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useAudit } from "@/hooks/use-audit";
 
 interface Props { vehicleId: string; }
 
 export function VehicleFilesTab({ vehicleId }: Props) {
   const { profile } = useAuth();
+  const { log: auditLog } = useAudit();
   const [loading, setLoading] = useState(true);
   const [files, setFiles] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -46,12 +48,27 @@ export function VehicleFilesTab({ vehicleId }: Props) {
       const path = `${profile.org_id}/vehicle/${vehicleId}/${form.visibility}/${Date.now()}_${file.name}`;
       const { error: uploadError } = await supabase.storage.from(bucket).upload(path, file);
       if (uploadError) throw uploadError;
-      const { error: dbError } = await supabase.from("vehicle_files").insert({
+      const { data: fileRecord, error: dbError } = await supabase.from("vehicle_files").insert({
         org_id: profile.org_id, vehicle_id: vehicleId, storage_bucket: bucket, storage_path: path,
         file_name: file.name, mime_type: file.type, file_kind: form.file_kind, visibility: form.visibility,
         doc_type: form.doc_type || null, expires_at: form.expires_at || null, uploaded_by: profile.id,
-      });
+      }).select("id").single();
       if (dbError) throw dbError;
+      
+      // Audit log
+      auditLog({
+        action: "file_upload",
+        entity: "vehicle_file",
+        entity_id: fileRecord?.id,
+        payload: {
+          vehicle_id: vehicleId,
+          file_name: file.name,
+          file_kind: form.file_kind,
+          visibility: form.visibility,
+          doc_type: form.doc_type || null,
+        },
+      });
+      
       toast.success("Archivo subido");
       setDialogOpen(false);
       fetchFiles();

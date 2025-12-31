@@ -50,6 +50,7 @@ import {
   DollarSign,
   Car,
 } from "lucide-react";
+import { useAudit } from "@/hooks/use-audit";
 
 interface Vehicle {
   id: string;
@@ -122,6 +123,7 @@ export function WorkOrderSheet({
   onRefresh,
 }: Props) {
   const { profile } = useAuth();
+  const { log: auditLog } = useAudit();
   const [loading, setLoading] = useState(true);
   const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
   const [items, setItems] = useState<WorkOrderItem[]>([]);
@@ -298,6 +300,20 @@ export function WorkOrderSheet({
 
       if (error) throw error;
 
+      // Audit log for status changes
+      if (updates.status) {
+        auditLog({
+          action: "work_order_item_status",
+          entity: "work_order_item",
+          entity_id: itemId,
+          payload: {
+            work_order_id: workOrder?.id,
+            new_status: updates.status,
+            vehicle_id: workOrder?.vehicle_id,
+          },
+        });
+      }
+
       setItems((prev) =>
         prev.map((i) => (i.id === itemId ? { ...i, ...updates } : i))
       );
@@ -338,6 +354,20 @@ export function WorkOrderSheet({
         .eq("id", workOrder.id);
 
       if (error) throw error;
+      
+      // Audit log
+      auditLog({
+        action: "work_order_close",
+        entity: "work_order",
+        entity_id: workOrder.id,
+        payload: {
+          vehicle_id: workOrder.vehicle_id,
+          scope: workOrder.scope,
+          items_count: items.length,
+          completed_items: items.filter(i => i.status === "done").length,
+        },
+      });
+      
       toast.success("Orden cerrada");
       setCloseDialogOpen(false);
       onOpenChange(false);

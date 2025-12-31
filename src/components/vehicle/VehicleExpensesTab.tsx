@@ -49,6 +49,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useAudit } from "@/hooks/use-audit";
 
 interface Props {
   vehicleId: string;
@@ -82,6 +83,7 @@ interface Profile {
 
 export function VehicleExpensesTab({ vehicleId }: Props) {
   const { profile } = useAuth();
+  const { log: auditLog } = useAudit();
   const [loading, setLoading] = useState(true);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [workOrderItems, setWorkOrderItems] = useState<WorkOrderItem[]>([]);
@@ -226,13 +228,26 @@ export function VehicleExpensesTab({ vehicleId }: Props) {
         if (error) throw error;
         toast.success("Gasto actualizado");
       } else {
-        const { error } = await supabase.from("vehicle_expenses").insert({
+        const { data: newExpense, error } = await supabase.from("vehicle_expenses").insert({
           ...payload,
           org_id: profile.org_id,
           vehicle_id: vehicleId,
           created_by: profile.id,
-        });
+        }).select("id").single();
         if (error) throw error;
+        
+        // Audit log
+        auditLog({
+          action: "expense_create",
+          entity: "vehicle_expense",
+          entity_id: newExpense?.id,
+          payload: {
+            vehicle_id: vehicleId,
+            amount_cop: payload.amount_cop,
+            description: payload.description,
+          },
+        });
+        
         toast.success("Gasto registrado");
       }
 

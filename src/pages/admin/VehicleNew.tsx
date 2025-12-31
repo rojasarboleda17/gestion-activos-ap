@@ -1,15 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "@/components/layouts/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { useEffect } from "react";
 
 interface VehicleStage {
   code: string;
@@ -21,6 +27,29 @@ interface Branch {
   name: string;
 }
 
+const VEHICLE_CLASSES = [
+  { value: "AUTOMOVIL", label: "Automóvil" },
+  { value: "CAMIONETA", label: "Camioneta" },
+  { value: "CAMPERO", label: "Campero" },
+  { value: "MOTOCICLETA", label: "Motocicleta" },
+  { value: "BUS", label: "Bus" },
+  { value: "CAMION", label: "Camión" },
+];
+
+const FUEL_TYPES = [
+  { value: "GASOLINA", label: "Gasolina" },
+  { value: "DIESEL", label: "Diésel" },
+  { value: "GAS", label: "Gas" },
+  { value: "ELECTRICO", label: "Eléctrico" },
+  { value: "HIBRIDO", label: "Híbrido" },
+];
+
+const TRANSMISSIONS = [
+  { value: "MANUAL", label: "Manual" },
+  { value: "AUTOMATICA", label: "Automática" },
+  { value: "CVT", label: "CVT" },
+];
+
 export default function VehicleNew() {
   const navigate = useNavigate();
   const { profile } = useAuth();
@@ -29,25 +58,25 @@ export default function VehicleNew() {
   const [branches, setBranches] = useState<Branch[]>([]);
 
   const [form, setForm] = useState({
+    // Identificación
     license_plate: "",
     vin: "",
+    // Básicos
     brand: "",
     line: "",
     model_year: "",
     vehicle_class: "AUTOMOVIL",
-    body_type: "",
+    // Técnicos
+    mileage_km: "",
     fuel_type: "",
     transmission: "",
-    engine_displacement_cc: "",
-    doors: "",
-    capacity_passengers: "",
     color: "",
-    mileage_km: "",
+    // Operación
     stage_code: "prospecto",
     branch_id: "",
-    engine_number: "",
-    serial_number: "",
-    chassis_number: "",
+    // Comercial
+    is_listed: false,
+    listed_price_cop: "",
   });
 
   useEffect(() => {
@@ -57,24 +86,38 @@ export default function VehicleNew() {
         supabase.from("branches").select("id, name").eq("is_active", true),
       ]);
       if (stagesRes.data) setStages(stagesRes.data);
-      if (branchesRes.data) setBranches(branchesRes.data);
-      if (branchesRes.data?.length && !form.branch_id) {
-        setForm(f => ({ ...f, branch_id: branchesRes.data[0].id }));
+      if (branchesRes.data) {
+        setBranches(branchesRes.data);
+        if (branchesRes.data.length && !form.branch_id) {
+          setForm((f) => ({ ...f, branch_id: branchesRes.data[0].id }));
+        }
       }
     };
     fetchData();
   }, []);
 
-  const handleChange = (field: string, value: string) => {
-    setForm(f => ({ ...f, [field]: value }));
+  const handleChange = (field: string, value: any) => {
+    setForm((f) => ({ ...f, [field]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!form.brand.trim()) {
       toast.error("La marca es requerida");
       return;
     }
+
+    if (!form.vehicle_class) {
+      toast.error("La clase de vehículo es requerida");
+      return;
+    }
+
+    if (form.is_listed && !form.listed_price_cop) {
+      toast.error("El precio es requerido si el vehículo está publicado");
+      return;
+    }
+
     if (!profile?.org_id) {
       toast.error("Error de sesión");
       return;
@@ -92,18 +135,12 @@ export default function VehicleNew() {
         line: form.line.trim() || null,
         model_year: form.model_year ? parseInt(form.model_year) : null,
         vehicle_class: form.vehicle_class || null,
-        body_type: form.body_type || null,
         fuel_type: form.fuel_type || null,
         transmission: form.transmission || null,
-        engine_displacement_cc: form.engine_displacement_cc ? parseInt(form.engine_displacement_cc) : null,
-        doors: form.doors ? parseInt(form.doors) : null,
-        capacity_passengers: form.capacity_passengers ? parseInt(form.capacity_passengers) : null,
         color: form.color || null,
         mileage_km: form.mileage_km ? parseInt(form.mileage_km) : null,
         stage_code: form.stage_code,
-        engine_number: form.engine_number || null,
-        serial_number: form.serial_number || null,
-        chassis_number: form.chassis_number || null,
+        is_archived: false,
       };
 
       const { data: vehicle, error: vehicleError } = await supabase
@@ -122,7 +159,10 @@ export default function VehicleNew() {
         supabase.from("vehicle_listing").upsert({
           vehicle_id: vehicleId,
           org_id: orgId,
-          is_listed: false,
+          is_listed: form.is_listed,
+          listed_price_cop: form.listed_price_cop
+            ? parseInt(form.listed_price_cop)
+            : null,
         }),
         supabase.from("vehicle_compliance").upsert({
           vehicle_id: vehicleId,
@@ -158,17 +198,24 @@ export default function VehicleNew() {
       ]}
     >
       <form onSubmit={handleSubmit} className="space-y-6 max-w-4xl">
-        {/* Identificación */}
+        {/* Sección 1: Identificación */}
         <Card>
-          <CardHeader><CardTitle>Identificación</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Identificación</CardTitle>
+          </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="license_plate">Placa</Label>
+              <Label htmlFor="license_plate">
+                Placa <span className="text-muted-foreground">(recomendado)</span>
+              </Label>
               <Input
                 id="license_plate"
                 value={form.license_plate}
-                onChange={(e) => handleChange("license_plate", e.target.value.toUpperCase())}
+                onChange={(e) =>
+                  handleChange("license_plate", e.target.value.toUpperCase())
+                }
                 placeholder="ABC123"
+                maxLength={10}
               />
             </div>
             <div className="space-y-2">
@@ -180,29 +227,15 @@ export default function VehicleNew() {
                 placeholder="Número VIN"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="engine_number">Número de Motor</Label>
-              <Input
-                id="engine_number"
-                value={form.engine_number}
-                onChange={(e) => handleChange("engine_number", e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="chassis_number">Número de Chasis</Label>
-              <Input
-                id="chassis_number"
-                value={form.chassis_number}
-                onChange={(e) => handleChange("chassis_number", e.target.value)}
-              />
-            </div>
           </CardContent>
         </Card>
 
-        {/* Básicos */}
+        {/* Sección 2: Básicos */}
         <Card>
-          <CardHeader><CardTitle>Información Básica</CardTitle></CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <CardHeader>
+            <CardTitle>Información Básica</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-2">
               <Label htmlFor="brand">Marca *</Label>
               <Input
@@ -235,27 +268,78 @@ export default function VehicleNew() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="vehicle_class">Clase</Label>
-              <Select value={form.vehicle_class} onValueChange={(v) => handleChange("vehicle_class", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Label htmlFor="vehicle_class">Clase *</Label>
+              <Select
+                value={form.vehicle_class}
+                onValueChange={(v) => handleChange("vehicle_class", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar" />
+                </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="AUTOMOVIL">Automóvil</SelectItem>
-                  <SelectItem value="CAMIONETA">Camioneta</SelectItem>
-                  <SelectItem value="CAMPERO">Campero</SelectItem>
-                  <SelectItem value="MOTOCICLETA">Motocicleta</SelectItem>
-                  <SelectItem value="BUS">Bus</SelectItem>
-                  <SelectItem value="CAMION">Camión</SelectItem>
+                  {VEHICLE_CLASSES.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>
+                      {c.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Sección 3: Técnicos */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Especificaciones Técnicas</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-2">
+              <Label htmlFor="mileage_km">Kilometraje</Label>
+              <Input
+                id="mileage_km"
+                type="number"
+                min="0"
+                value={form.mileage_km}
+                onChange={(e) => handleChange("mileage_km", e.target.value)}
+                placeholder="50000"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="fuel_type">Combustible</Label>
+              <Select
+                value={form.fuel_type}
+                onValueChange={(v) => handleChange("fuel_type", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  {FUEL_TYPES.map((f) => (
+                    <SelectItem key={f.value} value={f.value}>
+                      {f.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="body_type">Tipo de Carrocería</Label>
-              <Input
-                id="body_type"
-                value={form.body_type}
-                onChange={(e) => handleChange("body_type", e.target.value)}
-                placeholder="Sedan, SUV, Hatchback..."
-              />
+              <Label htmlFor="transmission">Transmisión</Label>
+              <Select
+                value={form.transmission}
+                onValueChange={(v) => handleChange("transmission", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TRANSMISSIONS.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="color">Color</Label>
@@ -269,109 +353,81 @@ export default function VehicleNew() {
           </CardContent>
         </Card>
 
-        {/* Técnicos */}
+        {/* Sección 4: Operación */}
         <Card>
-          <CardHeader><CardTitle>Especificaciones Técnicas</CardTitle></CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <div className="space-y-2">
-              <Label htmlFor="fuel_type">Combustible</Label>
-              <Select value={form.fuel_type} onValueChange={(v) => handleChange("fuel_type", v)}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="GASOLINA">Gasolina</SelectItem>
-                  <SelectItem value="DIESEL">Diésel</SelectItem>
-                  <SelectItem value="GAS">Gas</SelectItem>
-                  <SelectItem value="ELECTRICO">Eléctrico</SelectItem>
-                  <SelectItem value="HIBRIDO">Híbrido</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="transmission">Transmisión</Label>
-              <Select value={form.transmission} onValueChange={(v) => handleChange("transmission", v)}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="MANUAL">Manual</SelectItem>
-                  <SelectItem value="AUTOMATICA">Automática</SelectItem>
-                  <SelectItem value="CVT">CVT</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="engine_displacement_cc">Cilindraje (cc)</Label>
-              <Input
-                id="engine_displacement_cc"
-                type="number"
-                min="0"
-                value={form.engine_displacement_cc}
-                onChange={(e) => handleChange("engine_displacement_cc", e.target.value)}
-                placeholder="1600"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="doors">Puertas</Label>
-              <Input
-                id="doors"
-                type="number"
-                min="0"
-                max="10"
-                value={form.doors}
-                onChange={(e) => handleChange("doors", e.target.value)}
-                placeholder="4"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="capacity_passengers">Pasajeros</Label>
-              <Input
-                id="capacity_passengers"
-                type="number"
-                min="1"
-                max="100"
-                value={form.capacity_passengers}
-                onChange={(e) => handleChange("capacity_passengers", e.target.value)}
-                placeholder="5"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="mileage_km">Kilometraje</Label>
-              <Input
-                id="mileage_km"
-                type="number"
-                min="0"
-                value={form.mileage_km}
-                onChange={(e) => handleChange("mileage_km", e.target.value)}
-                placeholder="50000"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Estado y Sede */}
-        <Card>
-          <CardHeader><CardTitle>Estado y Ubicación</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Estado y Ubicación</CardTitle>
+          </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="stage_code">Estado Inicial</Label>
-              <Select value={form.stage_code} onValueChange={(v) => handleChange("stage_code", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select
+                value={form.stage_code}
+                onValueChange={(v) => handleChange("stage_code", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {stages.map((s) => (
-                    <SelectItem key={s.code} value={s.code}>{s.name}</SelectItem>
+                    <SelectItem key={s.code} value={s.code}>
+                      {s.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="branch_id">Sede</Label>
-              <Select value={form.branch_id} onValueChange={(v) => handleChange("branch_id", v)}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar sede" /></SelectTrigger>
+              <Select
+                value={form.branch_id}
+                onValueChange={(v) => handleChange("branch_id", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar sede" />
+                </SelectTrigger>
                 <SelectContent>
                   {branches.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Sección 5: Comercial */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Comercial</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="is_listed">Publicar vehículo</Label>
+              <Switch
+                id="is_listed"
+                checked={form.is_listed}
+                onCheckedChange={(v) => handleChange("is_listed", v)}
+              />
+            </div>
+            {form.is_listed && (
+              <div className="space-y-2">
+                <Label htmlFor="listed_price_cop">Precio Listado (COP) *</Label>
+                <Input
+                  id="listed_price_cop"
+                  type="number"
+                  min="0"
+                  value={form.listed_price_cop}
+                  onChange={(e) =>
+                    handleChange("listed_price_cop", e.target.value)
+                  }
+                  placeholder="50000000"
+                  required={form.is_listed}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -379,7 +435,11 @@ export default function VehicleNew() {
           <Button type="submit" disabled={loading}>
             {loading ? "Guardando..." : "Crear Vehículo"}
           </Button>
-          <Button type="button" variant="outline" onClick={() => navigate("/admin/vehicles")}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => navigate("/admin/vehicles")}
+          >
             Cancelar
           </Button>
         </div>

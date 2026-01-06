@@ -207,7 +207,7 @@ export default function AdminDashboard() {
           license_plate: (d.vehicles as any)?.license_plate || "N/A",
           doc_type: d.doc_type || "Documento",
           expires_at: d.expires_at!,
-          days_left,
+          days_left: daysLeft,
         };
       });
 

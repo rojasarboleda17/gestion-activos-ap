@@ -32,7 +32,7 @@ export type Database = {
           entity: string
           entity_id?: string | null
           id?: string
-          org_id: string
+          org_id?: string
           payload?: Json
         }
         Update: {
@@ -80,7 +80,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
-          org_id: string
+          org_id?: string
           updated_at?: string
         }
         Update: {
@@ -119,7 +119,7 @@ export type Database = {
           email?: string | null
           full_name: string
           id?: string
-          org_id: string
+          org_id?: string
           phone?: string | null
         }
         Update: {
@@ -160,7 +160,7 @@ export type Database = {
           customer_id?: string | null
           doc_type: string
           id?: string
-          org_id: string
+          org_id?: string
           reservation_id?: string | null
           sale_id?: string | null
           storage_bucket: string
@@ -247,7 +247,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
-          org_id: string
+          org_id?: string
           scope: string
           updated_at?: string
         }
@@ -407,7 +407,7 @@ export type Database = {
           deposit_amount_cop: number
           id?: string
           notes?: string | null
-          org_id: string
+          org_id?: string
           payment_method_code: string
           reserved_at?: string
           status?: string
@@ -516,7 +516,7 @@ export type Database = {
           direction?: string
           id?: string
           notes?: string | null
-          org_id: string
+          org_id?: string
           paid_at?: string
           payment_method_code: string
           sale_id: string
@@ -591,7 +591,7 @@ export type Database = {
           final_price_cop: number
           id?: string
           notes?: string | null
-          org_id: string
+          org_id?: string
           payment_method_code: string
           reservation_id?: string | null
           return_stage_code?: string | null
@@ -788,7 +788,7 @@ export type Database = {
           description?: string | null
           id?: string
           incurred_at?: string | null
-          org_id: string
+          org_id?: string
           updated_at?: string
           vehicle_id: string
           vendor_profile_id?: string | null
@@ -869,7 +869,7 @@ export type Database = {
           file_name?: string | null
           id?: string
           mime_type?: string | null
-          org_id: string
+          org_id?: string
           storage_bucket: string
           storage_path: string
           uploaded_by?: string | null
@@ -1297,7 +1297,7 @@ export type Database = {
           id?: string
           notes?: string | null
           operation_id?: string | null
-          org_id: string
+          org_id?: string
           status?: string
           title: string
           updated_at?: string
@@ -1366,7 +1366,7 @@ export type Database = {
           notes?: string | null
           opened_at?: string
           opened_by?: string | null
-          org_id: string
+          org_id?: string
           scope: string
           status?: string
           updated_at?: string

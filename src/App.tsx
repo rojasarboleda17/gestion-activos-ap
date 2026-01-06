@@ -23,6 +23,7 @@ import AdminVehicleDetail from "./pages/admin/VehicleDetail";
 import AdminOperations from "./pages/admin/Operations";
 import AdminSales from "./pages/admin/Sales";
 import AdminFiles from "./pages/admin/Files";
+import AdminFinances from "./pages/admin/Finances";
 import AdminUsers from "./pages/admin/Users";
 import AdminBranches from "./pages/admin/Branches";
 import AdminAudit from "./pages/admin/Audit";
@@ -65,6 +66,7 @@ const AppRoutes = () => (
     <Route path="/admin/operations" element={<ProtectedRoute requiredRole="admin"><AdminOperations /></ProtectedRoute>} />
     <Route path="/admin/sales" element={<ProtectedRoute requiredRole="admin"><AdminSales /></ProtectedRoute>} />
     <Route path="/admin/files" element={<ProtectedRoute requiredRole="admin"><AdminFiles /></ProtectedRoute>} />
+    <Route path="/admin/finances" element={<ProtectedRoute requiredRole="admin"><AdminFinances /></ProtectedRoute>} />
     <Route path="/admin/users" element={<ProtectedRoute requiredRole="admin"><AdminUsers /></ProtectedRoute>} />
     <Route path="/admin/branches" element={<ProtectedRoute requiredRole="admin"><AdminBranches /></ProtectedRoute>} />
     <Route path="/admin/audit" element={<ProtectedRoute requiredRole="admin"><AdminAudit /></ProtectedRoute>} />

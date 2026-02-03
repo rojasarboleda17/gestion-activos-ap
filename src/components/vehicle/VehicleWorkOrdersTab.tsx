@@ -365,6 +365,9 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
         incurred_at: costForm.incurred_at || null,
         description: costForm.description.trim() || null,
         created_by: profile.id,
+        category: "alistamiento",
+        phase_code: "alistamiento",
+
       });
       if (error) throw error;
       toast.success("Costo registrado");

@@ -233,6 +233,8 @@ export function VehicleExpensesTab({ vehicleId }: Props) {
           org_id: profile.org_id,
           vehicle_id: vehicleId,
           created_by: profile.id,
+          category: "alistamiento",
+          phase_code: "alistamiento",
         }).select("id").single();
         if (error) throw error;
         

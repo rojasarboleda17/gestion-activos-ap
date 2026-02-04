@@ -32,6 +32,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatDate } from "@/lib/format";
 import { FileText, Plus, Search, Download, Eye } from "lucide-react";
+import { getSignedUrl, openInNewTab, DEFAULT_DOWNLOAD_TTL_SECONDS } from "@/lib/storage";
 
 interface DealDocument {
   id: string;
@@ -225,13 +226,12 @@ export function DocumentsTab() {
 
   const downloadDocument = async (doc: DealDocument) => {
     try {
-      const { data, error } = await supabase.storage
-        .from(doc.storage_bucket)
-        .createSignedUrl(doc.storage_path, 60);
-
-      if (error) throw error;
-
-      window.open(data.signedUrl, "_blank");
+      const signedUrl = await getSignedUrl(
+        doc.storage_bucket,
+        doc.storage_path,
+        DEFAULT_DOWNLOAD_TTL_SECONDS
+      );
+      openInNewTab(signedUrl);      
     } catch (err: any) {
       toast.error(err.message || "Error al descargar documento");
     }

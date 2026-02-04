@@ -586,6 +586,11 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
         return;
       }
 
+      await supabase.rpc("unmark_vehicle_sold", {
+        p_vehicle_id: vehicleId,
+        p_sale_id: voidingSale.id,
+      });
+      
       await supabase.rpc("transition_vehicle_stage", {
         p_vehicle_id: vehicleId,
         p_target_stage: voidForm.return_stage_code,

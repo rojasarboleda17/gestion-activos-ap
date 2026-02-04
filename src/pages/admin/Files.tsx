@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format";
+import { getSignedUrl, openInNewTab, DEFAULT_PREVIEW_TTL_SECONDS, DEFAULT_DOWNLOAD_TTL_SECONDS } from "@/lib/storage";
 import { 
   FileText, ExternalLink, Download, Image, File, Search, 
   AlertTriangle, Car, Calendar, Eye, Shield, Clock 
@@ -355,46 +356,46 @@ export default function AdminFiles() {
     setPreviewFile(file);
     setPreviewLoading(true);
     setPreviewOpen(true);
-    
+  
     try {
-      const { data, error } = await supabase.storage
-        .from(file.storage_bucket)
-        .createSignedUrl(file.storage_path, 300);
-
-      if (error) {
-        console.error("Error creating signed URL:", error);
-        toast({ title: "Error", description: error.message, variant: "destructive" });
-        setPreviewUrl(null);
-      } else {
-        setPreviewUrl(data.signedUrl);
-      }
+      const signedUrl = await getSignedUrl(
+        file.storage_bucket,
+        file.storage_path,
+        DEFAULT_PREVIEW_TTL_SECONDS
+      );
+  
+      setPreviewUrl(signedUrl);
     } catch (err: any) {
       console.error("Error in openPreview:", err);
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      });
       setPreviewUrl(null);
     } finally {
       setPreviewLoading(false);
     }
-  };
+  };  
 
   const downloadFile = async (file: UnifiedFile) => {
     try {
-      const { data, error } = await supabase.storage
-        .from(file.storage_bucket)
-        .createSignedUrl(file.storage_path, 60);
-
-      if (error) {
-        console.error("Error creating signed URL:", error);
-        toast({ title: "Error", description: error.message, variant: "destructive" });
-        return;
-      }
-
-      window.open(data.signedUrl, "_blank");
+      const signedUrl = await getSignedUrl(
+        file.storage_bucket,
+        file.storage_path,
+        DEFAULT_DOWNLOAD_TTL_SECONDS
+      );
+  
+      openInNewTab(signedUrl);
     } catch (err: any) {
       console.error("Error in downloadFile:", err);
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      });
     }
-  };
+  };  
 
   const getVisibilityBadge = (visibility: string) => {
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {

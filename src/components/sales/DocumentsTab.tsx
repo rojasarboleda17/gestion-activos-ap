@@ -33,6 +33,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { formatDate } from "@/lib/format";
 import { FileText, Plus, Search, Download, Eye } from "lucide-react";
 import { getSignedUrl, openInNewTab, DEFAULT_DOWNLOAD_TTL_SECONDS } from "@/lib/storage";
+import { buildDealDocumentPath, uploadToBucket } from "@/lib/storageUpload";
 
 interface DealDocument {
   id: string;
@@ -186,15 +187,13 @@ export function DocumentsTab() {
 
     setUploading(true);
     try {
-      const fileName = `${Date.now()}_${file.name}`;
-      const path = `${profile.org_id}/deal/${form.context_id}/${fileName}`;
-
-      // Upload to storage
-      const { error: uploadError } = await supabase.storage
-        .from("customer-uploads")
-        .upload(path, file);
-
-      if (uploadError) throw uploadError;
+      const path = buildDealDocumentPath({
+        orgId: profile.org_id,
+        contextId: form.context_id,
+        originalFileName: file.name,
+      });
+      
+      await uploadToBucket({ bucket: "customer-uploads", path, file });      
 
       // Get the selected context
       const contextData = form.context_type === "sale"

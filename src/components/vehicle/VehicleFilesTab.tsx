@@ -13,6 +13,7 @@ import { formatDate } from "@/lib/format";
 import { Upload, FileText, Image, Download } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useAudit } from "@/hooks/use-audit";
+import { buildVehicleFilePath, uploadToBucket } from "@/lib/storageUpload";
 import {
   getSignedUrl,
   openInNewTab,
@@ -67,9 +68,15 @@ export function VehicleFilesTab({ vehicleId }: Props) {
     setUploading(true);
     try {
       const bucket = getBucket(form.visibility);
-      const path = `${profile.org_id}/vehicle/${vehicleId}/${form.visibility}/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage.from(bucket).upload(path, file);
-      if (uploadError) throw uploadError;
+      const path = buildVehicleFilePath({
+        orgId: profile.org_id,
+        vehicleId,
+        visibility: form.visibility as "sales" | "operations" | "restricted",
+        originalFileName: file.name,
+      });
+      
+      await uploadToBucket({ bucket, path, file });
+            
       const { data: fileRecord, error: dbError } = await supabase.from("vehicle_files").insert({
         org_id: profile.org_id, vehicle_id: vehicleId, storage_bucket: bucket, storage_path: path,
         file_name: file.name, mime_type: file.type, file_kind: form.file_kind, visibility: form.visibility,

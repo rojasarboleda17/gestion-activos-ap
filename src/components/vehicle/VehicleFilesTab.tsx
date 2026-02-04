@@ -13,6 +13,11 @@ import { formatDate } from "@/lib/format";
 import { Upload, FileText, Image, Download } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useAudit } from "@/hooks/use-audit";
+import {
+  getSignedUrl,
+  openInNewTab,
+  DEFAULT_DOWNLOAD_TTL_SECONDS,
+} from "@/lib/storage";
 
 interface Props { vehicleId: string; }
 
@@ -24,6 +29,7 @@ export function VehicleFilesTab({ vehicleId }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState({ file_kind: "photo", visibility: "operations", doc_type: "", expires_at: "" });
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const fetchFiles = async () => {
     const { data } = await supabase.from("vehicle_files").select("*").eq("vehicle_id", vehicleId).order("created_at", { ascending: false });
@@ -37,6 +43,22 @@ export function VehicleFilesTab({ vehicleId }: Props) {
     if (visibility === "sales") return "vehicle-public";
     if (visibility === "restricted") return "vehicle-restricted";
     return "vehicle-internal";
+  };
+
+  const handleDownload = async (f: any) => {
+    setDownloadingId(f.id);
+    try {
+      const url = await getSignedUrl(
+        f.storage_bucket,
+        f.storage_path,
+        DEFAULT_DOWNLOAD_TTL_SECONDS
+      );
+      openInNewTab(url);
+    } catch (err: any) {
+      toast.error(err?.message || "No se pudo descargar el archivo");
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -54,7 +76,7 @@ export function VehicleFilesTab({ vehicleId }: Props) {
         doc_type: form.doc_type || null, expires_at: form.expires_at || null, uploaded_by: profile.id,
       }).select("id").single();
       if (dbError) throw dbError;
-      
+
       // Audit log
       auditLog({
         action: "file_upload",
@@ -109,6 +131,15 @@ export function VehicleFilesTab({ vehicleId }: Props) {
             <Card key={f.id}><CardContent className="py-3 flex items-center gap-3">
               {f.file_kind === "photo" ? <Image className="h-8 w-8 text-muted-foreground" /> : <FileText className="h-8 w-8 text-muted-foreground" />}
               <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate">{f.file_name || "Archivo"}</p><p className="text-xs text-muted-foreground">{f.visibility} · {formatDate(f.created_at)}</p></div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleDownload(f)}
+                disabled={downloadingId === f.id}
+                aria-label="Descargar archivo"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
             </CardContent></Card>
           ))}
         </div>

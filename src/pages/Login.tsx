@@ -24,7 +24,7 @@ const Login = () => {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/debug`,
+            emailRedirectTo: `${window.location.origin}/`,
           },
         });
         if (error) throw error;
@@ -38,7 +38,7 @@ const Login = () => {
           password,
         });
         if (error) throw error;
-        navigate("/debug");
+        navigate("/");
       }
     } catch (error: any) {
       toast({

@@ -255,7 +255,10 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
       }
 
       // Update vehicle stage
-      await supabase.from("vehicles").update({ stage_code: "bloqueado" }).eq("id", vehicleId);
+      await supabase.rpc("transition_vehicle_stage", {
+        p_vehicle_id: vehicleId,
+        p_target_stage: "bloqueado",
+      });      
 
       toast.success("Reserva creada");
       setCreateResOpen(false);
@@ -345,9 +348,17 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
         .eq("status", "active")
         .neq("id", cancelingReservation.id);
 
-      if (!otherActive?.length) {
-        await supabase.from("vehicles").update({ stage_code: "publicado" }).eq("id", vehicleId);
-      }
+        if (!otherActive?.length) {
+          await supabase.rpc("transition_vehicle_stage", {
+            p_vehicle_id: vehicleId,
+            p_target_stage: "publicado",
+          });
+        } else {
+          await supabase.rpc("transition_vehicle_stage", {
+            p_vehicle_id: vehicleId,
+            p_target_stage: "bloqueado",
+          });
+        }        
 
       toast.success("Reserva cancelada");
       setCancelDialogOpen(false);
@@ -435,7 +446,10 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
       }
 
       // Step 3: Update vehicle
-      await supabase.from("vehicles").update({ stage_code: "vendido" }).eq("id", vehicleId);
+      await supabase.rpc("mark_vehicle_sold", {
+        p_vehicle_id: vehicleId,
+        p_sale_id: saleData.id,
+      });      
 
       // Step 4: Update reservation
       await supabase.from("reservations").update({ status: "converted" }).eq("id", convertingReservation.id);
@@ -510,7 +524,10 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
         return;
       }
 
-      await supabase.from("vehicles").update({ stage_code: "vendido" }).eq("id", vehicleId);
+      await supabase.rpc("mark_vehicle_sold", {
+        p_vehicle_id: vehicleId,
+        p_sale_id: data.id,
+      });      
 
       toast.success("Venta registrada");
       setCreateSaleOpen(false);
@@ -569,7 +586,10 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
         return;
       }
 
-      await supabase.from("vehicles").update({ stage_code: voidForm.return_stage_code }).eq("id", vehicleId);
+      await supabase.rpc("transition_vehicle_stage", {
+        p_vehicle_id: vehicleId,
+        p_target_stage: voidForm.return_stage_code,
+      });      
 
       const refundAmount = parseInt(voidForm.refund_amount);
       if (voidForm.refund_amount && !isNaN(refundAmount) && refundAmount > 0) {

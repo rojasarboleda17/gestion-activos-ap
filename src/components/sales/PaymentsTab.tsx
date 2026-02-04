@@ -93,7 +93,7 @@ export function PaymentsTab() {
           .select(`
             *,
             sale:sales(
-              vehicle:vehicles(license_plate, brand),
+              vehicle:vehicles!sales_vehicle_id_fkey(license_plate, brand),
               customer:customers(full_name)
             )
           `)
@@ -103,7 +103,7 @@ export function PaymentsTab() {
           .from("sales")
           .select(`
             id,
-            vehicle:vehicles(license_plate, brand),
+            vehicle:vehicles!sales_vehicle_id_fkey(license_plate, brand),
             customer:customers(full_name)
           `)
           .eq("org_id", profile.org_id)

@@ -9,7 +9,6 @@ import { LoadingScreen } from "@/components/ui/loading-screen";
 
 // Pages
 import Index from "./pages/Index";
-import Debug from "./pages/Debug";
 import Login from "./pages/Login";
 import Inactive from "./pages/Inactive";
 import Unauthorized from "./pages/Unauthorized";
@@ -56,7 +55,6 @@ const AppRoutes = () => (
     <Route path="/unauthorized" element={<Unauthorized />} />
     
     {/* Debug (only in development) */}
-    {import.meta.env.DEV && <Route path="/debug" element={<Debug />} />}
     
     {/* Admin routes */}
     <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />

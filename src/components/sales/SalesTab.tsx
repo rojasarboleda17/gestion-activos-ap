@@ -164,7 +164,7 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
           .select(`
             *,
             customer:customers(full_name, phone),
-            vehicle:vehicles(license_plate, brand, line, model_year)
+            vehicle:vehicles!sales_vehicle_id_fkey(license_plate, brand, line, model_year)
           `)
           .eq("org_id", profile.org_id)
           .order("sale_date", { ascending: false }),

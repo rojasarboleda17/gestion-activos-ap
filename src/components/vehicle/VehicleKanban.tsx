@@ -74,10 +74,10 @@ export function VehicleKanban({
 
     setUpdating(true);
     try {
-      const { error } = await supabase
-        .from("vehicles")
-        .update({ stage_code: newStageCode })
-        .eq("id", vehicleId);
+      const { error } = await supabase.rpc("transition_vehicle_stage", {
+        p_vehicle_id: vehicleId,
+        p_target_stage: newStageCode,
+      });
 
       if (error) throw error;
       

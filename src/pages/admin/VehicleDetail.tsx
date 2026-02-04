@@ -95,11 +95,11 @@ export default function VehicleDetail() {
     if (!vehicle) return;
     setChangingStage(true);
     try {
-      const { error } = await supabase
-        .from("vehicles")
-        .update({ stage_code: newStage })
-        .eq("id", vehicle.id);
-      if (error) throw error;
+      const { error } = await supabase.rpc("transition_vehicle_stage", {
+        p_vehicle_id: vehicle.id,
+        p_target_stage: newStage,
+      });
+      if (error) throw error;      
       setVehicle({ ...vehicle, stage_code: newStage });
       toast.success("Estado actualizado");
     } catch (err: any) {

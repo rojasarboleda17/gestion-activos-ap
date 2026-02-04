@@ -150,12 +150,12 @@ export function CustomersTab() {
       const [resRes, salesRes] = await Promise.all([
         supabase
           .from("reservations")
-          .select("*, vehicles(license_plate, brand, line)")
+          .select("*, vehicles!sales_vehicle_id_fkey(license_plate, brand, line)")
           .eq("customer_id", customer.id)
           .order("reserved_at", { ascending: false }),
         supabase
           .from("sales")
-          .select("*, vehicles(license_plate, brand, line)")
+          .select("*, vehicles!sales_vehicle_id_fkey(license_plate, brand, line)")
           .eq("customer_id", customer.id)
           .order("sale_date", { ascending: false }),
       ]);

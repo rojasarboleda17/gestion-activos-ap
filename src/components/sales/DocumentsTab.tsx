@@ -105,7 +105,7 @@ export function DocumentsTab() {
             sale:sales(id),
             reservation:reservations(id),
             customer:customers(full_name),
-            vehicle:vehicles(license_plate)
+            vehicle:vehicles!sales_vehicle_id_fkey(license_plate)
           `)
           .eq("org_id", profile.org_id)
           .order("created_at", { ascending: false }),
@@ -113,7 +113,7 @@ export function DocumentsTab() {
           .from("sales")
           .select(`
             id,
-            vehicle:vehicles(license_plate),
+            vehicle:vehicles!sales_vehicle_id_fkey(license_plate),
             customer:customers(full_name)
           `)
           .eq("org_id", profile.org_id)
@@ -122,7 +122,7 @@ export function DocumentsTab() {
           .from("reservations")
           .select(`
             id,
-            vehicle:vehicles(license_plate),
+            vehicle:vehicles!sales_vehicle_id_fkey(license_plate),
             customer:customers(full_name)
           `)
           .eq("org_id", profile.org_id)

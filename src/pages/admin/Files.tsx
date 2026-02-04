@@ -41,6 +41,7 @@ interface VehicleFile {
     license_plate: string | null; 
     brand: string; 
     line: string | null;
+    is_archived: boolean;
   } | null;
 }
 
@@ -55,7 +56,7 @@ interface DealDocument {
   customer_id: string | null;
   vehicle_id: string | null;
   source: "deal";
-  vehicle?: { id: string; license_plate: string | null } | null;
+  vehicle?: { id: string; license_plate: string | null; is_archived: boolean } | null;
   customer?: { full_name: string } | null;
 }
 
@@ -112,6 +113,7 @@ export default function AdminFiles() {
   const [filterDocType, setFilterDocType] = useState<string>("all");
   const [filterSource, setFilterSource] = useState<string>("all");
   const [showExpiringOnly, setShowExpiringOnly] = useState(false);
+  const [includeArchived, setIncludeArchived] = useState(false);
   
   // Preview
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -130,7 +132,7 @@ export default function AdminFiles() {
           .from("vehicle_files")
           .select(`
             *,
-            vehicles!inner(id, license_plate, brand, line)
+            vehicles!inner(id, license_plate, brand, line, is_archived)
           `)
           .eq("org_id", profile.org_id)
           .order("created_at", { ascending: false })
@@ -141,7 +143,7 @@ export default function AdminFiles() {
           .from("deal_documents")
           .select(`
             *,
-            vehicle:vehicles(id, license_plate),
+            vehicle:vehicles(id, license_plate, is_archived),
             customer:customers(full_name)
           `)
           .eq("org_id", profile.org_id)
@@ -250,16 +252,29 @@ export default function AdminFiles() {
     ...dealDocuments,
   ];
 
+  const filesAfterArchiveFilter = allFiles.filter((f) => {
+    if (includeArchived) return true;
+  
+    if (f.source === "vehicle") {
+      const vf = f as VehicleFile;
+      return !vf.vehicles?.is_archived;
+    }
+  
+    const dd = f as DealDocument;
+    return !dd.vehicle?.is_archived;
+  });
+
   // File alerts (vehicle_files with expires_at in next 30 days)
   const today = new Date();
   const in30Days = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
   
   const fileAlerts: FileAlert[] = vehicleFiles
-    .filter(f => {
-      if (!f.expires_at) return false;
-      const expDate = new Date(f.expires_at);
-      return expDate <= in30Days && expDate >= today;
-    })
+  .filter(f => includeArchived || !f.vehicles?.is_archived)
+  .filter(f => {
+    if (!f.expires_at) return false;
+    const expDate = new Date(f.expires_at);
+    return expDate <= in30Days && expDate >= today;
+  })
     .map(f => {
       const expDate = new Date(f.expires_at!);
       const daysUntil = Math.ceil((expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
@@ -278,7 +293,7 @@ export default function AdminFiles() {
     .sort((a, b) => a.days_until - b.days_until);
 
   // Filter files
-  const filteredFiles = allFiles.filter(f => {
+  const filteredFiles = filesAfterArchiveFilter.filter(f => {
     // Source filter
     if (filterSource !== "all") {
       if (filterSource === "vehicle" && f.source !== "vehicle") return false;
@@ -521,6 +536,14 @@ export default function AdminFiles() {
                 onCheckedChange={setShowExpiringOnly}
               />
               <Label htmlFor="expiring" className="text-sm whitespace-nowrap">Vence ≤30d</Label>
+              <div className="flex items-center gap-2">
+              <Switch
+                id="include_archived"
+                checked={includeArchived}
+                onCheckedChange={(v) => setIncludeArchived(!!v)}
+              />
+              <Label htmlFor="include_archived">Incluir archivados</Label>
+            </div>
             </div>
           </div>
 

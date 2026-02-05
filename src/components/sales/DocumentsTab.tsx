@@ -34,6 +34,7 @@ import { formatDate } from "@/lib/format";
 import { FileText, Plus, Search, Download, Eye } from "lucide-react";
 import { getSignedUrl, openInNewTab, DEFAULT_DOWNLOAD_TTL_SECONDS } from "@/lib/storage";
 import { buildDealDocumentPath, uploadToBucket } from "@/lib/storageUpload";
+import { DOC_TYPES, docTypeLabel, normalizeDocType } from "@/lib/docTypes";
 
 interface DealDocument {
   id: string;
@@ -63,16 +64,6 @@ interface Reservation {
   customer?: { full_name: string };
 }
 
-const DOC_TYPES = [
-  { value: "contrato", label: "Contrato" },
-  { value: "factura", label: "Factura" },
-  { value: "cedula", label: "Cédula/Documento" },
-  { value: "soat", label: "SOAT" },
-  { value: "tecno", label: "Tecnomecánica" },
-  { value: "titulo", label: "Título de Propiedad" },
-  { value: "otro", label: "Otro" },
-];
-
 export function DocumentsTab() {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -89,7 +80,7 @@ export function DocumentsTab() {
   const [uploading, setUploading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [form, setForm] = useState({
-    doc_type: "contrato",
+    doc_type: DOC_TYPES[0]?.value ?? "",
     context_type: "sale",
     context_id: "",
   });
@@ -168,7 +159,7 @@ export function DocumentsTab() {
   const openUpload = () => {
     setFile(null);
     setForm({
-      doc_type: "contrato",
+      doc_type: DOC_TYPES[0]?.value ?? "",
       context_type: "sale",
       context_id: "",
     });
@@ -184,6 +175,10 @@ export function DocumentsTab() {
       toast.error("Selecciona una venta o reserva");
       return;
     }
+    if (!form.doc_type) {
+      toast.error("Selecciona el tipo de documento");
+      return;
+    }    
 
     setUploading(true);
     try {
@@ -194,11 +189,6 @@ export function DocumentsTab() {
       });
       
       await uploadToBucket({ bucket: "customer-uploads", path, file });      
-
-      // Get the selected context
-      const contextData = form.context_type === "sale"
-        ? sales.find((s) => s.id === form.context_id)
-        : reservations.find((r) => r.id === form.context_id);
 
       // Insert document record
       const { error: insertError } = await supabase.from("deal_documents").insert({
@@ -314,7 +304,7 @@ export function DocumentsTab() {
                       {formatDate(d.created_at)}
                     </TableCell>
                     <TableCell>
-                      {DOC_TYPES.find((t) => t.value === d.doc_type)?.label || d.doc_type}
+                    {docTypeLabel(d.doc_type)}
                     </TableCell>
                     <TableCell>
                       {d.sale_id ? "Venta" : d.reservation_id ? "Reserva" : "—"}
@@ -346,7 +336,7 @@ export function DocumentsTab() {
                   <div className="flex justify-between items-start mb-2">
                     <div>
                       <p className="font-medium">
-                        {DOC_TYPES.find((t) => t.value === d.doc_type)?.label || d.doc_type}
+                      {docTypeLabel(d.doc_type)}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {d.sale_id ? "Venta" : d.reservation_id ? "Reserva" : "—"}
@@ -386,7 +376,7 @@ export function DocumentsTab() {
                 onValueChange={(v) => setForm({ ...form, doc_type: v })}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                <SelectValue placeholder="Selecciona..." />
                 </SelectTrigger>
                 <SelectContent>
                   {DOC_TYPES.map((t) => (

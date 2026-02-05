@@ -19,6 +19,7 @@ import {
   openInNewTab,
   DEFAULT_DOWNLOAD_TTL_SECONDS,
 } from "@/lib/storage";
+import { DOC_TYPES } from "@/lib/docTypes";
 
 interface Props { vehicleId: string; }
 
@@ -65,6 +66,10 @@ export function VehicleFilesTab({ vehicleId }: Props) {
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile?.org_id) return;
+    if (form.file_kind === "document" && !form.doc_type) {
+      toast.error("Selecciona el tipo de documento");
+      return;
+    }    
     setUploading(true);
     try {
       const bucket = getBucket(form.visibility);
@@ -80,7 +85,9 @@ export function VehicleFilesTab({ vehicleId }: Props) {
       const { data: fileRecord, error: dbError } = await supabase.from("vehicle_files").insert({
         org_id: profile.org_id, vehicle_id: vehicleId, storage_bucket: bucket, storage_path: path,
         file_name: file.name, mime_type: file.type, file_kind: form.file_kind, visibility: form.visibility,
-        doc_type: form.doc_type || null, expires_at: form.expires_at || null, uploaded_by: profile.id,
+        doc_type: form.file_kind === "document" ? (form.doc_type || null) : null,
+        expires_at: form.file_kind === "document" ? (form.expires_at || null) : null,
+        uploaded_by: profile.id,
       }).select("id").single();
       if (dbError) throw dbError;
 
@@ -118,15 +125,43 @@ export function VehicleFilesTab({ vehicleId }: Props) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Tipo</Label>
-                  <Select value={form.file_kind} onValueChange={(v) => setForm(f => ({ ...f, file_kind: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="photo">Foto</SelectItem><SelectItem value="document">Documento</SelectItem></SelectContent></Select>
+                  <Select value={form.file_kind} onValueChange={(v) => setForm(f => ({ ...f, file_kind: v, doc_type: v === "photo" ? "" : f.doc_type, expires_at: v === "photo" ? "" : f.expires_at, }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="photo">Foto</SelectItem><SelectItem value="document">Documento</SelectItem></SelectContent></Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Visibilidad</Label>
                   <Select value={form.visibility} onValueChange={(v) => setForm(f => ({ ...f, visibility: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="sales">Ventas</SelectItem><SelectItem value="operations">Operaciones</SelectItem><SelectItem value="restricted">Restringido</SelectItem></SelectContent></Select>
                 </div>
               </div>
-              <div className="space-y-2"><Label>Tipo de documento</Label><Input value={form.doc_type} onChange={(e) => setForm(f => ({ ...f, doc_type: e.target.value }))} placeholder="SOAT, Factura..." /></div>
-              <div className="space-y-2"><Label>Vence</Label><Input type="date" value={form.expires_at} onChange={(e) => setForm(f => ({ ...f, expires_at: e.target.value }))} /></div>
+              {form.file_kind === "document" && (
+                <div className="space-y-2">
+                  <Label>Tipo de documento</Label>
+                  <Select
+                    value={form.doc_type}
+                    onValueChange={(v) => setForm((f) => ({ ...f, doc_type: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DOC_TYPES.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {form.file_kind === "document" && (
+                <div className="space-y-2">
+                  <Label>Vence</Label>
+                  <Input
+                    type="date"
+                    value={form.expires_at}
+                    onChange={(e) => setForm((f) => ({ ...f, expires_at: e.target.value }))}
+                  />
+                </div>
+              )}
               <Input type="file" onChange={handleUpload} disabled={uploading} />
             </div>
           </DialogContent>

@@ -3,17 +3,15 @@ import { supabase } from "@/integrations/supabase/client";
 function safeFileName(original: string) {
   const base = original.split("/").pop()?.split("\\").pop() || "file";
   // Mantener letras/números/_/.- y reemplazar el resto por _
-  return base.replace(/[^\w.\-]+/g, "_").slice(-120);
+  return base.replace(/[^\w.-]+/g, "_").slice(-120);
 }
 
 function shortId() {
-  try {
-    // Modern browsers
-    // @ts-ignore
-    if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID().slice(0, 8);
-  } catch {}
+  const c = globalThis.crypto;
+  if (c && typeof c.randomUUID === "function") return c.randomUUID().slice(0, 8);
   return Math.random().toString(16).slice(2, 10);
 }
+
 
 export function buildVehicleFilePath(params: {
   orgId: string;

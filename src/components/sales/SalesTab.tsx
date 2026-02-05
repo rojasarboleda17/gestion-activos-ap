@@ -325,10 +325,10 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
 
       // Update vehicle to 'vendido'
       console.log("[Sales] Updating vehicle to 'vendido'...");
-      const { error: vehError } = await supabase
-        .from("vehicles")
-        .update({ stage_code: "vendido" })
-        .eq("id", createForm.vehicle_id);
+      const { error: vehError } = await supabase.rpc("transition_vehicle_stage", {
+        p_vehicle_id: createForm.vehicle_id,
+        p_target_stage: "vendido",
+      });      
 
       if (vehError) {
         console.error("[Sales] Vehicle update error:", vehError);
@@ -399,10 +399,10 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
 
       // Step 2: Update vehicle stage
       console.log("[Sales] Updating vehicle stage to:", voidForm.return_stage_code);
-      const { error: vehError } = await supabase
-        .from("vehicles")
-        .update({ stage_code: voidForm.return_stage_code })
-        .eq("id", selectedSale.vehicle_id);
+      const { error: vehError } = await supabase.rpc("transition_vehicle_stage", {
+        p_vehicle_id: selectedSale.vehicle_id,
+        p_target_stage: voidForm.return_stage_code,
+      });      
 
       if (vehError) {
         console.error("[Sales] Vehicle update error:", vehError);

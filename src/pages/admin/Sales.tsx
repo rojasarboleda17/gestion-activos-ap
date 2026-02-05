@@ -197,11 +197,10 @@ export default function AdminSales() {
       // STEP 3: Update vehicle to 'vendido'
       if (!state.vehicleUpdated) {
         console.log("[Convert] Step 3: Updating vehicle stage to 'vendido'...");
-        const { error: vehError, count } = await supabase
-          .from("vehicles")
-          .update({ stage_code: "vendido" })
-          .eq("id", convertingReservation.vehicle_id)
-          .select();
+        const { error: vehError } = await supabase.rpc("transition_vehicle_stage", {
+          p_vehicle_id: convertingReservation.vehicle_id,
+          p_target_stage: "vendido",
+        });        
 
         if (vehError) {
           console.error("[Convert] Step 3 FAILED - Vehicle update error:", vehError);

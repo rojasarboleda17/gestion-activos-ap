@@ -278,11 +278,10 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
 
       // Update vehicle stage to 'bloqueado'
       console.log("[Reservations] Updating vehicle stage to 'bloqueado'...");
-      const { error: vehError } = await supabase.rpc("transition_vehicle_stage", {
-        p_vehicle_id: form.vehicle_id,
-        p_target_stage: "bloqueado",
-      });
-      
+      const { error: vehError } = await supabase
+        .from("vehicles")
+        .update({ stage_code: "bloqueado" })
+        .eq("id", form.vehicle_id);
 
       if (vehError) {
         console.error("[Reservations] Vehicle update error:", vehError);
@@ -394,10 +393,10 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
       if (!otherActive || otherActive.length === 0) {
         // Return vehicle to 'publicado'
         console.log("[Reservations] No other active reservations, returning vehicle to 'publicado'...");
-        const { error: vehError } = await supabase.rpc("transition_vehicle_stage", {
-          p_vehicle_id: cancelingReservation.vehicle_id,
-          p_target_stage: "publicado",
-        });        
+        const { error: vehError } = await supabase
+          .from("vehicles")
+          .update({ stage_code: "publicado" })
+          .eq("id", cancelingReservation.vehicle_id);
 
         if (vehError) {
           console.error("[Reservations] Vehicle update error:", vehError);

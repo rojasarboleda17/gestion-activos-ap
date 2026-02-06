@@ -34,7 +34,12 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // No profile or inactive - redirect to inactive page (UX convenience)
+  // Profile aún no cargado
+  if (profile === undefined) {
+    return <LoadingScreen />;
+  }
+
+  // No profile or inactive
   if (!profile || !profile.is_active) {
     return <Navigate to="/inactive" replace />;
   }

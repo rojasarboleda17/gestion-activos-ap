@@ -44,7 +44,6 @@ interface VehicleFinancial {
   id: string;
   license_plate: string | null;
   brand: string;
-  is_archived: boolean;
   line: string | null;
   stage_code: string;
   created_at: string;
@@ -114,7 +113,8 @@ export default function AdminFinances() {
         const [vehiclesRes, financialsRes, expensesRes, salesRes, paymentsRes] = await Promise.all([
           supabase
             .from("vehicles")
-            .select("id, license_plate, brand, line, stage_code, created_at"),
+            .select("id, license_plate, brand, line, stage_code, created_at")
+            .eq("is_archived", false),
           supabase
             .from("vehicle_financials")
             .select("vehicle_id, purchase_price_cop, purchase_date"),
@@ -189,7 +189,6 @@ export default function AdminFinances() {
             created_at: v.created_at,
             purchase_price: purchasePrice,
             purchase_date: financials?.purchase_date || null,
-            is_archived: !!(v as any).is_archived,
             total_expenses: expenses,
             total_cost: totalCost,
             is_sold: !!sale,
@@ -231,7 +230,7 @@ export default function AdminFinances() {
       
       // Status filter
       if (statusFilter === "sold" && !v.is_sold) return false;
-      if (statusFilter === "inventory" && (v.is_sold || v.is_archived)) return false;
+      if (statusFilter === "inventory" && v.is_sold) return false;
       if (statusFilter === "pending" && v.pending_balance <= 0) return false;
       
       // Profit filter
@@ -244,7 +243,7 @@ export default function AdminFinances() {
 
   // Calculate global stats
   const stats: GlobalStats = useMemo(() => {
-    const inventoryVehicles = vehicles.filter(v => !v.is_sold && !v.is_archived);
+    const inventoryVehicles = vehicles.filter(v => !v.is_sold);
     const soldVehicles = vehicles.filter(v => v.is_sold);
     const vehiclesWithPending = soldVehicles.filter(v => v.pending_balance > 0);
     

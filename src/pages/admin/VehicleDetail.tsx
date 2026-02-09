@@ -222,55 +222,33 @@ export default function VehicleDetail() {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="summary" className="w-full">
+        <Tabs defaultValue="overview" className="w-full">
           <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 scrollbar-thin">
             <TabsList className="inline-flex h-auto gap-1 min-w-max p-1">
-              <TabsTrigger value="summary" className="text-xs sm:text-sm px-2 sm:px-3">Resumen</TabsTrigger>
-              <TabsTrigger value="info" className="text-xs sm:text-sm px-2 sm:px-3">Info</TabsTrigger>
-              <TabsTrigger value="listing" className="text-xs sm:text-sm px-2 sm:px-3">Comercial</TabsTrigger>
-              <TabsTrigger value="compliance" className="text-xs sm:text-sm px-2 sm:px-3">Legal</TabsTrigger>
-              <TabsTrigger value="financials" className="text-xs sm:text-sm px-2 sm:px-3">Finanzas</TabsTrigger>
-              <TabsTrigger value="legal" className="text-xs sm:text-sm px-2 sm:px-3">Tarjeta</TabsTrigger>
-              <TabsTrigger value="workorders" className="text-xs sm:text-sm px-2 sm:px-3">Órdenes</TabsTrigger>
-              <TabsTrigger value="expenses" className="text-xs sm:text-sm px-2 sm:px-3">Gastos</TabsTrigger>
-              <TabsTrigger value="files" className="text-xs sm:text-sm px-2 sm:px-3">Archivos</TabsTrigger>
-              <TabsTrigger value="history" className="text-xs sm:text-sm px-2 sm:px-3">Historial</TabsTrigger>
-              <TabsTrigger value="sales" className="text-xs sm:text-sm px-2 sm:px-3">Ventas</TabsTrigger>
+              <TabsTrigger value="overview" className="text-xs sm:text-sm px-2 sm:px-3">Vista general</TabsTrigger>
+              <TabsTrigger value="operations" className="text-xs sm:text-sm px-2 sm:px-3">Operación</TabsTrigger>
+              <TabsTrigger value="internal" className="text-xs sm:text-sm px-2 sm:px-3">Interno</TabsTrigger>
             </TabsList>
           </div>
 
-          <TabsContent value="summary" className="mt-4">
-            <VehicleSummaryTab vehicle={vehicle} onRefresh={fetchVehicle} />
+          <TabsContent value="overview" className="mt-4 space-y-4">
+            <VehicleSummaryTab vehicle={vehicle} />
+            <VehicleSalesTab vehicleId={vehicle.id} />
           </TabsContent>
-          <TabsContent value="info" className="mt-4">
-            <VehicleInfoTab vehicle={vehicle} onUpdate={(v) => setVehicle(v)} />
-          </TabsContent>
-          <TabsContent value="listing" className="mt-4">
-            <VehicleListingTab vehicleId={vehicle.id} />
-          </TabsContent>
-          <TabsContent value="compliance" className="mt-4">
-            <VehicleComplianceTab vehicleId={vehicle.id} />
-          </TabsContent>
-          <TabsContent value="financials" className="mt-4">
-            <VehicleFinancialsTab vehicleId={vehicle.id} />
-          </TabsContent>
-          <TabsContent value="legal" className="mt-4">
-            <VehicleLegalTab vehicleId={vehicle.id} />
-          </TabsContent>
-          <TabsContent value="workorders" className="mt-4">
+
+          <TabsContent value="operations" className="mt-4 space-y-4">
             <VehicleWorkOrdersTab vehicleId={vehicle.id} />
-          </TabsContent>
-          <TabsContent value="expenses" className="mt-4">
-            <VehicleExpensesTab vehicleId={vehicle.id} />
-          </TabsContent>
-          <TabsContent value="files" className="mt-4">
             <VehicleFilesTab vehicleId={vehicle.id} />
-          </TabsContent>
-          <TabsContent value="history" className="mt-4">
             <VehicleHistoryTab vehicleId={vehicle.id} />
           </TabsContent>
-          <TabsContent value="sales" className="mt-4">
-            <VehicleSalesTab vehicleId={vehicle.id} />
+
+          <TabsContent value="internal" className="mt-4 space-y-4">
+            <VehicleInfoTab vehicle={vehicle} onUpdate={(v) => setVehicle(v)} />
+            <VehicleListingTab vehicleId={vehicle.id} />
+            <VehicleComplianceTab vehicleId={vehicle.id} />
+            <VehicleFinancialsTab vehicleId={vehicle.id} />
+            <VehicleExpensesTab vehicleId={vehicle.id} />
+            <VehicleLegalTab vehicleId={vehicle.id} />
           </TabsContent>
         </Tabs>
       </div>

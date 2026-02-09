@@ -94,7 +94,7 @@ export default function AdminSales() {
     setConverting(true);
 
     try {
-      const { data: saleId, error } = await (supabase.rpc as any)("convert_reservation_to_sale", {
+      const { data: saleId, error } = await supabase.rpc("convert_reservation_to_sale", {
         p_reservation_id: convertingReservation.id,
         p_final_price_cop: finalPrice,
         p_payment_method_code: convertForm.payment_method_code,

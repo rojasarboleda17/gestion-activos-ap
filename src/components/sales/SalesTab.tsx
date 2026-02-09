@@ -192,8 +192,8 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
         toast.error(`Error al cargar ventas: ${salesRes.error.message}`);
       }
 
-      const customerMap = new Map((customersRes.data || []).map((c: any) => [c.id, c]));
-      const vehicleMap = new Map((vehiclesRes.data || []).map((v: any) => [v.id, v]));
+      const customerMap = new Map((customersRes.data || []).map((c) => [c.id, c]));
+      const vehicleMap = new Map((vehiclesRes.data || []).map((v) => [v.id, v]));
 
       setSales(
         (salesRes.data || []).map((sale) => ({

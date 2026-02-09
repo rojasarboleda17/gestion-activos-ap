@@ -32,7 +32,6 @@ import { VehicleLegalTab } from "@/components/vehicle/VehicleLegalTab";
 import { VehicleWorkOrdersTab } from "@/components/vehicle/VehicleWorkOrdersTab";
 import { VehicleExpensesTab } from "@/components/vehicle/VehicleExpensesTab";
 import { VehicleFilesTab } from "@/components/vehicle/VehicleFilesTab";
-import { VehicleHistoryTab } from "@/components/vehicle/VehicleHistoryTab";
 import { VehicleSalesTab } from "@/components/vehicle/VehicleSalesTab";
 
 import { Trash2, Archive, RefreshCw } from "lucide-react";
@@ -229,28 +228,21 @@ export default function VehicleDetail() {
               <TabsTrigger value="info" className="text-xs sm:text-sm px-2 sm:px-3">Info</TabsTrigger>
               <TabsTrigger value="operations" className="text-xs sm:text-sm px-2 sm:px-3">Operación</TabsTrigger>
               <TabsTrigger value="internal" className="text-xs sm:text-sm px-2 sm:px-3">Interno</TabsTrigger>
-              <TabsTrigger value="sales" className="text-xs sm:text-sm px-2 sm:px-3">Ventas</TabsTrigger>
-              <TabsTrigger value="files" className="text-xs sm:text-sm px-2 sm:px-3">Archivos</TabsTrigger>
-              <TabsTrigger value="history" className="text-xs sm:text-sm px-2 sm:px-3">Historial</TabsTrigger>
             </TabsList>
           </div>
 
-          <TabsContent value="overview" className="mt-4">
+          <TabsContent value="overview" className="mt-4 space-y-4">
             <VehicleSummaryTab vehicle={vehicle} />
+            <VehicleSalesTab vehicleId={vehicle.id} />
           </TabsContent>
 
           <TabsContent value="info" className="mt-4 space-y-4">
             <VehicleInfoTab vehicle={vehicle} onUpdate={(v) => setVehicle(v)} />
-            <VehicleListingTab vehicleId={vehicle.id} />
-            <VehicleComplianceTab vehicleId={vehicle.id} />
+            <VehicleLegalTab vehicleId={vehicle.id} />
           </TabsContent>
 
-          <TabsContent value="operations" className="mt-4">
+          <TabsContent value="operations" className="mt-4 space-y-4">
             <VehicleWorkOrdersTab vehicleId={vehicle.id} />
-          </TabsContent>
-
-          <TabsContent value="internal" className="mt-4 space-y-4">
-            <VehicleFinancialsTab vehicleId={vehicle.id} />
             <VehicleExpensesTab vehicleId={vehicle.id} />
             <VehicleLegalTab vehicleId={vehicle.id} />
           </TabsContent>
@@ -259,12 +251,11 @@ export default function VehicleDetail() {
             <VehicleSalesTab vehicleId={vehicle.id} />
           </TabsContent>
 
-          <TabsContent value="files" className="mt-4">
+          <TabsContent value="internal" className="mt-4 space-y-4">
+            <VehicleListingTab vehicleId={vehicle.id} />
+            <VehicleComplianceTab vehicleId={vehicle.id} />
+            <VehicleFinancialsTab vehicleId={vehicle.id} />
             <VehicleFilesTab vehicleId={vehicle.id} />
-          </TabsContent>
-
-          <TabsContent value="history" className="mt-4">
-            <VehicleHistoryTab vehicleId={vehicle.id} />
           </TabsContent>
         </Tabs>
       </div>

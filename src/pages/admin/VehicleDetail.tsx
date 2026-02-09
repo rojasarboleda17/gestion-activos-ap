@@ -227,26 +227,6 @@ export default function VehicleDetail() {
             <TabsList className="inline-flex h-auto gap-1 min-w-max p-1">
               <TabsTrigger value="overview" className="text-xs sm:text-sm px-2 sm:px-3">Vista general</TabsTrigger>
               <TabsTrigger value="operations" className="text-xs sm:text-sm px-2 sm:px-3">Operación</TabsTrigger>
-              <TabsTrigger value="commercial" className="text-xs sm:text-sm px-2 sm:px-3">Comercial</TabsTrigger>
-              <TabsTrigger value="internal" className="text-xs sm:text-sm px-2 sm:px-3">Interno</TabsTrigger>
-            </TabsList>
-          </div>
-
-          <TabsContent value="overview" className="mt-4 space-y-4">
-            <VehicleSummaryTab vehicle={vehicle} onRefresh={fetchVehicle} />
-            <VehicleInfoTab vehicle={vehicle} onUpdate={(v) => setVehicle(v)} />
-            <VehicleListingTab vehicleId={vehicle.id} />
-            <VehicleComplianceTab vehicleId={vehicle.id} />
-          </TabsContent>
-
-          <TabsContent value="operations" className="mt-4 space-y-4">
-            <VehicleWorkOrdersTab vehicleId={vehicle.id} />
-            <VehicleFilesTab vehicleId={vehicle.id} />
-            <VehicleHistoryTab vehicleId={vehicle.id} />
-          </TabsContent>
-
-          <TabsContent value="commercial" className="mt-4">
-            <VehicleSalesTab vehicleId={vehicle.id} />
           </TabsContent>
 
           <TabsContent value="internal" className="mt-4 space-y-4">

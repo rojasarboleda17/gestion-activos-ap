@@ -57,6 +57,7 @@ interface Operation {
   description: string | null;
   category: string | null;
   scope: string;
+  financial_kind: string;
   is_active: boolean;
 }
 
@@ -135,11 +136,7 @@ export default function AdminOperations() {
   const [opDialogOpen, setOpDialogOpen] = useState(false);
   const [editingOp, setEditingOp] = useState<Operation | null>(null);
   const [opForm, setOpForm] = useState({
-    code: "",
-    name: "",
-    description: "",
-    category: "",
-    scope: "vehicle",
+    code: "", name: "", description: "", category: "", scope: "vehicle", financial_kind: "expense",
   });
   const [opSaving, setOpSaving] = useState(false);
 
@@ -278,7 +275,7 @@ export default function AdminOperations() {
   // Operation CRUD handlers
   const openCreateOpDialog = () => {
     setEditingOp(null);
-    setOpForm({ code: "", name: "", description: "", category: "", scope: "vehicle" });
+    setOpForm({ code: "", name: "", description: "", category: "", scope: "vehicle", financial_kind: "expense" });
     setOpDialogOpen(true);
   };
 
@@ -290,6 +287,7 @@ export default function AdminOperations() {
       description: op.description || "",
       category: op.category || "",
       scope: op.scope,
+      financial_kind: op.financial_kind || "expense",
     });
     setOpDialogOpen(true);
   };
@@ -309,6 +307,7 @@ export default function AdminOperations() {
         description: opForm.description.trim() || null,
         category: opForm.category || null,
         scope: opForm.scope,
+        financial_kind: opForm.financial_kind || "expense",
       };
 
       if (editingOp) {
@@ -319,10 +318,10 @@ export default function AdminOperations() {
         if (error) throw error;
         toast.success("Operación actualizada");
       } else {
-        const { error } = await supabase.from("operation_catalog").insert({
+        const { error } = await supabase.from("operation_catalog").insert([{
           ...payload,
           org_id: profile.org_id,
-        });
+        }]);
         if (error) throw error;
         toast.success("Operación creada");
       }

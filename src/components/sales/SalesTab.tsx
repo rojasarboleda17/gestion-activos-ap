@@ -161,11 +161,7 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
       const queries = [
         supabase
           .from("sales")
-          .select(`
-            *,
-            customer:customers(full_name, phone),
-            vehicle:vehicles!sales_vehicle_id_fkey(license_plate, brand, line, model_year)
-          `)
+          .select("*")
           .eq("org_id", profile.org_id)
           .order("sale_date", { ascending: false }),
         supabase
@@ -198,11 +194,26 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
         toast.error(`Error al cargar ventas: ${salesRes.error.message}`);
       }
 
+      const customerMap = new Map((customersRes.data || []).map((c) => [c.id, c]));
+      const vehicleMap = new Map((vehiclesRes.data || []).map((v) => [v.id, v]));
+
       setSales(
-        (salesRes.data || []).map((s: any) => ({
-          ...s,
-          customer: s.customer,
-          vehicle: s.vehicle,
+        (salesRes.data || []).map((sale) => ({
+          ...sale,
+          customer: customerMap.get(sale.customer_id)
+            ? {
+                full_name: customerMap.get(sale.customer_id)?.full_name || "",
+                phone: customerMap.get(sale.customer_id)?.phone || null,
+              }
+            : undefined,
+          vehicle: vehicleMap.get(sale.vehicle_id)
+            ? {
+                license_plate: vehicleMap.get(sale.vehicle_id)?.license_plate || null,
+                brand: vehicleMap.get(sale.vehicle_id)?.brand || "",
+                line: vehicleMap.get(sale.vehicle_id)?.line || null,
+                model_year: vehicleMap.get(sale.vehicle_id)?.model_year || null,
+              }
+            : undefined,
         }))
       );
       setPaymentMethods(pmRes.data || []);

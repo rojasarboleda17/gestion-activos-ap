@@ -158,7 +158,7 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
 
     try {
       console.log("[Sales] Fetching data...");
-      const queries = [
+      const [salesRes, pmRes, stagesRes, vehiclesRes, customersRes] = await Promise.all([
         supabase
           .from("sales")
           .select("*")
@@ -185,9 +185,7 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
           .select("id, full_name, phone")
           .eq("org_id", profile.org_id)
           .order("full_name"),
-      ];
-
-      const [salesRes, pmRes, stagesRes, vehiclesRes, customersRes] = await Promise.all(queries);
+      ]);
 
       if (salesRes.error) {
         console.error("[Sales] Error fetching sales:", salesRes.error);
@@ -216,10 +214,10 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
             : undefined,
         }))
       );
-      setPaymentMethods(pmRes.data || []);
-      setVehicleStages(stagesRes.data || []);
-      setVehicles(vehiclesRes.data || []);
-      setCustomers(customersRes.data || []);
+      setPaymentMethods((pmRes.data || []) as PaymentMethod[]);
+      setVehicleStages((stagesRes.data || []) as VehicleStage[]);
+      setVehicles((vehiclesRes.data || []) as Vehicle[]);
+      setCustomers((customersRes.data || []) as Customer[]);
       console.log("[Sales] Data loaded successfully");
     } catch (err) {
       console.error("[Sales] Unexpected error:", err);

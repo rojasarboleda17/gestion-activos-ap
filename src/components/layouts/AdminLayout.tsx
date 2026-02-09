@@ -2,10 +2,8 @@ import { ReactNode, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard,
   Car,
   Wrench,
   ShoppingCart,
@@ -13,7 +11,6 @@ import {
   Users,
   Building2,
   ClipboardList,
-  Wallet,
   LogOut,
   Menu,
   X,
@@ -37,11 +34,9 @@ interface AdminLayoutProps {
 }
 
 const navigation = [
-  { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   { name: "Inventario", href: "/admin/vehicles", icon: Car },
   { name: "Operaciones", href: "/admin/operations", icon: Wrench },
   { name: "Ventas", href: "/admin/sales", icon: ShoppingCart },
-  { name: "Finanzas", href: "/admin/finances", icon: Wallet },
   { name: "Archivos", href: "/admin/files", icon: FileText },
   { name: "Usuarios", href: "/admin/users", icon: Users },
   { name: "Sedes", href: "/admin/branches", icon: Building2 },
@@ -83,7 +78,7 @@ export function AdminLayout({
       >
         {/* Logo */}
         <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
-          <Link to="/admin/dashboard" className="flex items-center gap-2">
+          <Link to="/admin/vehicles" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary">
               <Car className="h-5 w-5 text-sidebar-primary-foreground" />
             </div>

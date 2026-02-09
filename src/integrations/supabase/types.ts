@@ -103,6 +103,87 @@ export type Database = {
           },
         ]
       }
+      business_expenses: {
+        Row: {
+          amount_cop: number
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          incurred_at: string | null
+          operation_id: string | null
+          org_id: string
+          updated_at: string
+          vendor_profile_id: string | null
+          work_order_item_id: string | null
+        }
+        Insert: {
+          amount_cop: number
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          incurred_at?: string | null
+          operation_id?: string | null
+          org_id?: string
+          updated_at?: string
+          vendor_profile_id?: string | null
+          work_order_item_id?: string | null
+        }
+        Update: {
+          amount_cop?: number
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          incurred_at?: string | null
+          operation_id?: string | null
+          org_id?: string
+          updated_at?: string
+          vendor_profile_id?: string | null
+          work_order_item_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_expenses_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_expenses_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "operation_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_expenses_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_expenses_vendor_profile_id_fkey"
+            columns: ["vendor_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_expenses_work_order_item_id_fkey"
+            columns: ["work_order_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_order_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           created_at: string
@@ -228,10 +309,11 @@ export type Database = {
       }
       operation_catalog: {
         Row: {
-          category: string | null
+          category: string
           code: string
           created_at: string
           description: string | null
+          financial_kind: string
           id: string
           is_active: boolean
           name: string
@@ -240,10 +322,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          category?: string | null
+          category?: string
           code: string
           created_at?: string
           description?: string | null
+          financial_kind: string
           id?: string
           is_active?: boolean
           name: string
@@ -252,10 +335,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          category?: string | null
+          category?: string
           code?: string
           created_at?: string
           description?: string | null
+          financial_kind?: string
           id?: string
           is_active?: boolean
           name?: string
@@ -770,12 +854,15 @@ export type Database = {
       vehicle_expenses: {
         Row: {
           amount_cop: number
+          category: string
           created_at: string
           created_by: string | null
           description: string | null
           id: string
           incurred_at: string | null
+          operation_id: string | null
           org_id: string
+          phase_code: string
           updated_at: string
           vehicle_id: string
           vendor_profile_id: string | null
@@ -783,12 +870,15 @@ export type Database = {
         }
         Insert: {
           amount_cop: number
+          category: string
           created_at?: string
           created_by?: string | null
           description?: string | null
           id?: string
           incurred_at?: string | null
+          operation_id?: string | null
           org_id?: string
+          phase_code: string
           updated_at?: string
           vehicle_id: string
           vendor_profile_id?: string | null
@@ -796,12 +886,15 @@ export type Database = {
         }
         Update: {
           amount_cop?: number
+          category?: string
           created_at?: string
           created_by?: string | null
           description?: string | null
           id?: string
           incurred_at?: string | null
+          operation_id?: string | null
           org_id?: string
+          phase_code?: string
           updated_at?: string
           vehicle_id?: string
           vendor_profile_id?: string | null
@@ -813,6 +906,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_expenses_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "operation_catalog"
             referencedColumns: ["id"]
           },
           {
@@ -1190,6 +1290,9 @@ export type Database = {
           org_id: string
           serial_number: string | null
           service_type: string | null
+          sold_at: string | null
+          sold_by: string | null
+          sold_sale_id: string | null
           stage_code: string
           transmission: string | null
           updated_at: string
@@ -1218,6 +1321,9 @@ export type Database = {
           org_id: string
           serial_number?: string | null
           service_type?: string | null
+          sold_at?: string | null
+          sold_by?: string | null
+          sold_sale_id?: string | null
           stage_code: string
           transmission?: string | null
           updated_at?: string
@@ -1246,6 +1352,9 @@ export type Database = {
           org_id?: string
           serial_number?: string | null
           service_type?: string | null
+          sold_at?: string | null
+          sold_by?: string | null
+          sold_sale_id?: string | null
           stage_code?: string
           transmission?: string | null
           updated_at?: string
@@ -1265,6 +1374,20 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicles_sold_by_fkey"
+            columns: ["sold_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicles_sold_sale_id_fkey"
+            columns: ["sold_sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
             referencedColumns: ["id"]
           },
           {
@@ -1350,6 +1473,7 @@ export type Database = {
       work_orders: {
         Row: {
           closed_at: string | null
+          closed_by: string | null
           id: string
           notes: string | null
           opened_at: string
@@ -1362,6 +1486,7 @@ export type Database = {
         }
         Insert: {
           closed_at?: string | null
+          closed_by?: string | null
           id?: string
           notes?: string | null
           opened_at?: string
@@ -1374,6 +1499,7 @@ export type Database = {
         }
         Update: {
           closed_at?: string | null
+          closed_by?: string | null
           id?: string
           notes?: string | null
           opened_at?: string
@@ -1385,6 +1511,13 @@ export type Database = {
           vehicle_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "work_orders_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "work_orders_opened_by_fkey"
             columns: ["opened_by"]
@@ -1419,6 +1552,15 @@ export type Database = {
       app_is_admin: { Args: never; Returns: boolean }
       app_is_role: { Args: { role_name: string }; Returns: boolean }
       app_path_org_id: { Args: { object_name: string }; Returns: string }
+      backfill_archive_sold: { Args: never; Returns: number }
+      mark_vehicle_sold: {
+        Args: { p_sale_id: string; p_vehicle_id: string }
+        Returns: undefined
+      }
+      transition_vehicle_stage: {
+        Args: { p_target_stage: string; p_vehicle_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

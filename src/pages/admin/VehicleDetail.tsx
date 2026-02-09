@@ -226,13 +226,45 @@ export default function VehicleDetail() {
           <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 scrollbar-thin">
             <TabsList className="inline-flex h-auto gap-1 min-w-max p-1">
               <TabsTrigger value="overview" className="text-xs sm:text-sm px-2 sm:px-3">Vista general</TabsTrigger>
+              <TabsTrigger value="info" className="text-xs sm:text-sm px-2 sm:px-3">Info</TabsTrigger>
               <TabsTrigger value="operations" className="text-xs sm:text-sm px-2 sm:px-3">Operación</TabsTrigger>
+              <TabsTrigger value="internal" className="text-xs sm:text-sm px-2 sm:px-3">Interno</TabsTrigger>
+              <TabsTrigger value="sales" className="text-xs sm:text-sm px-2 sm:px-3">Ventas</TabsTrigger>
+              <TabsTrigger value="files" className="text-xs sm:text-sm px-2 sm:px-3">Archivos</TabsTrigger>
+              <TabsTrigger value="history" className="text-xs sm:text-sm px-2 sm:px-3">Historial</TabsTrigger>
+            </TabsList>
+          </div>
+
+          <TabsContent value="overview" className="mt-4">
+            <VehicleSummaryTab vehicle={vehicle} />
+          </TabsContent>
+
+          <TabsContent value="info" className="mt-4 space-y-4">
+            <VehicleInfoTab vehicle={vehicle} onUpdate={(v) => setVehicle(v)} />
+            <VehicleListingTab vehicleId={vehicle.id} />
+            <VehicleComplianceTab vehicleId={vehicle.id} />
+          </TabsContent>
+
+          <TabsContent value="operations" className="mt-4">
+            <VehicleWorkOrdersTab vehicleId={vehicle.id} />
           </TabsContent>
 
           <TabsContent value="internal" className="mt-4 space-y-4">
             <VehicleFinancialsTab vehicleId={vehicle.id} />
             <VehicleExpensesTab vehicleId={vehicle.id} />
             <VehicleLegalTab vehicleId={vehicle.id} />
+          </TabsContent>
+
+          <TabsContent value="sales" className="mt-4">
+            <VehicleSalesTab vehicleId={vehicle.id} />
+          </TabsContent>
+
+          <TabsContent value="files" className="mt-4">
+            <VehicleFilesTab vehicleId={vehicle.id} />
+          </TabsContent>
+
+          <TabsContent value="history" className="mt-4">
+            <VehicleHistoryTab vehicleId={vehicle.id} />
           </TabsContent>
         </Tabs>
       </div>

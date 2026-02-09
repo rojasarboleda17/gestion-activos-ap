@@ -1553,16 +1553,6 @@ export type Database = {
       app_is_role: { Args: { role_name: string }; Returns: boolean }
       app_path_org_id: { Args: { object_name: string }; Returns: string }
       backfill_archive_sold: { Args: never; Returns: number }
-      convert_reservation_to_sale: {
-        Args: {
-          p_final_price_cop: number
-          p_notes?: string | null
-          p_payment_method_code: string
-          p_register_deposit_as_payment?: boolean
-          p_reservation_id: string
-        }
-        Returns: string
-      }
       mark_vehicle_sold: {
         Args: { p_sale_id: string; p_vehicle_id: string }
         Returns: undefined

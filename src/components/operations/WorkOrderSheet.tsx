@@ -182,7 +182,7 @@ export function WorkOrderSheet({
 
         // Fetch expense sums per item
         const itemIds = (itemsData || []).map((i) => i.id);
-        let expenseMap: Record<string, number> = {};
+        const expenseMap: Record<string, number> = {};
 
         if (itemIds.length > 0 && scope === "vehicle" && woRes.data.vehicle_id) {
           const { data: expData } = await supabase

@@ -5,9 +5,9 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 const strictTypingRules = {
-  "@typescript-eslint/no-explicit-any": "warn",
-  "@typescript-eslint/no-empty-object-type": "warn",
-  "@typescript-eslint/no-require-imports": "warn",
+  "@typescript-eslint/no-explicit-any": "error",
+  "@typescript-eslint/no-empty-object-type": "error",
+  "@typescript-eslint/no-require-imports": "error",
 };
 
 const criticalModules = [
@@ -41,13 +41,13 @@ export default tseslint.config(
     },
   },
   {
-    // Fase 1 (actual): módulos críticos en "warn" para limpiar deuda sin romper CI.
+    // Puerta de entrada a "P1 cerrado": estos módulos críticos ya escalan a "error".
+    // El resto del código mantiene "off" temporalmente para completar migración gradual.
     files: criticalModules,
     rules: strictTypingRules,
   },
   {
-    // Fase 2 (siguiente PR): escalar a "error" en módulos críticos.
-    // Fase 3 (criterio de salida): escalar a "error" a nivel global
+    // Siguiente hito tras "P1 cerrado": escalar a "error" a nivel global
     // cuando no haya regresiones de lint/build.
     files: ["**/*.{ts,tsx}"],
     rules: {},

@@ -1,29 +1,9 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { User, Session } from "@supabase/supabase-js";
+import { useEffect, useState, ReactNode } from "react";
+
+import { Session, User } from "@supabase/supabase-js";
+
 import { supabase } from "@/integrations/supabase/client";
-
-export interface Profile {
-  id: string;
-  org_id: string;
-  branch_id: string | null;
-  full_name: string | null;
-  role: string;
-  phone: string | null;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-interface AuthContextType {
-  user: User | null;
-  session: Session | null;
-  profile: Profile | null;
-  loading: boolean;
-  signOut: () => Promise<void>;
-  refreshProfile: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+import { AuthContext, Profile } from "@/contexts/auth-context";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -60,37 +40,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
 
-        if (session?.user) {
-          setLoading(true);
-          // Defer profile fetch with setTimeout to prevent deadlock
-          setTimeout(() => {
-            fetchProfile(session.user.id).finally(() => {
-              setLoading(false);
-            });
-          }, 0);
-        } else {
-          setProfile(null);
-          setLoading(false);
-        }
-
-        if (event === "SIGNED_OUT") {
-          setProfile(null);
-          setLoading(false);
-        }
+      if (session?.user) {
+        setLoading(true);
+        setTimeout(() => {
+          fetchProfile(session.user.id).finally(() => {
+            setLoading(false);
+          });
+        }, 0);
+      } else {
+        setProfile(null);
+        setLoading(false);
       }
-    );
 
-    // THEN check for existing session
+      if (event === "SIGNED_OUT") {
+        setProfile(null);
+        setLoading(false);
+      }
+    });
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
         fetchProfile(session.user.id).finally(() => {
           setLoading(false);
@@ -117,12 +94,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
 }

@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/useAuth";
 import { useCallback } from "react";
 
 type AuditAction =

@@ -80,3 +80,20 @@ npm run dev
 - [ ] `npm run build`
 - [ ] Ejecutado `supabase/checks/post_deploy_audit.sql` en el entorno desplegado.
 - [ ] Resultado del checklist SQL: **0 filas con `FAIL`** (si hay `FAIL`, el release no se cierra).
+
+## Registro sugerido para auditoría P1 (lint/build)
+
+Documentar en el PR de release un bloque breve con:
+
+- **Antes:** cantidad de errores y warnings (global y por módulo crítico).
+- **Después:** cantidad de errores y warnings tras el ajuste.
+- **Módulos impactados:** listado explícito de áreas tocadas (o `ninguno` si fue validación sin cambios funcionales).
+
+Formato recomendado:
+
+```md
+### Resultado final P1
+- Antes: `errores=<n>`, `warnings=<n>` (módulos críticos: `<detalle>`).
+- Después: `errores=<n>`, `warnings=<n>` (módulos críticos: `<detalle>`).
+- Módulos impactados: `<lista>`.
+```

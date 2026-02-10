@@ -63,6 +63,7 @@ export default function VehicleDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [changingStage, setChangingStage] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
 
   const fetchVehicle = async () => {
     if (!id) return;
@@ -221,7 +222,7 @@ export default function VehicleDetail() {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="overview" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 scrollbar-thin">
             <TabsList className="inline-flex h-auto gap-1 min-w-max p-1">
               <TabsTrigger value="overview" className="text-xs sm:text-sm px-2 sm:px-3">General</TabsTrigger>
@@ -238,7 +239,7 @@ export default function VehicleDetail() {
 
           <TabsContent value="info" className="mt-4 space-y-4">
             <VehicleInfoTab vehicle={vehicle} onUpdate={(v) => setVehicle(v)} />
-            <VehicleLegalTab vehicleId={vehicle.id} />
+            {activeTab === "info" ? <VehicleLegalTab vehicleId={vehicle.id} /> : null}
           </TabsContent>
 
           <TabsContent value="operations" className="mt-4 space-y-4">

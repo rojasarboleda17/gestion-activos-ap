@@ -2,16 +2,17 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { Tables } from "@/integrations/supabase/types";
 import { formatCOP, formatDate, formatKm } from "@/lib/format";
 import { AlertTriangle, FileText, Tag } from "lucide-react";
 
 interface Props {
-  vehicle: any;
+  vehicle: Tables<"vehicles">;
 }
 
 export function VehicleSummaryTab({ vehicle }: Props) {
-  const [listing, setListing] = useState<any>(null);
-  const [compliance, setCompliance] = useState<any>(null);
+  const [listing, setListing] = useState<Tables<"vehicle_listing"> | null>(null);
+  const [compliance, setCompliance] = useState<Tables<"vehicle_compliance"> | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {

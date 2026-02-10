@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { getErrorMessage } from "@/lib/errors";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -128,7 +129,7 @@ export function VehicleFinancialsTab({ vehicleId }: Props) {
           final_price_cop: saleRes.data.final_price_cop,
           sale_date: saleRes.data.sale_date,
           status: saleRes.data.status,
-          customer_name: (saleRes.data.customers as any)?.full_name || "Cliente",
+          customer_name: ((saleRes.data.customers as { full_name: string | null } | null)?.full_name) || "Cliente",
         });
         
         // Fetch payments for this sale
@@ -165,9 +166,9 @@ export function VehicleFinancialsTab({ vehicleId }: Props) {
 
       if (error) throw error;
       toast.success("Información financiera actualizada");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error(err.message || "Error al guardar");
+      toast.error(getErrorMessage(err, "Error al guardar"));
     } finally {
       setSaving(false);
     }

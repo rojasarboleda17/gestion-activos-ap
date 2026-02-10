@@ -27,7 +27,7 @@ interface VehicleFiltersProps {
   filters: Filters;
   stages: VehicleStage[];
   branches: Branch[];
-  onFilterChange: (key: keyof Filters, value: any) => void;
+  onFilterChange: <K extends keyof Filters>(key: K, value: Filters[K]) => void;
   onClear: () => void;
 }
 

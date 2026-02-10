@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { getErrorMessage } from "@/lib/errors";
 import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "@/components/layouts/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -192,7 +193,7 @@ export default function AdminFiles() {
       const alerts: ComplianceAlert[] = [];
       
       for (const vc of (vcRes.data || [])) {
-        const vehicle = vc.vehicles as any;
+        const vehicle = vc.vehicles as { is_archived: boolean; license_plate: string | null; brand: string; line: string | null } | null;
         if (!vehicle || vehicle.is_archived) continue;
 
         if (vc.soat_expires_at) {
@@ -352,9 +353,9 @@ export default function AdminFiles() {
       } else {
         setPreviewUrl(data.signedUrl);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error in openPreview:", err);
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: "Error", description: getErrorMessage(err), variant: "destructive" });
       setPreviewUrl(null);
     } finally {
       setPreviewLoading(false);
@@ -374,9 +375,9 @@ export default function AdminFiles() {
       }
 
       window.open(data.signedUrl, "_blank");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error in downloadFile:", err);
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: "Error", description: getErrorMessage(err), variant: "destructive" });
     }
   };
 

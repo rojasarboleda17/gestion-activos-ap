@@ -1,20 +1,24 @@
 import { useState, useEffect } from "react";
+import { getErrorMessage } from "@/lib/errors";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { Tables } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 
+type VehicleForm = Tables<"vehicles"> & { [key: string]: string | number | boolean | null | undefined };
+
 interface Props {
-  vehicle: any;
-  onUpdate: (vehicle: any) => void;
+  vehicle: Tables<"vehicles">;
+  onUpdate: (vehicle: Tables<"vehicles">) => void;
 }
 
 export function VehicleInfoTab({ vehicle, onUpdate }: Props) {
-  const [form, setForm] = useState({ ...vehicle });
-  const [branches, setBranches] = useState<any[]>([]);
+  const [form, setForm] = useState<VehicleForm>({ ...vehicle });
+  const [branches, setBranches] = useState<Pick<Tables<"branches">, "id" | "name">[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -27,8 +31,8 @@ export function VehicleInfoTab({ vehicle, onUpdate }: Props) {
     setForm({ ...vehicle });
   }, [vehicle]);
 
-  const handleChange = (field: string, value: any) => {
-    setForm((f: any) => ({ ...f, [field]: value }));
+  const handleChange = (field: string, value: VehicleForm[keyof VehicleForm]) => {
+    setForm((f) => ({ ...f, [field]: value }));
   };
 
   const handleSave = async () => {
@@ -61,9 +65,9 @@ export function VehicleInfoTab({ vehicle, onUpdate }: Props) {
       if (error) throw error;
       onUpdate({ ...vehicle, ...form });
       toast.success("Información actualizada");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error(err.message || "Error al guardar");
+      toast.error(getErrorMessage(err, "Error al guardar"));
     } finally {
       setSaving(false);
     }

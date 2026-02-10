@@ -91,15 +91,15 @@ export default function VehicleNew() {
         setBranches(branchesRes.data);
         // Default to first active branch
         const activeBranches = branchesRes.data.filter(b => b.is_active);
-        if (activeBranches.length && !form.branch_id) {
-          setForm((f) => ({ ...f, branch_id: activeBranches[0].id }));
+        if (activeBranches.length) {
+          setForm((f) => (f.branch_id ? f : { ...f, branch_id: activeBranches[0].id }));
         }
       }
     };
     fetchData();
   }, []);
 
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field: string, value: string | boolean) => {
     setForm((f) => ({ ...f, [field]: value }));
   };
 
@@ -183,7 +183,7 @@ export default function VehicleNew() {
 
       toast.success("Vehículo creado exitosamente");
       navigate(`/admin/vehicles/${vehicleId}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error creating vehicle:", error);
       toast.error(error.message || "Error al crear vehículo");
     } finally {

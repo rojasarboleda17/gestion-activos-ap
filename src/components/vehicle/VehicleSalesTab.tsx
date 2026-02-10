@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { getErrorMessage } from "@/lib/errors";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -264,9 +265,9 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
       setCreateResOpen(false);
       fetchData();
       onRefresh?.();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[VehicleSalesTab] Unexpected error:", err);
-      toast.error(`Error: ${err.message}`);
+      toast.error(`Error: ${getErrorMessage(err)}`);
     } finally {
       setSavingRes(false);
     }
@@ -301,8 +302,8 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
       setQuickCustomerOpen(false);
       setQuickCustomerForm({ full_name: "", phone: "" });
       toast.success("Cliente creado");
-    } catch (err: any) {
-      toast.error(`Error: ${err.message}`);
+    } catch (err: unknown) {
+      toast.error(`Error: ${getErrorMessage(err)}`);
     }
   };
 
@@ -365,9 +366,9 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
       setCancelingReservation(null);
       fetchData();
       onRefresh?.();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[VehicleSalesTab] Unexpected error:", err);
-      toast.error(`Error: ${err.message}`);
+      toast.error(`Error: ${getErrorMessage(err)}`);
     }
   };
 
@@ -459,9 +460,9 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
       setConvertingReservation(null);
       fetchData();
       onRefresh?.();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[VehicleSalesTab] Unexpected error:", err);
-      toast.error(`Error: ${err.message}`);
+      toast.error(`Error: ${getErrorMessage(err)}`);
     } finally {
       setConverting(false);
     }
@@ -533,9 +534,9 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
       setCreateSaleOpen(false);
       fetchData();
       onRefresh?.();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[VehicleSalesTab] Unexpected error:", err);
-      toast.error(`Error: ${err.message}`);
+      toast.error(`Error: ${getErrorMessage(err)}`);
     } finally {
       setSavingSale(false);
     }
@@ -609,9 +610,9 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
       setVoidingSale(null);
       fetchData();
       onRefresh?.();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[VehicleSalesTab] Unexpected error:", err);
-      toast.error(`Error: ${err.message}`);
+      toast.error(`Error: ${getErrorMessage(err)}`);
     } finally {
       setVoiding(false);
     }

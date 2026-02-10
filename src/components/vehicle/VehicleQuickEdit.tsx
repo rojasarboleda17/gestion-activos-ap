@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { getErrorMessage } from "@/lib/errors";
 import {
   Dialog,
   DialogContent,
@@ -98,7 +99,7 @@ export function VehicleQuickEdit({
     }
   }, [vehicle]);
 
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field: string, value: string | boolean) => {
     setForm((f) => ({ ...f, [field]: value }));
   };
 
@@ -142,9 +143,9 @@ export function VehicleQuickEdit({
       toast.success("Vehículo actualizado");
       onSave();
       onOpenChange(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error(err.message || "Error al guardar");
+      toast.error(getErrorMessage(err, "Error al guardar"));
     } finally {
       setSaving(false);
     }

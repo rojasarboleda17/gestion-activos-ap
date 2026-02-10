@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
+import { getErrorMessage } from "@/lib/errors";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
+import { Tables } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -15,7 +17,7 @@ interface Props {
 
 export function VehicleListingTab({ vehicleId }: Props) {
   const { profile } = useAuth();
-  const [listing, setListing] = useState<any>(null);
+  const [listing, setListing] = useState<Tables<"vehicle_listing"> | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -61,9 +63,9 @@ export function VehicleListingTab({ vehicleId }: Props) {
 
       if (error) throw error;
       toast.success("Información comercial actualizada");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error(err.message || "Error al guardar");
+      toast.error(getErrorMessage(err, "Error al guardar"));
     } finally {
       setSaving(false);
     }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getErrorMessage } from "@/lib/errors";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -95,8 +96,8 @@ export function VehicleKanban({
       
       toast.success("Estado actualizado");
       onRefresh();
-    } catch (err: any) {
-      toast.error(err.message || "Error al cambiar estado");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Error al cambiar estado"));
     } finally {
       setUpdating(false);
       setDraggingId(null);

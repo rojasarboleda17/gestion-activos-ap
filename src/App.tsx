@@ -15,14 +15,12 @@ import Unauthorized from "./pages/Unauthorized";
 import NotFound from "./pages/NotFound";
 
 // Admin Pages
-import AdminDashboard from "./pages/admin/Dashboard";
 import AdminVehicles from "./pages/admin/Vehicles";
 import AdminVehicleNew from "./pages/admin/VehicleNew";
 import AdminVehicleDetail from "./pages/admin/VehicleDetail";
 import AdminOperations from "./pages/admin/Operations";
 import AdminSales from "./pages/admin/Sales";
 import AdminFiles from "./pages/admin/Files";
-import AdminFinances from "./pages/admin/Finances";
 import AdminUsers from "./pages/admin/Users";
 import AdminBranches from "./pages/admin/Branches";
 import AdminAudit from "./pages/admin/Audit";
@@ -38,7 +36,7 @@ function RootRedirect() {
   
   if (!profile || !profile.is_active) return <Navigate to="/inactive" replace />;
   
-  if (profile.role === "admin") return <Navigate to="/admin/dashboard" replace />;
+  if (profile.role === "admin") return <Navigate to="/admin/vehicles" replace />;
   
   // Other roles would go to their respective dashboards
   return <Navigate to="/unauthorized" replace />;
@@ -57,14 +55,14 @@ const AppRoutes = () => (
     {/* Debug (only in development) */}
     
     {/* Admin routes */}
-    <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+    <Route path="/admin/dashboard" element={<Navigate to="/admin/vehicles" replace />} />
     <Route path="/admin/vehicles" element={<ProtectedRoute requiredRole="admin"><AdminVehicles /></ProtectedRoute>} />
     <Route path="/admin/vehicles/new" element={<ProtectedRoute requiredRole="admin"><AdminVehicleNew /></ProtectedRoute>} />
     <Route path="/admin/vehicles/:id" element={<ProtectedRoute requiredRole="admin"><AdminVehicleDetail /></ProtectedRoute>} />
     <Route path="/admin/operations" element={<ProtectedRoute requiredRole="admin"><AdminOperations /></ProtectedRoute>} />
     <Route path="/admin/sales" element={<ProtectedRoute requiredRole="admin"><AdminSales /></ProtectedRoute>} />
     <Route path="/admin/files" element={<ProtectedRoute requiredRole="admin"><AdminFiles /></ProtectedRoute>} />
-    <Route path="/admin/finances" element={<ProtectedRoute requiredRole="admin"><AdminFinances /></ProtectedRoute>} />
+    <Route path="/admin/finances" element={<Navigate to="/admin/vehicles" replace />} />
     <Route path="/admin/users" element={<ProtectedRoute requiredRole="admin"><AdminUsers /></ProtectedRoute>} />
     <Route path="/admin/branches" element={<ProtectedRoute requiredRole="admin"><AdminBranches /></ProtectedRoute>} />
     <Route path="/admin/audit" element={<ProtectedRoute requiredRole="admin"><AdminAudit /></ProtectedRoute>} />

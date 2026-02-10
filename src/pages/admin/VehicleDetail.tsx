@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { getErrorMessage } from "@/lib/errors";
 import { useParams, useNavigate } from "react-router-dom";
 import { AdminLayout } from "@/components/layouts/AdminLayout";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -7,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { Tables } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import {
@@ -36,17 +38,7 @@ import { VehicleSalesTab } from "@/components/vehicle/VehicleSalesTab";
 
 import { Trash2, Archive, RefreshCw } from "lucide-react";
 
-interface Vehicle {
-  id: string;
-  license_plate: string | null;
-  brand: string;
-  line: string | null;
-  model_year: number | null;
-  vehicle_class: string | null;
-  stage_code: string;
-  is_archived: boolean;
-  [key: string]: any;
-}
+type Vehicle = Tables<"vehicles">;
 
 interface VehicleStage {
   code: string;
@@ -65,7 +57,7 @@ export default function VehicleDetail() {
   const [changingStage, setChangingStage] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
 
-  const fetchVehicle = async () => {
+  const fetchVehicle = useCallback(async () => {
     if (!id) return;
     setLoading(true);
     setError(null);
@@ -79,17 +71,17 @@ export default function VehicleDetail() {
       if (vehicleRes.error) throw vehicleRes.error;
       setVehicle(vehicleRes.data);
       setStages(stagesRes.data || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching vehicle:", err);
-      setError(err.message || "Error al cargar vehículo");
+      setError(getErrorMessage(err, "Error al cargar vehículo"));
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     fetchVehicle();
-  }, [id]);
+  }, [fetchVehicle]);
 
   const handleStageChange = async (newStage: string) => {
     if (!vehicle) return;
@@ -102,9 +94,9 @@ export default function VehicleDetail() {
       if (error) throw error;      
       setVehicle({ ...vehicle, stage_code: newStage });
       toast.success("Estado actualizado");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error(err.message || "Error al cambiar estado");
+      toast.error(getErrorMessage(err, "Error al cambiar estado"));
     } finally {
       setChangingStage(false);
     }
@@ -120,8 +112,8 @@ export default function VehicleDetail() {
       if (error) throw error;
       setVehicle({ ...vehicle, is_archived: !vehicle.is_archived });
       toast.success(vehicle.is_archived ? "Vehículo desarchivado" : "Vehículo archivado");
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err));
     }
   };
 
@@ -132,8 +124,8 @@ export default function VehicleDetail() {
       if (error) throw error;
       toast.success("Vehículo eliminado");
       navigate("/admin/vehicles");
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err));
     }
   };
 

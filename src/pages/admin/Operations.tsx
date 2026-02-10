@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { getErrorMessage } from "@/lib/errors";
 import { AdminLayout } from "@/components/layouts/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -196,9 +197,9 @@ export default function AdminOperations() {
         if (item.status === "blocked") itemCounts[item.work_order_id].blocked++;
       });
 
-      const enrichedWOs: WorkOrder[] = (woRes.data || []).map((wo: any) => ({
+      const enrichedWOs: WorkOrder[] = (woRes.data || []).map((wo: WorkOrder & { vehicles: Vehicle | null }) => ({
         ...wo,
-        vehicle: wo.vehicles as Vehicle | null,
+        vehicle: wo.vehicles,
         stage_name: wo.vehicles
           ? stageMap.get(wo.vehicles.stage_code) || wo.vehicles.stage_code
           : "—",
@@ -328,8 +329,8 @@ export default function AdminOperations() {
 
       setOpDialogOpen(false);
       fetchData();
-    } catch (err: any) {
-      toast.error(err.message || "Error al guardar");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Error al guardar"));
     } finally {
       setOpSaving(false);
     }
@@ -344,8 +345,8 @@ export default function AdminOperations() {
       if (error) throw error;
       toast.success(op.is_active ? "Operación desactivada" : "Operación activada");
       fetchData();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err));
     }
   };
 
@@ -409,8 +410,8 @@ export default function AdminOperations() {
         items_blocked: 0,
       });
       setSheetOpen(true);
-    } catch (err: any) {
-      toast.error(err.message || "Error al crear orden");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Error al crear orden"));
     } finally {
       setCreatingVwo(false);
     }
@@ -453,8 +454,8 @@ export default function AdminOperations() {
         items_blocked: 0,
       });
       setSheetOpen(true);
-    } catch (err: any) {
-      toast.error(err.message || "Error al crear orden");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Error al crear orden"));
     } finally {
       setCreatingBwo(false);
     }

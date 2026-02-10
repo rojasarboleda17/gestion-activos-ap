@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { getErrorMessage } from "@/lib/errors";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +50,7 @@ import {
   Trash2,
   DollarSign,
   Car,
+  type LucideIcon,
 } from "lucide-react";
 import { useAudit } from "@/hooks/use-audit";
 
@@ -106,7 +108,7 @@ interface Props {
 
 const STATUS_CONFIG: Record<
   string,
-  { label: string; icon: any; color: string }
+  { label: string; icon: LucideIcon; color: string }
 > = {
   pending: { label: "Pendiente", icon: Clock, color: "text-muted-foreground" },
   in_progress: { label: "En Progreso", icon: AlertCircle, color: "text-primary" },
@@ -246,8 +248,8 @@ export function WorkOrderSheet({
       setCatalogDialogOpen(false);
       fetchData();
       onRefresh();
-    } catch (err: any) {
-      toast.error(err.message || "Error al agregar ítems");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Error al agregar ítems"));
     }
   };
 
@@ -273,8 +275,8 @@ export function WorkOrderSheet({
       setManualDialogOpen(false);
       fetchData();
       onRefresh();
-    } catch (err: any) {
-      toast.error(err.message || "Error al agregar ítem");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Error al agregar ítem"));
     }
   };
 
@@ -284,7 +286,7 @@ export function WorkOrderSheet({
     updates: Partial<WorkOrderItem>
   ) => {
     try {
-      const payload: any = { ...updates };
+      const payload: Record<string, unknown> = { ...updates };
       delete payload.accumulated_cost;
 
       if (updates.status === "done") {
@@ -319,8 +321,8 @@ export function WorkOrderSheet({
       );
       toast.success("Actualizado");
       onRefresh();
-    } catch (err: any) {
-      toast.error(err.message || "Error al actualizar");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Error al actualizar"));
     }
   };
 
@@ -338,8 +340,8 @@ export function WorkOrderSheet({
       setItems((prev) => prev.filter((i) => i.id !== deleteItemId));
       setDeleteItemId(null);
       onRefresh();
-    } catch (err: any) {
-      toast.error(err.message || "Error al eliminar");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Error al eliminar"));
     }
   };
 
@@ -372,8 +374,8 @@ export function WorkOrderSheet({
       setCloseDialogOpen(false);
       onOpenChange(false);
       onRefresh();
-    } catch (err: any) {
-      toast.error(err.message || "Error al cerrar orden");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Error al cerrar orden"));
     } finally {
       setClosing(false);
     }
@@ -424,8 +426,8 @@ export function WorkOrderSheet({
       toast.success("Costo registrado");
       setCostDialogOpen(false);
       fetchData();
-    } catch (err: any) {
-      toast.error(err.message || "Error al registrar costo");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Error al registrar costo"));
     } finally {
       setSavingCost(false);
     }

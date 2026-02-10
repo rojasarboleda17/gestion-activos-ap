@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { Tables } from "@/integrations/supabase/types";
 import { LoadingState } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatDate } from "@/lib/format";
@@ -11,7 +12,9 @@ interface Props { vehicleId: string; }
 
 export function VehicleHistoryTab({ vehicleId }: Props) {
   const [loading, setLoading] = useState(true);
-  const [history, setHistory] = useState<any[]>([]);
+  type VehicleStageHistoryItem = Tables<"vehicle_stage_history"> & { profiles: { full_name: string | null } | null };
+
+  const [history, setHistory] = useState<VehicleStageHistoryItem[]>([]);
 
   useEffect(() => {
     const fetch = async () => {

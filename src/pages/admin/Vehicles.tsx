@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { getErrorMessage } from "@/lib/errors";
 import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "@/components/layouts/AdminLayout";
 import { DataTable, Column } from "@/components/ui/data-table";
@@ -208,7 +209,7 @@ export default function AdminVehicles() {
     });
   }, [vehicles, filters]);
 
-  const handleFilterChange = (key: keyof Filters, value: any) => {
+  const handleFilterChange = <K extends keyof Filters>(key: K, value: Filters[K]) => {
     setFilters((f) => ({ ...f, [key]: value }));
   };
 
@@ -228,8 +229,8 @@ export default function AdminVehicles() {
         vehicle.is_archived ? "Vehículo desarchivado" : "Vehículo archivado"
       );
       fetchData();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err));
     }
   };
 

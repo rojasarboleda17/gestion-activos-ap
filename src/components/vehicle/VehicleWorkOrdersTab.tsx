@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { getErrorMessage } from "@/lib/errors";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +31,7 @@ import {
   Lock,
   Trash2,
   DollarSign,
+  type LucideIcon,
 } from "lucide-react";
 import {
   Dialog,
@@ -88,7 +90,7 @@ interface CatalogOp {
 
 const STATUS_CONFIG: Record<
   string,
-  { label: string; icon: any; color: string }
+  { label: string; icon: LucideIcon; color: string }
 > = {
   pending: { label: "Pendiente", icon: Clock, color: "text-muted-foreground" },
   in_progress: { label: "En Progreso", icon: AlertCircle, color: "text-primary" },
@@ -207,8 +209,8 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
       if (error) throw error;
       toast.success("Orden de alistamiento creada");
       fetchData();
-    } catch (err: any) {
-      toast.error(err.message || "Error al crear orden");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Error al crear orden"));
     } finally {
       setCreating(false);
     }
@@ -237,8 +239,8 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
       setSelectedOps([]);
       setCatalogDialogOpen(false);
       fetchData();
-    } catch (err: any) {
-      toast.error(err.message || "Error al agregar ítems");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Error al agregar ítems"));
     }
   };
 
@@ -263,8 +265,8 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
       setManualForm({ title: "", notes: "" });
       setManualDialogOpen(false);
       fetchData();
-    } catch (err: any) {
-      toast.error(err.message || "Error al agregar ítem");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Error al agregar ítem"));
     }
   };
 
@@ -292,8 +294,8 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
         prev.map((i) => (i.id === itemId ? { ...i, ...updates } : i))
       );
       toast.success("Actualizado");
-    } catch (err: any) {
-      toast.error(err.message || "Error al actualizar");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Error al actualizar"));
     }
   };
 
@@ -310,8 +312,8 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
       toast.success("Ítem eliminado");
       setItems((prev) => prev.filter((i) => i.id !== deleteItemId));
       setDeleteItemId(null);
-    } catch (err: any) {
-      toast.error(err.message || "Error al eliminar");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Error al eliminar"));
     }
   };
 
@@ -329,8 +331,8 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
       toast.success("Orden cerrada");
       setCloseDialogOpen(false);
       fetchData();
-    } catch (err: any) {
-      toast.error(err.message || "Error al cerrar orden");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Error al cerrar orden"));
     } finally {
       setClosing(false);
     }
@@ -373,8 +375,8 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
       toast.success("Costo registrado");
       setCostDialogOpen(false);
       fetchData();
-    } catch (err: any) {
-      toast.error(err.message || "Error al registrar costo");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Error al registrar costo"));
     } finally {
       setSavingCost(false);
     }

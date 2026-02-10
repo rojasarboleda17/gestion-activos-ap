@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { getErrorMessage } from "@/lib/errors";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +27,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
+import { Tables } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -126,7 +128,7 @@ export function VehicleExpensesTab({ vehicleId }: Props) {
         .order("incurred_at", { ascending: false });
 
       // Enrich expenses
-      const enriched: Expense[] = (expensesData || []).map((e: any) => ({
+      const enriched: Expense[] = (expensesData || []).map((e: Tables<"vehicle_expenses"> & { work_order_items: { title: string | null } | null; vendor: { full_name: string | null } | null; creator: { full_name: string | null } | null }) => ({
         ...e,
         work_order_item_title: e.work_order_items?.title || null,
         vendor_name: e.vendor?.full_name || null,
@@ -255,8 +257,8 @@ export function VehicleExpensesTab({ vehicleId }: Props) {
 
       setDialogOpen(false);
       fetchData();
-    } catch (err: any) {
-      toast.error(err.message || "Error al guardar");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Error al guardar"));
     } finally {
       setSaving(false);
     }
@@ -273,8 +275,8 @@ export function VehicleExpensesTab({ vehicleId }: Props) {
       toast.success("Gasto eliminado");
       setDeleteId(null);
       fetchData();
-    } catch (err: any) {
-      toast.error(err.message || "Error al eliminar");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Error al eliminar"));
     }
   };
 

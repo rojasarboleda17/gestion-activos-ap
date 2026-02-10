@@ -1,10 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { getErrorMessage } from "@/lib/errors";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { Tables } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -20,18 +22,18 @@ export function VehicleFilesTab({ vehicleId }: Props) {
   const { profile } = useAuth();
   const { log: auditLog } = useAudit();
   const [loading, setLoading] = useState(true);
-  const [files, setFiles] = useState<any[]>([]);
+  const [files, setFiles] = useState<Tables<"vehicle_files">[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState({ file_kind: "photo", visibility: "operations", doc_type: "", expires_at: "" });
 
-  const fetchFiles = async () => {
+  const fetchFiles = useCallback(async () => {
     const { data } = await supabase.from("vehicle_files").select("*").eq("vehicle_id", vehicleId).order("created_at", { ascending: false });
     setFiles(data || []);
     setLoading(false);
-  };
+  }, [vehicleId]);
 
-  useEffect(() => { fetchFiles(); }, [vehicleId]);
+  useEffect(() => { fetchFiles(); }, [fetchFiles]);
 
   const getBucket = (visibility: string) => {
     if (visibility === "sales") return "vehicle-public";
@@ -72,7 +74,7 @@ export function VehicleFilesTab({ vehicleId }: Props) {
       toast.success("Archivo subido");
       setDialogOpen(false);
       fetchFiles();
-    } catch (err: any) { toast.error(err.message); }
+    } catch (err: unknown) { toast.error(getErrorMessage(err)); }
     finally { setUploading(false); }
   };
 

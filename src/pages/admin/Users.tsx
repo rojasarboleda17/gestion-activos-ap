@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { getErrorMessage } from "@/lib/errors";
 import { AdminLayout } from "@/components/layouts/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -94,7 +95,7 @@ export default function AdminUsers() {
   const [newPermDesc, setNewPermDesc] = useState("");
   const [addingPerm, setAddingPerm] = useState(false);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!currentProfile?.org_id) return;
     setLoading(true);
     setRlsError(null);
@@ -122,17 +123,17 @@ export default function AdminUsers() {
       setPermissions(permissionsRes.data || []);
       setRolePermissions(rolePermsRes.data || []);
       setUserOverrides(overridesRes.data || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Fetch error:", err);
-      setRlsError(err.message);
+      setRlsError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentProfile?.org_id]);
 
   useEffect(() => {
     fetchData();
-  }, [currentProfile?.org_id]);
+  }, [fetchData]);
 
   // Filtered profiles
   const filteredProfiles = useMemo(() => {

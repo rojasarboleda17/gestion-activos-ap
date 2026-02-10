@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { getErrorMessage } from "@/lib/errors";
 import { AdminLayout } from "@/components/layouts/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -62,7 +63,7 @@ export default function AdminBranches() {
   // Deactivate confirmation
   const [deactivatingBranch, setDeactivatingBranch] = useState<Branch | null>(null);
 
-  const fetchBranches = async () => {
+  const fetchBranches = useCallback(async () => {
     if (!profile?.org_id) return;
     setLoading(true);
     
@@ -85,13 +86,13 @@ export default function AdminBranches() {
       if (data && data.length > 0) {
         await fetchMetrics(data.map(b => b.id));
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Fetch error:", err);
-      toast.error(err.message);
+      toast.error(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  };
+  }, [profile?.org_id]);
 
   const fetchMetrics = async (branchIds: string[]) => {
     if (branchIds.length === 0) return;
@@ -149,7 +150,7 @@ export default function AdminBranches() {
 
   useEffect(() => {
     fetchBranches();
-  }, [profile?.org_id]);
+  }, [fetchBranches]);
 
   // Filtered branches
   const filteredBranches = useMemo(() => {

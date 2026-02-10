@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { getErrorMessage } from "@/lib/errors";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -86,9 +87,9 @@ export function VehicleLegalTab({ vehicleId }: Props) {
 
       if (error) throw error;
       toast.success("Tarjeta de propiedad actualizada");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error(err.message || "Error al guardar");
+      toast.error(getErrorMessage(err, "Error al guardar"));
     } finally {
       setSaving(false);
     }

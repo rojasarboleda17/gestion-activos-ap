@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getErrorMessage } from "@/lib/errors";
 import { AdminLayout } from "@/components/layouts/AdminLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -19,6 +20,16 @@ import { PaymentsTab } from "@/components/sales/PaymentsTab";
 import { DocumentsTab } from "@/components/sales/DocumentsTab";
 import { formatCOP } from "@/lib/format";
 
+interface ReservationToConvert {
+  id: string;
+  vehicle_id: string | null;
+  customer_id: string | null;
+  deposit_amount_cop: number | null;
+  payment_method_code: string | null;
+  vehicle?: { license_plate: string | null; brand: string | null } | null;
+  customer?: { full_name: string | null } | null;
+}
+
 export default function AdminSales() {
   const { profile } = useAuth();
   const [activeTab, setActiveTab] = useState("customers");
@@ -30,7 +41,7 @@ export default function AdminSales() {
 
   // Convert to sale dialog
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
-  const [convertingReservation, setConvertingReservation] = useState<any>(null);
+  const [convertingReservation, setConvertingReservation] = useState<ReservationToConvert | null>(null);
   const [convertForm, setConvertForm] = useState({
     final_price_cop: "",
     payment_method_code: "",
@@ -40,7 +51,7 @@ export default function AdminSales() {
   const [converting, setConverting] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState<{ code: string; name: string }[]>([]);
   
-  const handleConvertToSale = async (reservation: any) => {
+  const handleConvertToSale = async (reservation: ReservationToConvert) => {
     console.log("[Convert] Opening dialog for reservation:", reservation.id);
     
     // Fetch payment methods
@@ -121,8 +132,8 @@ export default function AdminSales() {
       setPaymentsRefreshKey((k) => k + 1);
 
       setActiveTab("sales");
-    } catch (err: any) {
-      toast.error(`Error inesperado: ${err.message || "Error desconocido"}`);
+    } catch (err: unknown) {
+      toast.error(`Error inesperado: ${getErrorMessage(err, "Error desconocido")}`);
     } finally {
       setConverting(false);
     }

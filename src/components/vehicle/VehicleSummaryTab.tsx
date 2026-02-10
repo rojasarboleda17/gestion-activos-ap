@@ -3,37 +3,28 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCOP, formatDate, formatKm } from "@/lib/format";
-import { AlertTriangle, DollarSign, FileText, Tag } from "lucide-react";
+import { AlertTriangle, FileText, Tag } from "lucide-react";
 
 interface Props {
   vehicle: any;
-  onRefresh: () => void;
 }
 
-export function VehicleSummaryTab({ vehicle, onRefresh }: Props) {
+export function VehicleSummaryTab({ vehicle }: Props) {
   const [listing, setListing] = useState<any>(null);
   const [compliance, setCompliance] = useState<any>(null);
-  const [financials, setFinancials] = useState<any>(null);
-  const [totalExpenses, setTotalExpenses] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
-      const [listingRes, complianceRes, financialsRes, expensesRes] = await Promise.all([
+      const [listingRes, complianceRes] = await Promise.all([
         supabase.from("vehicle_listing").select("*").eq("vehicle_id", vehicle.id).maybeSingle(),
         supabase.from("vehicle_compliance").select("*").eq("vehicle_id", vehicle.id).maybeSingle(),
-        supabase.from("vehicle_financials").select("*").eq("vehicle_id", vehicle.id).maybeSingle(),
-        supabase.from("vehicle_expenses").select("amount_cop").eq("vehicle_id", vehicle.id),
       ]);
       setListing(listingRes.data);
       setCompliance(complianceRes.data);
-      setFinancials(financialsRes.data);
-      setTotalExpenses((expensesRes.data || []).reduce((sum, e) => sum + (e.amount_cop || 0), 0));
     };
     fetchData();
   }, [vehicle.id]);
 
-  const purchasePrice = financials?.purchase_price_cop || 0;
-  const totalCost = purchasePrice + totalExpenses;
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -56,6 +47,10 @@ export function VehicleSummaryTab({ vehicle, onRefresh }: Props) {
           <div className="flex justify-between">
             <span className="text-muted-foreground">Clase</span>
             <span>{vehicle.vehicle_class || "—"}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Color</span>
+            <span>{vehicle.color || "—"}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Transmisión</span>
@@ -122,34 +117,6 @@ export function VehicleSummaryTab({ vehicle, onRefresh }: Props) {
         </CardContent>
       </Card>
 
-      {/* Financiero */}
-      <Card className="md:col-span-2 lg:col-span-1">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <DollarSign className="h-4 w-4" /> Financiero
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Precio Compra</span>
-            <span>{formatCOP(purchasePrice)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Gastos</span>
-            <span>{formatCOP(totalExpenses)}</span>
-          </div>
-          <div className="flex justify-between font-medium border-t pt-2">
-            <span>Costo Total</span>
-            <span>{formatCOP(totalCost)}</span>
-          </div>
-          {listing?.listed_price_cop && (
-            <div className="flex justify-between text-primary font-medium">
-              <span>Margen Estimado</span>
-              <span>{formatCOP(listing.listed_price_cop - totalCost)}</span>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

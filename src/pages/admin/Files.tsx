@@ -90,7 +90,6 @@ const DOC_TYPES = [
   { value: "soat", label: "SOAT" },
   { value: "tecno", label: "Tecnomecánica" },
   { value: "titulo", label: "Título de Propiedad" },
-  { value: "tarjeta_propiedad", label: "Tarjeta de Propiedad" },
   { value: "revision", label: "Revisión" },
   { value: "otro", label: "Otro" },
 ];

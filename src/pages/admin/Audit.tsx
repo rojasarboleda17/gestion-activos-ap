@@ -219,14 +219,14 @@ export default function AdminAudit() {
 
   if (loading && logs.length === 0) {
     return (
-      <AdminLayout title="Auditoría" breadcrumbs={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Auditoría" }]}>
+      <AdminLayout title="Auditoría" breadcrumbs={[{ label: "Inicio", href: "/admin/vehicles" }, { label: "Auditoría" }]}>
         <LoadingState variant="table" />
       </AdminLayout>
     );
   }
 
   return (
-    <AdminLayout title="Auditoría" breadcrumbs={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Auditoría" }]}>
+    <AdminLayout title="Auditoría" breadcrumbs={[{ label: "Inicio", href: "/admin/vehicles" }, { label: "Auditoría" }]}>
       <div className="space-y-4">
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4">

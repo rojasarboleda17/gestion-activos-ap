@@ -139,7 +139,7 @@ export default function VehicleDetail() {
 
   if (loading) {
     return (
-      <AdminLayout title="Cargando..." breadcrumbs={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Inventario", href: "/admin/vehicles" }, { label: "Detalle" }]}>
+      <AdminLayout title="Cargando..." breadcrumbs={[{ label: "Inicio", href: "/admin/vehicles" }, { label: "Inventario", href: "/admin/vehicles" }, { label: "Detalle" }]}>
         <LoadingState variant="detail" />
       </AdminLayout>
     );
@@ -147,7 +147,7 @@ export default function VehicleDetail() {
 
   if (error || !vehicle) {
     return (
-      <AdminLayout title="Error" breadcrumbs={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Inventario", href: "/admin/vehicles" }, { label: "Detalle" }]}>
+      <AdminLayout title="Error" breadcrumbs={[{ label: "Inicio", href: "/admin/vehicles" }, { label: "Inventario", href: "/admin/vehicles" }, { label: "Detalle" }]}>
         <ErrorState message={error || "Vehículo no encontrado"} onRetry={fetchVehicle} />
       </AdminLayout>
     );
@@ -160,7 +160,7 @@ export default function VehicleDetail() {
     <AdminLayout
       title={title}
       breadcrumbs={[
-        { label: "Dashboard", href: "/admin/dashboard" },
+        { label: "Inicio", href: "/admin/vehicles" },
         { label: "Inventario", href: "/admin/vehicles" },
         { label: vehicle.license_plate || "Detalle" },
       ]}

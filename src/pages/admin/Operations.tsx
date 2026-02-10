@@ -470,7 +470,7 @@ export default function AdminOperations() {
     return (
       <AdminLayout
         title="Operaciones"
-        breadcrumbs={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Operaciones" }]}
+        breadcrumbs={[{ label: "Inicio", href: "/admin/vehicles" }, { label: "Operaciones" }]}
       >
         <LoadingState variant="table" />
       </AdminLayout>
@@ -633,7 +633,7 @@ export default function AdminOperations() {
   return (
     <AdminLayout
       title="Centro de Operaciones"
-      breadcrumbs={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Operaciones" }]}
+      breadcrumbs={[{ label: "Inicio", href: "/admin/vehicles" }, { label: "Operaciones" }]}
     >
       <Tabs defaultValue="vehicles" className="space-y-4">
         <TabsList>

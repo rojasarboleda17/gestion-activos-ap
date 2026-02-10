@@ -163,7 +163,7 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
 
         // Fetch expense sums per item
         const itemIds = (itemsData || []).map((i) => i.id);
-        let expenseMap: Record<string, number> = {};
+        const expenseMap: Record<string, number> = {};
         if (itemIds.length > 0) {
           const { data: expData } = await supabase
             .from("vehicle_expenses")

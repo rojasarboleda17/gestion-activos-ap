@@ -430,14 +430,14 @@ export default function AdminFiles() {
 
   if (loading) {
     return (
-      <AdminLayout title="Archivos" breadcrumbs={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Archivos" }]}>
+      <AdminLayout title="Archivos" breadcrumbs={[{ label: "Inicio", href: "/admin/vehicles" }, { label: "Archivos" }]}>
         <LoadingState variant="table" />
       </AdminLayout>
     );
   }
 
   return (
-    <AdminLayout title="Archivos" breadcrumbs={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Archivos" }]}>
+    <AdminLayout title="Archivos" breadcrumbs={[{ label: "Inicio", href: "/admin/vehicles" }, { label: "Archivos" }]}>
       <Tabs defaultValue="files" className="space-y-4">
         <TabsList>
           <TabsTrigger value="files" className="gap-2">

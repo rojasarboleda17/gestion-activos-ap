@@ -423,7 +423,7 @@ export default function AdminVehicles() {
     <AdminLayout
       title="Inventario de Vehículos"
       breadcrumbs={[
-        { label: "Dashboard", href: "/admin/dashboard" },
+        { label: "Inicio", href: "/admin/vehicles" },
         { label: "Inventario" },
       ]}
       actions={

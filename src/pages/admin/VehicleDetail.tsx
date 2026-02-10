@@ -245,6 +245,7 @@ export default function VehicleDetail() {
           <TabsContent value="operations" className="mt-4 space-y-4">
             <VehicleWorkOrdersTab vehicleId={vehicle.id} />
             <VehicleExpensesTab vehicleId={vehicle.id} />
+            <VehicleLegalTab vehicleId={vehicle.id} />
           </TabsContent>
 
           <TabsContent value="internal" className="mt-4 space-y-4">

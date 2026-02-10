@@ -224,10 +224,10 @@ export default function VehicleDetail() {
         <Tabs defaultValue="overview" className="w-full">
           <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 scrollbar-thin">
             <TabsList className="inline-flex h-auto gap-1 min-w-max p-1">
-              <TabsTrigger value="overview" className="text-xs sm:text-sm px-2 sm:px-3">Vista general</TabsTrigger>
-              <TabsTrigger value="info" className="text-xs sm:text-sm px-2 sm:px-3">Info</TabsTrigger>
-              <TabsTrigger value="operations" className="text-xs sm:text-sm px-2 sm:px-3">Operación</TabsTrigger>
-              <TabsTrigger value="internal" className="text-xs sm:text-sm px-2 sm:px-3">Interno</TabsTrigger>
+              <TabsTrigger value="overview" className="text-xs sm:text-sm px-2 sm:px-3">General</TabsTrigger>
+              <TabsTrigger value="info" className="text-xs sm:text-sm px-2 sm:px-3">Detalle</TabsTrigger>
+              <TabsTrigger value="operations" className="text-xs sm:text-sm px-2 sm:px-3">Alistamiento</TabsTrigger>
+              <TabsTrigger value="internal" className="text-xs sm:text-sm px-2 sm:px-3">Otros</TabsTrigger>
             </TabsList>
           </div>
 
@@ -245,10 +245,6 @@ export default function VehicleDetail() {
             <VehicleWorkOrdersTab vehicleId={vehicle.id} />
             <VehicleExpensesTab vehicleId={vehicle.id} />
             <VehicleLegalTab vehicleId={vehicle.id} />
-          </TabsContent>
-
-          <TabsContent value="sales" className="mt-4">
-            <VehicleSalesTab vehicleId={vehicle.id} />
           </TabsContent>
 
           <TabsContent value="internal" className="mt-4 space-y-4">

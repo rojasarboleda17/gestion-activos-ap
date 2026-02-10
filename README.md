@@ -69,10 +69,14 @@ npm run dev
 
 3. **Correr checklist SQL post-deploy**
    - Ejecutar el checklist de verificación en la base de datos objetivo inmediatamente después de aplicar migraciones.
-   - Validar al menos: existencia de tablas/columnas nuevas, RLS/policies activas, índices esperados y ausencia de errores en objetos dependientes (views/functions).
+   - Script versionado: `supabase/checks/post_deploy_audit.sql`.
+   - Ejecutar el script (Supabase SQL Editor o cliente SQL conectado al entorno destino) y revisar la columna `status` (`PASS`/`FAIL`).
+   - El script valida: historial en `supabase_migrations.schema_migrations`, funciones críticas, policies de `profiles` y `audit_log`, y grants de `public.profiles`.
+   - **Regla operativa:** si existe al menos un `FAIL`, el release **no se puede cerrar** hasta corregir y re-ejecutar el checklist.
 
 ## Checklist corto de release
 
 - [ ] `npm run lint`
 - [ ] `npm run build`
-- [ ] Verificación SQL post-deploy completada (migraciones + validación en `supabase_migrations.schema_migrations`).
+- [ ] Ejecutado `supabase/checks/post_deploy_audit.sql` en el entorno desplegado.
+- [ ] Resultado del checklist SQL: **0 filas con `FAIL`** (si hay `FAIL`, el release no se cierra).

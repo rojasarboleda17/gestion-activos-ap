@@ -5,16 +5,19 @@ Asset Vault es un MVP para la gestión interna de activos (vehículos y motos) d
 ## Alcance del MVP
 
 ### Módulos principales (Admin)
-- **Dashboard**: visión general de inventario y operación.
+- **Dashboard**: retirado temporalmente del routing productivo.
 - **Inventario**: registro y administración de vehículos, estados y detalle por activo.
 - **Operaciones**: catálogo de operaciones y **órdenes de trabajo** (alistamiento y tareas), con seguimiento.
 - **Ventas**: reservas, ventas, pagos y documentos del negocio.
+- **Finanzas**: retirado temporalmente del routing productivo.
 - **Archivos**: carga y consulta de documentos/fotos asociados a vehículos y negocios.
 - **Usuarios**: administración de perfiles internos.
 - **Sedes**: gestión de sedes y asignación.
 - **Auditoría**: registro de eventos críticos para trazabilidad.
 
 > Nota: el frontend actual prioriza el flujo de **Admin**. Los roles adicionales pueden existir en la base de datos y en RLS, pero sus “dashboards” dedicados pueden no estar implementados todavía.
+
+> Estado actual de routing: los módulos **Dashboard** y **Finanzas** están deshabilitados temporalmente en producción para evitar rutas ambiguas mientras se estabilizan sus flujos.
 
 ## Seguridad y modelo de acceso
 
@@ -46,3 +49,30 @@ Configura estas variables (por ejemplo en `.env.local`):
 ```bash
 npm i
 npm run dev
+```
+
+## Operación de migraciones (Supabase)
+
+1. **Revisar migraciones pendientes**
+   - Inspeccionar archivos SQL en `supabase/migrations/` y confirmar orden cronológico por prefijo de timestamp.
+   - Verificar que cada migración tenga objetivo claro, sea idempotente cuando aplique y no incluya cambios manuales fuera de control de versiones.
+
+2. **Validar historial aplicado en base de datos**
+   - Consultar `supabase_migrations.schema_migrations` para confirmar que el historial remoto coincide con el repositorio.
+   - SQL sugerido:
+
+   ```sql
+   select version, inserted_at
+   from supabase_migrations.schema_migrations
+   order by version;
+   ```
+
+3. **Correr checklist SQL post-deploy**
+   - Ejecutar el checklist de verificación en la base de datos objetivo inmediatamente después de aplicar migraciones.
+   - Validar al menos: existencia de tablas/columnas nuevas, RLS/policies activas, índices esperados y ausencia de errores en objetos dependientes (views/functions).
+
+## Checklist corto de release
+
+- [ ] `npm run lint`
+- [ ] `npm run build`
+- [ ] Verificación SQL post-deploy completada (migraciones + validación en `supabase_migrations.schema_migrations`).

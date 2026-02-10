@@ -195,7 +195,7 @@ export default function VehicleNew() {
     <AdminLayout
       title="Crear Vehículo"
       breadcrumbs={[
-        { label: "Dashboard", href: "/admin/dashboard" },
+        { label: "Inicio", href: "/admin/vehicles" },
         { label: "Inventario", href: "/admin/vehicles" },
         { label: "Nuevo" },
       ]}

@@ -295,7 +295,7 @@ export default function AdminBranches() {
 
   if (loading) {
     return (
-      <AdminLayout title="Sedes" breadcrumbs={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Sedes" }]}>
+      <AdminLayout title="Sedes" breadcrumbs={[{ label: "Inicio", href: "/admin/vehicles" }, { label: "Sedes" }]}>
         <LoadingState variant="table" />
       </AdminLayout>
     );
@@ -304,7 +304,7 @@ export default function AdminBranches() {
   return (
     <AdminLayout 
       title="Sedes" 
-      breadcrumbs={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Sedes" }]}
+      breadcrumbs={[{ label: "Inicio", href: "/admin/vehicles" }, { label: "Sedes" }]}
       actions={
         <Button onClick={openCreateDialog} size="sm">
           <Plus className="h-4 w-4 mr-1 sm:mr-2" />

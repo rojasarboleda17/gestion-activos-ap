@@ -259,7 +259,7 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <AdminLayout title="Dashboard" breadcrumbs={[{ label: "Dashboard" }]}>
+      <AdminLayout title="Dashboard" breadcrumbs={[{ label: "Inicio", href: "/admin/vehicles" }]}>
         <LoadingState variant="cards" />
       </AdminLayout>
     );
@@ -273,7 +273,7 @@ export default function AdminDashboard() {
   return (
     <AdminLayout
       title="Dashboard"
-      breadcrumbs={[{ label: "Dashboard" }]}
+      breadcrumbs={[{ label: "Inicio", href: "/admin/vehicles" }]}
       actions={<Button onClick={() => navigate("/admin/vehicles/new")}>Crear Vehículo</Button>}
     >
       <div className="space-y-6">

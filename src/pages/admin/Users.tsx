@@ -363,14 +363,14 @@ export default function AdminUsers() {
 
   if (loading) {
     return (
-      <AdminLayout title="Usuarios" breadcrumbs={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Usuarios" }]}>
+      <AdminLayout title="Usuarios" breadcrumbs={[{ label: "Inicio", href: "/admin/vehicles" }, { label: "Usuarios" }]}>
         <LoadingState variant="table" />
       </AdminLayout>
     );
   }
 
   return (
-    <AdminLayout title="Usuarios" breadcrumbs={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Usuarios" }]}>
+    <AdminLayout title="Usuarios" breadcrumbs={[{ label: "Inicio", href: "/admin/vehicles" }, { label: "Usuarios" }]}>
       {rlsError && (
         <Card className="mb-4 border-destructive bg-destructive/10">
           <CardContent className="flex items-center gap-3 py-3">

@@ -131,7 +131,7 @@ export default function AdminSales() {
   return (
     <AdminLayout
       title="Ventas"
-      breadcrumbs={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Ventas" }]}
+      breadcrumbs={[{ label: "Inicio", href: "/admin/vehicles" }, { label: "Ventas" }]}
     >
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="flex-wrap h-auto gap-1">

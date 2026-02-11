@@ -4,6 +4,7 @@ import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
+// Reglas endurecidas únicamente para módulos críticos (alcance P1).
 const strictTypingRules = {
   "@typescript-eslint/no-explicit-any": "error",
   "@typescript-eslint/no-empty-object-type": "error",
@@ -41,7 +42,7 @@ export default tseslint.config(
     },
   },
   {
-    // Puerta de entrada a "P1 cerrado": estos módulos críticos ya escalan a "error".
+    // Puerta de entrada a "P1 cerrado": estos módulos críticos escalan a "error".
     // El resto del código mantiene "off" temporalmente para completar migración gradual.
     files: criticalModules,
     rules: strictTypingRules,

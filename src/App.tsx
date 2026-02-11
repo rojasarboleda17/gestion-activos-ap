@@ -9,7 +9,6 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { LoadingScreen } from "@/components/ui/loading-screen";
 
 // Pages
-import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Inactive from "./pages/Inactive";
 import Unauthorized from "./pages/Unauthorized";
@@ -39,7 +38,6 @@ function RootRedirect() {
   
   if (profile.role === "admin") return <Navigate to="/admin/vehicles" replace />;
   
-  // Other roles would go to their respective dashboards
   return <Navigate to="/unauthorized" replace />;
 }
 

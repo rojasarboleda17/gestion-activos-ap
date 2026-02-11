@@ -4,20 +4,21 @@ Asset Vault es un MVP para la gestión interna de activos (vehículos y motos) d
 
 ## Alcance del MVP
 
-### Módulos principales (Admin)
-- **Dashboard**: retirado temporalmente del routing productivo.
+### Módulos activos (Admin)
 - **Inventario**: registro y administración de vehículos, estados y detalle por activo.
 - **Operaciones**: catálogo de operaciones y **órdenes de trabajo** (alistamiento y tareas), con seguimiento.
 - **Ventas**: reservas, ventas, pagos y documentos del negocio.
-- **Finanzas**: retirado temporalmente del routing productivo.
 - **Archivos**: carga y consulta de documentos/fotos asociados a vehículos y negocios.
 - **Usuarios**: administración de perfiles internos.
 - **Sedes**: gestión de sedes y asignación.
 - **Auditoría**: registro de eventos críticos para trazabilidad.
 
-> Nota: el frontend actual prioriza el flujo de **Admin**. Los roles adicionales pueden existir en la base de datos y en RLS, pero sus “dashboards” dedicados pueden no estar implementados todavía.
+### Decisión definitiva sobre módulos fuera de alcance
+- **Dashboard**: eliminado del alcance y del routing productivo.
+- **Finanzas**: eliminado del alcance y del routing productivo.
+- **Debug**: no existe módulo/ruta productiva y se considera fuera de alcance.
 
-> Estado actual de routing: los módulos **Dashboard** y **Finanzas** están deshabilitados temporalmente en producción para evitar rutas ambiguas mientras se estabilizan sus flujos.
+> Estado real del frontend: el producto expuesto por routing contiene únicamente módulos Admin listados en "Módulos activos".
 
 ## Seguridad y modelo de acceso
 
@@ -43,6 +44,7 @@ Asset Vault es un MVP para la gestión interna de activos (vehículos y motos) d
 ## Requisitos
 
 - Node.js + npm
+- `psql` disponible en PATH para ejecutar gate SQL de release
 
 ## Variables de entorno
 
@@ -51,6 +53,7 @@ Configura estas variables (por ejemplo en `.env.local`):
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_PROJECT_ID`
 - `VITE_SUPABASE_PUBLISHABLE_KEY`
+- `DATABASE_URL` (obligatoria para ejecutar el gate SQL de release)
 
 ## Ejecutar localmente
 
@@ -75,19 +78,21 @@ npm run dev
    order by version;
    ```
 
-3. **Correr checklist SQL post-deploy**
-   - Ejecutar el checklist de verificación en la base de datos objetivo inmediatamente después de aplicar migraciones.
-   - Script versionado: `supabase/checks/post_deploy_audit.sql`.
-   - Ejecutar el script (Supabase SQL Editor o cliente SQL conectado al entorno destino) y revisar la columna `status` (`PASS`/`FAIL`).
-   - El script valida: historial en `supabase_migrations.schema_migrations`, funciones críticas, policies de `profiles` y `audit_log`, y grants de `public.profiles`.
-   - **Regla operativa:** si existe al menos un `FAIL`, el release **no se puede cerrar** hasta corregir y re-ejecutar el checklist.
+3. **Gate SQL post-deploy (obligatorio de release)**
+   - Script versionado de checks: `supabase/checks/post_deploy_audit.sql`.
+   - Runner estándar de release: `npm run release:sql-gate` (ejecuta `scripts/release/run_post_deploy_gate.sh`).
+   - El gate imprime todos los checks y bloquea automáticamente el release con código de salida `1` si encuentra cualquier `FAIL`.
+   - Este gate valida historial en `supabase_migrations.schema_migrations`, funciones críticas, policies de `profiles` y `audit_log`, y grants de `public.profiles`.
 
-## Checklist corto de release
+## Checklist de release (criterio de bloqueo)
 
 - [ ] `npm run lint`
 - [ ] `npm run build`
-- [ ] Ejecutado `supabase/checks/post_deploy_audit.sql` en el entorno desplegado.
-- [ ] Resultado del checklist SQL: **0 filas con `FAIL`** (si hay `FAIL`, el release no se cierra).
+- [ ] `npm run release:sql-gate` ejecutado contra el entorno desplegado.
+- [ ] Evidencia adjunta del resultado del gate SQL.
+- [ ] Resultado final del gate SQL: **0 checks en `FAIL`**.
+
+> **Bloqueo obligatorio:** si cualquier check SQL devuelve `FAIL`, el deploy **no se cierra**.
 
 ## Registro sugerido para auditoría P1 (lint/build)
 

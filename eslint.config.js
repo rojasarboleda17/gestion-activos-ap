@@ -33,6 +33,7 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+      "no-console": "error",
       "@typescript-eslint/no-unused-vars": "off",
       ...strictTypingRules,
     },
@@ -42,5 +43,11 @@ export default tseslint.config(
     // El resto del código mantiene "off" temporalmente para completar migración gradual.
     files: criticalModules,
     rules: strictTypingRules,
+  },
+  {
+    files: ["src/lib/logger.ts"],
+    rules: {
+      "no-console": "off",
+    },
   },
 );

@@ -28,14 +28,14 @@ if [[ ! -s "$TMP_OUTPUT" ]]; then
   exit 1
 fi
 
-echo "Resultado de $CHECK_FILE:"
+printf "Resultado de %s:\n" "$CHECK_FILE"
 awk -F'|' '{ printf("- %s => %s (%s)\n", $1, $2, $3) }' "$TMP_OUTPUT"
 
 FAIL_COUNT="$(awk -F'|' '$2 == "FAIL" { c++ } END { print c + 0 }' "$TMP_OUTPUT")"
 
 if [[ "$FAIL_COUNT" -gt 0 ]]; then
-  echo "\nGate bloqueado: se detectaron $FAIL_COUNT checks en FAIL. No cerrar release." >&2
+  printf "\nGate bloqueado: se detectaron %s checks en FAIL. No cerrar release.\n" "$FAIL_COUNT" >&2
   exit 1
 fi
 
-echo "\nGate aprobado: 0 checks FAIL."
+printf "\nGate aprobado: 0 checks FAIL.\n"

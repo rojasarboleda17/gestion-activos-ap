@@ -86,6 +86,9 @@ interface Props {
   preselectedVehicleId?: string;
 }
 
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
+
 const STATUS_LABELS: Record<string, string> = {
   active: "Activa",
   converted: "Convertida",
@@ -167,7 +170,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
       }
 
       setReservations(
-        (resRes.data || []).map((r: any) => ({
+        (resRes.data || []).map((r) => ({
           ...r,
           customer: r.customer,
           vehicle: r.vehicle,
@@ -292,9 +295,9 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
       setCreateDialogOpen(false);
       fetchData();
       onRefresh?.();
-    } catch (err: any) {
+    } catch (err) {
       console.error("[Reservations] Unexpected error:", err);
-      toast.error(`Error inesperado: ${err.message || "Error desconocido"}`);
+      toast.error(`Error inesperado: ${getErrorMessage(err, "Error desconocido")}`);
     } finally {
       setSaving(false);
     }
@@ -337,9 +340,9 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
       setQuickCustomerOpen(false);
       setQuickCustomerForm({ full_name: "", phone: "" });
       toast.success("Cliente creado");
-    } catch (err: any) {
+    } catch (err) {
       console.error("[Reservations] Unexpected error:", err);
-      toast.error(`Error inesperado: ${err.message}`);
+      toast.error(`Error inesperado: ${getErrorMessage(err, "Error desconocido")}`);
     } finally {
       setQuickCustomerSaving(false);
     }
@@ -409,9 +412,9 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
       setCancelingReservation(null);
       fetchData();
       onRefresh?.();
-    } catch (err: any) {
+    } catch (err) {
       console.error("[Reservations] Unexpected error:", err);
-      toast.error(`Error inesperado: ${err.message}`);
+      toast.error(`Error inesperado: ${getErrorMessage(err, "Error desconocido")}`);
     } finally {
       setCanceling(false);
     }

@@ -4,7 +4,7 @@ import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
-// Reglas endurecidas únicamente para módulos críticos (alcance P1).
+// Reglas estrictas para TypeScript a nivel global (fase de endurecimiento).
 const strictTypingRules = {
   "@typescript-eslint/no-explicit-any": "error",
   "@typescript-eslint/no-empty-object-type": "error",
@@ -34,11 +34,7 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
-      // Fase base (resto del código): mantener off para evitar bloqueos
-      // mientras se migra por módulos críticos.
-      "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-empty-object-type": "off",
-      "@typescript-eslint/no-require-imports": "off",
+      ...strictTypingRules,
     },
   },
   {
@@ -46,11 +42,5 @@ export default tseslint.config(
     // El resto del código mantiene "off" temporalmente para completar migración gradual.
     files: criticalModules,
     rules: strictTypingRules,
-  },
-  {
-    // Siguiente hito tras "P1 cerrado": escalar a "error" a nivel global
-    // cuando no haya regresiones de lint/build.
-    files: ["**/*.{ts,tsx}"],
-    rules: {},
   },
 );

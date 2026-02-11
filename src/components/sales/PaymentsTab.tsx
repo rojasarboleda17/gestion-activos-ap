@@ -60,6 +60,9 @@ interface PaymentMethod {
   name: string;
 }
 
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
+
 export function PaymentsTab() {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -116,13 +119,13 @@ export function PaymentsTab() {
       ]);
 
       setPayments(
-        (paymentsRes.data || []).map((p: any) => ({
+        (paymentsRes.data || []).map((p) => ({
           ...p,
           sale: p.sale,
         }))
       );
       setSales(
-        (salesRes.data || []).map((s: any) => ({
+        (salesRes.data || []).map((s) => ({
           ...s,
           vehicle: s.vehicle,
           customer: s.customer,
@@ -184,8 +187,8 @@ export function PaymentsTab() {
       toast.success("Pago registrado");
       setCreateDialogOpen(false);
       fetchData();
-    } catch (err: any) {
-      toast.error(err.message || "Error al registrar pago");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Error al registrar pago"));
     } finally {
       setSaving(false);
     }

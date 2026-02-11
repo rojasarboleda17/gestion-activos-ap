@@ -42,10 +42,35 @@ interface Customer {
   document_id: string | null;
 }
 
-interface CustomerHistory {
-  reservations: any[];
-  sales: any[];
+interface ReservationHistoryItem {
+  id: string;
+  status: string;
+  reserved_at: string;
+  deposit_amount_cop: number;
+  vehicles?: {
+    license_plate: string | null;
+    brand: string | null;
+  } | null;
 }
+
+interface SaleHistoryItem {
+  id: string;
+  status: string;
+  sale_date: string;
+  final_price_cop: number;
+  vehicles?: {
+    license_plate: string | null;
+    brand: string | null;
+  } | null;
+}
+
+interface CustomerHistory {
+  reservations: ReservationHistoryItem[];
+  sales: SaleHistoryItem[];
+}
+
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
 
 export function CustomersTab() {
   const { profile } = useAuth();
@@ -214,8 +239,8 @@ export function CustomersTab() {
       setDialogOpen(false);
       setDuplicateWarning(null);
       fetchCustomers();
-    } catch (err: any) {
-      toast.error(err.message || "Error al guardar cliente");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Error al guardar cliente"));
     } finally {
       setSaving(false);
     }
@@ -451,7 +476,7 @@ export function CustomersTab() {
                         <p className="text-sm text-muted-foreground">Sin reservas</p>
                       ) : (
                         <div className="space-y-2">
-                          {history.reservations.map((r: any) => (
+                          {history.reservations.map((r) => (
                             <div key={r.id} className="flex justify-between items-center py-2 border-b last:border-0">
                               <div>
                                 <p className="text-sm font-medium">
@@ -487,7 +512,7 @@ export function CustomersTab() {
                         <p className="text-sm text-muted-foreground">Sin ventas</p>
                       ) : (
                         <div className="space-y-2">
-                          {history.sales.map((s: any) => (
+                          {history.sales.map((s) => (
                             <div key={s.id} className="flex justify-between items-center py-2 border-b last:border-0">
                               <div>
                                 <p className="text-sm font-medium">

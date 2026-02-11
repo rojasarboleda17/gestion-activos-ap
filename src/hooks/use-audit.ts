@@ -35,7 +35,7 @@ interface AuditPayload {
   action: AuditAction;
   entity: AuditEntity;
   entity_id?: string | null;
-  payload?: Record<string, any>;
+  payload?: Record<string, unknown>;
 }
 
 /**
@@ -94,7 +94,7 @@ export async function logAudit({
   action: string;
   entity: string;
   entity_id?: string | null;
-  payload?: Record<string, any>;
+  payload?: Record<string, unknown>;
 }) {
   try {
     const { error } = await supabase.from("audit_log").insert({

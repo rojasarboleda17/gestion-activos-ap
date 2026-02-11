@@ -81,6 +81,7 @@ npm run dev
 3. **Gate SQL post-deploy (obligatorio de release)**
    - Script versionado de checks: `supabase/checks/post_deploy_audit.sql`.
    - Runner estándar de release: `npm run release:sql-gate` (ejecuta `scripts/release/run_post_deploy_gate.sh`).
+   - Opcional: para usar otro archivo de checks en pruebas, definir `SQL_GATE_CHECK_FILE=/ruta/a/check.sql`.
    - El gate imprime todos los checks y bloquea automáticamente el release con código de salida `1` si encuentra cualquier `FAIL`.
    - Este gate valida historial en `supabase_migrations.schema_migrations`, funciones críticas, policies de `profiles` y `audit_log`, y grants de `public.profiles`.
 

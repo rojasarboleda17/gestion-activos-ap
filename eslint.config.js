@@ -39,10 +39,4 @@ export default tseslint.config(
       "no-console": "off",
     },
   },
-  {
-    files: ["src/lib/logger.ts"],
-    rules: {
-      "no-console": "off",
-    },
-  },
 );

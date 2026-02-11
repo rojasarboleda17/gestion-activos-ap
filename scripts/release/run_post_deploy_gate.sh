@@ -11,7 +11,7 @@ if [[ -z "${DATABASE_URL:-}" ]]; then
   exit 1
 fi
 
-CHECK_FILE="supabase/checks/post_deploy_audit.sql"
+CHECK_FILE="${SQL_GATE_CHECK_FILE:-supabase/checks/post_deploy_audit.sql}"
 
 if [[ ! -f "$CHECK_FILE" ]]; then
   printf "Error: no se encontró %s\n" "$CHECK_FILE" >&2
@@ -32,10 +32,14 @@ printf "Resultado de %s:\n" "$CHECK_FILE"
 awk -F'|' '{ printf("- %s => %s (%s)\n", $1, $2, $3) }' "$TMP_OUTPUT"
 
 FAIL_COUNT="$(awk -F'|' '$2 == "FAIL" { c++ } END { print c + 0 }' "$TMP_OUTPUT")"
+PASS_COUNT="$(awk -F'|' '$2 == "PASS" { c++ } END { print c + 0 }' "$TMP_OUTPUT")"
+TOTAL_COUNT="$(awk 'END { print NR + 0 }' "$TMP_OUTPUT")"
+
+printf "\nResumen: total=%s, pass=%s, fail=%s\n" "$TOTAL_COUNT" "$PASS_COUNT" "$FAIL_COUNT"
 
 if [[ "$FAIL_COUNT" -gt 0 ]]; then
-  printf "\nGate bloqueado: se detectaron %s checks en FAIL. No cerrar release.\n" "$FAIL_COUNT" >&2
+  printf "Gate bloqueado: se detectaron %s checks en FAIL. No cerrar release.\n" "$FAIL_COUNT" >&2
   exit 1
 fi
 
-printf "\nGate aprobado: 0 checks FAIL.\n"
+printf "Gate aprobado: 0 checks FAIL.\n"

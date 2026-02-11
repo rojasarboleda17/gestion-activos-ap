@@ -31,7 +31,7 @@ import { toast } from "sonner";
 import { LoadingState } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatDate } from "@/lib/format";
-import { FileText, Plus, Search, Download, Eye } from "lucide-react";
+import { FileText, Plus, Search, Download } from "lucide-react";
 
 interface DealDocument {
   id: string;
@@ -60,6 +60,9 @@ interface Reservation {
   vehicle?: { license_plate: string | null };
   customer?: { full_name: string };
 }
+
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
 
 const DOC_TYPES = [
   { value: "contrato", label: "Contrato" },
@@ -130,7 +133,7 @@ export function DocumentsTab() {
       ]);
 
       setDocuments(
-        (docsRes.data || []).map((d: any) => ({
+        (docsRes.data || []).map((d) => ({
           ...d,
           sale: d.sale,
           reservation: d.reservation,
@@ -139,14 +142,14 @@ export function DocumentsTab() {
         }))
       );
       setSales(
-        (salesRes.data || []).map((s: any) => ({
+        (salesRes.data || []).map((s) => ({
           ...s,
           vehicle: s.vehicle,
           customer: s.customer,
         }))
       );
       setReservations(
-        (resRes.data || []).map((r: any) => ({
+        (resRes.data || []).map((r) => ({
           ...r,
           vehicle: r.vehicle,
           customer: r.customer,
@@ -195,11 +198,6 @@ export function DocumentsTab() {
 
       if (uploadError) throw uploadError;
 
-      // Get the selected context
-      const contextData = form.context_type === "sale"
-        ? sales.find((s) => s.id === form.context_id)
-        : reservations.find((r) => r.id === form.context_id);
-
       // Insert document record
       const { error: insertError } = await supabase.from("deal_documents").insert({
         org_id: profile.org_id,
@@ -216,8 +214,8 @@ export function DocumentsTab() {
       toast.success("Documento subido exitosamente");
       setUploadDialogOpen(false);
       fetchData();
-    } catch (err: any) {
-      toast.error(err.message || "Error al subir documento");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Error al subir documento"));
     } finally {
       setUploading(false);
     }
@@ -232,8 +230,8 @@ export function DocumentsTab() {
       if (error) throw error;
 
       window.open(data.signedUrl, "_blank");
-    } catch (err: any) {
-      toast.error(err.message || "Error al descargar documento");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Error al descargar documento"));
     }
   };
 

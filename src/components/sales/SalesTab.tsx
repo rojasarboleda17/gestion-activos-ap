@@ -63,7 +63,7 @@ interface Sale {
   customer_id: string;
   vehicle_id: string;
   reservation_id: string | null;
-  vehicle_snapshot: any;
+  vehicle_snapshot: Record<string, unknown> | null;
   customer?: { full_name: string; phone: string | null };
   vehicle?: { license_plate: string | null; brand: string; line: string | null; model_year: number | null };
 }
@@ -106,6 +106,9 @@ interface Props {
   onRefresh?: () => void;
   preselectedVehicleId?: string;
 }
+
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
 
 const STATUS_LABELS: Record<string, string> = {
   active: "Activa",
@@ -348,9 +351,9 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
       setCreateDialogOpen(false);
       fetchData();
       onRefresh?.();
-    } catch (err: any) {
+    } catch (err) {
       console.error("[Sales] Unexpected error:", err);
-      toast.error(`Error inesperado: ${err.message}`);
+      toast.error(`Error inesperado: ${getErrorMessage(err, "Error desconocido")}`);
     } finally {
       setSaving(false);
     }
@@ -443,9 +446,9 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
       setDetailOpen(false);
       fetchData();
       onRefresh?.();
-    } catch (err: any) {
+    } catch (err) {
       console.error("[Sales] Unexpected error:", err);
-      toast.error(`Error inesperado: ${err.message}`);
+      toast.error(`Error inesperado: ${getErrorMessage(err, "Error desconocido")}`);
     } finally {
       setVoiding(false);
     }

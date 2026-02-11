@@ -51,7 +51,7 @@ interface DataTableProps<T> {
   getRowId?: (row: T) => string;
 }
 
-export function DataTable<T extends Record<string, any>>({
+export function DataTable<T extends Record<string, unknown>>({
   columns,
   data,
   loading = false,

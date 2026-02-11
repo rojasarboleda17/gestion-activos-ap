@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/ui/loading-state";
+import { logger } from "@/lib/logger";
 
 interface Props {
   vehicleId: string;
@@ -88,7 +89,7 @@ export function VehicleLegalTab({ vehicleId }: Props) {
       if (error) throw error;
       toast.success("Tarjeta de propiedad actualizada");
     } catch (err: unknown) {
-      console.error(err);
+      logger.error(err);
       toast.error(getErrorMessage(err, "Error al guardar"));
     } finally {
       setSaving(false);

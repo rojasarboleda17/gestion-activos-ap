@@ -50,6 +50,7 @@ import {
 } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { WorkOrderSheet } from "@/components/operations/WorkOrderSheet";
+import { logger } from "@/lib/logger";
 
 interface Operation {
   id: string;
@@ -211,7 +212,7 @@ export default function AdminOperations() {
 
       setWorkOrders(enrichedWOs);
     } catch (err) {
-      console.error("Error fetching operations data:", err);
+      logger.error("Error fetching operations data:", err);
       toast.error("Error al cargar datos");
     } finally {
       setLoading(false);

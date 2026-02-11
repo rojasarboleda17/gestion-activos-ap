@@ -34,6 +34,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatCOP, formatDate } from "@/lib/format";
 import { CreditCard, Plus, Search } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 interface SalePayment {
   id: string;
@@ -133,7 +134,7 @@ export function PaymentsTab() {
       );
       setPaymentMethods(pmRes.data || []);
     } catch (err) {
-      console.error("Error fetching payments:", err);
+      logger.error("Error fetching payments:", err);
     } finally {
       setLoading(false);
     }

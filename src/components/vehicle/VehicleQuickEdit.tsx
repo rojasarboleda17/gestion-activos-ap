@@ -21,6 +21,7 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import { toast } from "sonner";
+import { logger } from "@/lib/logger";
 
 interface VehicleStage {
   code: string;
@@ -144,7 +145,7 @@ export function VehicleQuickEdit({
       onSave();
       onOpenChange(false);
     } catch (err: unknown) {
-      console.error(err);
+      logger.error(err);
       toast.error(getErrorMessage(err, "Error al guardar"));
     } finally {
       setSaving(false);

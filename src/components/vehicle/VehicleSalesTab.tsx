@@ -37,6 +37,7 @@ import { toast } from "sonner";
 import { LoadingState } from "@/components/ui/loading-state";
 import { formatCOP, formatDate } from "@/lib/format";
 import { Bookmark, DollarSign, Plus, X, ArrowRight, AlertTriangle, Eye } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 interface Props {
   vehicleId: string;
@@ -153,7 +154,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      console.log("[VehicleSalesTab] Fetching data for vehicle:", vehicleId);
+      logger.debug("[VehicleSalesTab] Fetching data for vehicle:", vehicleId);
       const [resRes, salesRes, custRes, pmRes, stagesRes] = await Promise.all([
         supabase
           .from("reservations")
@@ -187,7 +188,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
       setPaymentMethods(pmRes.data || []);
       setVehicleStages(stagesRes.data || []);
     } catch (err) {
-      console.error("[VehicleSalesTab] Error fetching data:", err);
+      logger.error("[VehicleSalesTab] Error fetching data:", err);
       toast.error("Error al cargar datos");
     } finally {
       setLoading(false);
@@ -228,7 +229,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
 
     setSavingRes(true);
     try {
-      console.log("[VehicleSalesTab] Creating reservation...");
+      logger.debug("[VehicleSalesTab] Creating reservation...");
       const { data, error } = await supabase
         .from("reservations")
         .insert({
@@ -245,7 +246,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
         .single();
 
       if (error) {
-        console.error("[VehicleSalesTab] Reservation error:", error);
+        logger.error("[VehicleSalesTab] Reservation error:", error);
         toast.error(`Error: ${error.message}${error.details ? ` - ${error.details}` : ""}`);
         return;
       }
@@ -266,7 +267,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
       fetchData();
       onRefresh?.();
     } catch (err: unknown) {
-      console.error("[VehicleSalesTab] Unexpected error:", err);
+      logger.error("[VehicleSalesTab] Unexpected error:", err);
       toast.error(`Error: ${getErrorMessage(err)}`);
     } finally {
       setSavingRes(false);
@@ -318,7 +319,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
     if (!cancelingReservation || !profile?.id) return;
 
     try {
-      console.log("[VehicleSalesTab] Cancelling reservation:", cancelingReservation.id);
+      logger.debug("[VehicleSalesTab] Cancelling reservation:", cancelingReservation.id);
       const { error, data } = await supabase
         .from("reservations")
         .update({
@@ -331,7 +332,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
         .select();
 
       if (error) {
-        console.error("[VehicleSalesTab] Cancel error:", error);
+        logger.error("[VehicleSalesTab] Cancel error:", error);
         toast.error(`Error: ${error.message}`);
         return;
       }
@@ -367,7 +368,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
       fetchData();
       onRefresh?.();
     } catch (err: unknown) {
-      console.error("[VehicleSalesTab] Unexpected error:", err);
+      logger.error("[VehicleSalesTab] Unexpected error:", err);
       toast.error(`Error: ${getErrorMessage(err)}`);
     }
   };
@@ -400,7 +401,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
     setConverting(true);
     try {
       // Step 1: Create sale
-      console.log("[VehicleSalesTab] Creating sale from reservation...");
+      logger.debug("[VehicleSalesTab] Creating sale from reservation...");
       const { data: saleData, error: saleError } = await supabase
         .from("sales")
         .insert({
@@ -418,7 +419,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
         .single();
 
       if (saleError) {
-        console.error("[VehicleSalesTab] Sale error:", saleError);
+        logger.error("[VehicleSalesTab] Sale error:", saleError);
         toast.error(`Error al crear venta: ${saleError.message}`);
         return;
       }
@@ -441,7 +442,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
         });
 
         if (paymentError) {
-          console.error("[VehicleSalesTab] Payment error:", paymentError);
+          logger.error("[VehicleSalesTab] Payment error:", paymentError);
           toast.warning(`Venta creada, pero falló el pago: ${paymentError.message}`);
         }
       }
@@ -461,7 +462,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
       fetchData();
       onRefresh?.();
     } catch (err: unknown) {
-      console.error("[VehicleSalesTab] Unexpected error:", err);
+      logger.error("[VehicleSalesTab] Unexpected error:", err);
       toast.error(`Error: ${getErrorMessage(err)}`);
     } finally {
       setConverting(false);
@@ -498,7 +499,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
 
     setSavingSale(true);
     try {
-      console.log("[VehicleSalesTab] Creating direct sale...");
+      logger.debug("[VehicleSalesTab] Creating direct sale...");
       const { data, error } = await supabase
         .from("sales")
         .insert({
@@ -515,7 +516,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
         .single();
 
       if (error) {
-        console.error("[VehicleSalesTab] Sale error:", error);
+        logger.error("[VehicleSalesTab] Sale error:", error);
         toast.error(`Error: ${error.message}${error.details ? ` - ${error.details}` : ""}`);
         return;
       }
@@ -535,7 +536,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
       fetchData();
       onRefresh?.();
     } catch (err: unknown) {
-      console.error("[VehicleSalesTab] Unexpected error:", err);
+      logger.error("[VehicleSalesTab] Unexpected error:", err);
       toast.error(`Error: ${getErrorMessage(err)}`);
     } finally {
       setSavingSale(false);
@@ -563,7 +564,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
 
     setVoiding(true);
     try {
-      console.log("[VehicleSalesTab] Voiding sale:", voidingSale.id);
+      logger.debug("[VehicleSalesTab] Voiding sale:", voidingSale.id);
       const { error, data } = await supabase
         .from("sales")
         .update({
@@ -577,7 +578,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
         .select();
 
       if (error) {
-        console.error("[VehicleSalesTab] Void error:", error);
+        logger.error("[VehicleSalesTab] Void error:", error);
         toast.error(`Error: ${error.message}`);
         return;
       }
@@ -611,7 +612,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
       fetchData();
       onRefresh?.();
     } catch (err: unknown) {
-      console.error("[VehicleSalesTab] Unexpected error:", err);
+      logger.error("[VehicleSalesTab] Unexpected error:", err);
       toast.error(`Error: ${getErrorMessage(err)}`);
     } finally {
       setVoiding(false);

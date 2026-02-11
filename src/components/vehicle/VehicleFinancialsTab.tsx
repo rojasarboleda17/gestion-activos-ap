@@ -16,6 +16,7 @@ import {
   Wallet, Clock, Percent, Calculator, AlertCircle
 } from "lucide-react";
 import { differenceInDays, parseISO } from "date-fns";
+import { logger } from "@/lib/logger";
 
 interface Props {
   vehicleId: string;
@@ -167,7 +168,7 @@ export function VehicleFinancialsTab({ vehicleId }: Props) {
       if (error) throw error;
       toast.success("Información financiera actualizada");
     } catch (err: unknown) {
-      console.error(err);
+      logger.error(err);
       toast.error(getErrorMessage(err, "Error al guardar"));
     } finally {
       setSaving(false);

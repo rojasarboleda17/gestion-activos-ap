@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { Building2, Plus, Pencil, Search, X, Car, Users, AlertTriangle, MapPin, Calendar } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { logger } from "@/lib/logger";
 
 interface Branch {
   id: string;
@@ -75,7 +76,7 @@ export default function AdminBranches() {
         .order("name");
 
       if (error) {
-        console.error("Error fetching branches:", error);
+        logger.error("Error fetching branches:", error);
         toast.error(`Error al cargar sedes: ${error.message}`);
         return;
       }
@@ -87,7 +88,7 @@ export default function AdminBranches() {
         await fetchMetrics(data.map(b => b.id));
       }
     } catch (err: unknown) {
-      console.error("Fetch error:", err);
+      logger.error("Fetch error:", err);
       toast.error(getErrorMessage(err));
     } finally {
       setLoading(false);
@@ -106,7 +107,7 @@ export default function AdminBranches() {
         .eq("is_archived", false);
 
       if (vehiclesError) {
-        console.error("Error fetching vehicle counts:", vehiclesError);
+        logger.error("Error fetching vehicle counts:", vehiclesError);
       }
 
       // Fetch user counts
@@ -117,7 +118,7 @@ export default function AdminBranches() {
         .eq("is_active", true);
 
       if (usersError) {
-        console.error("Error fetching user counts:", usersError);
+        logger.error("Error fetching user counts:", usersError);
       }
 
       // Build metrics map
@@ -144,7 +145,7 @@ export default function AdminBranches() {
 
       setMetrics(metricsMap);
     } catch (err) {
-      console.error("Metrics error:", err);
+      logger.error("Metrics error:", err);
     }
   };
 
@@ -214,7 +215,7 @@ export default function AdminBranches() {
         .select();
 
       if (error) {
-        console.error("Error updating branch:", error);
+        logger.error("Error updating branch:", error);
         toast.error(`Error al actualizar: ${error.message}${error.details ? ` - ${error.details}` : ""}`);
         setSaving(false);
         return;
@@ -242,7 +243,7 @@ export default function AdminBranches() {
         .select();
 
       if (error) {
-        console.error("Error creating branch:", error);
+        logger.error("Error creating branch:", error);
         toast.error(`Error al crear: ${error.message}${error.details ? ` - ${error.details}` : ""}`);
         setSaving(false);
         return;
@@ -279,7 +280,7 @@ export default function AdminBranches() {
       .select();
 
     if (error) {
-      console.error("Error toggling branch:", error);
+      logger.error("Error toggling branch:", error);
       toast.error(`Error: ${error.message}`);
       return;
     }

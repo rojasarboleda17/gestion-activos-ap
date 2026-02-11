@@ -44,6 +44,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatCOP, formatDate } from "@/lib/format";
 import { Calendar, Plus, Search, X, ArrowRight, AlertTriangle } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 interface Reservation {
   id: string;
@@ -135,7 +136,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
     setLoading(true);
 
     try {
-      console.log("[Reservations] Fetching data...");
+      logger.debug("[Reservations] Fetching data...");
       const [resRes, vehRes, custRes, pmRes] = await Promise.all([
         supabase
           .from("reservations")
@@ -165,7 +166,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
       ]);
 
       if (resRes.error) {
-        console.error("[Reservations] Error fetching reservations:", resRes.error);
+        logger.error("[Reservations] Error fetching reservations:", resRes.error);
         toast.error(`Error al cargar reservas: ${resRes.error.message}`);
       }
 
@@ -179,9 +180,9 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
       setVehicles(vehRes.data || []);
       setCustomers(custRes.data || []);
       setPaymentMethods(pmRes.data || []);
-      console.log("[Reservations] Data loaded successfully");
+      logger.debug("[Reservations] Data loaded successfully");
     } catch (err) {
-      console.error("[Reservations] Unexpected error fetching data:", err);
+      logger.error("[Reservations] Unexpected error fetching data:", err);
       toast.error("Error al cargar datos");
     } finally {
       setLoading(false);
@@ -226,7 +227,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
     }
 
     // Check for existing active reservation
-    console.log("[Reservations] Checking for existing active reservations...");
+    logger.debug("[Reservations] Checking for existing active reservations...");
     const { data: existing, error: existingError } = await supabase
       .from("reservations")
       .select("id")
@@ -235,7 +236,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
       .maybeSingle();
 
     if (existingError) {
-      console.error("[Reservations] Error checking existing:", existingError);
+      logger.error("[Reservations] Error checking existing:", existingError);
       toast.error(`Error al verificar reservas existentes: ${existingError.message}`);
       return;
     }
@@ -257,7 +258,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
         status: "active",
         created_by: profile.id,
       };
-      console.log("[Reservations] Creating reservation:", payload);
+      logger.debug("[Reservations] Creating reservation:", payload);
 
       const { data, error } = await supabase
         .from("reservations")
@@ -266,28 +267,28 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
         .single();
 
       if (error) {
-        console.error("[Reservations] Create error:", error);
+        logger.error("[Reservations] Create error:", error);
         toast.error(`Error al crear reserva: ${error.message}${error.details ? ` - ${error.details}` : ""}`);
         return;
       }
 
       if (!data) {
-        console.error("[Reservations] No data returned after insert");
+        logger.error("[Reservations] No data returned after insert");
         toast.error("Error: No se creó la reserva (0 filas insertadas)");
         return;
       }
 
-      console.log("[Reservations] Reservation created:", data.id);
+      logger.debug("[Reservations] Reservation created:", data.id);
 
       // Update vehicle stage to 'bloqueado'
-      console.log("[Reservations] Updating vehicle stage to 'bloqueado'...");
+      logger.debug("[Reservations] Updating vehicle stage to 'bloqueado'...");
       const { error: vehError } = await supabase
         .from("vehicles")
         .update({ stage_code: "bloqueado" })
         .eq("id", form.vehicle_id);
 
       if (vehError) {
-        console.error("[Reservations] Vehicle update error:", vehError);
+        logger.error("[Reservations] Vehicle update error:", vehError);
         toast.warning(`Reserva creada, pero el vehículo no se actualizó: ${vehError.message}`);
       }
 
@@ -296,7 +297,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
       fetchData();
       onRefresh?.();
     } catch (err) {
-      console.error("[Reservations] Unexpected error:", err);
+      logger.error("[Reservations] Unexpected error:", err);
       toast.error(`Error inesperado: ${getErrorMessage(err, "Error desconocido")}`);
     } finally {
       setSaving(false);
@@ -312,7 +313,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
 
     setQuickCustomerSaving(true);
     try {
-      console.log("[Reservations] Creating quick customer:", quickCustomerForm);
+      logger.debug("[Reservations] Creating quick customer:", quickCustomerForm);
       const { data, error } = await supabase
         .from("customers")
         .insert({
@@ -324,7 +325,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
         .single();
 
       if (error) {
-        console.error("[Reservations] Quick customer error:", error);
+        logger.error("[Reservations] Quick customer error:", error);
         toast.error(`Error al crear cliente: ${error.message}${error.details ? ` - ${error.details}` : ""}`);
         return;
       }
@@ -334,14 +335,14 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
         return;
       }
 
-      console.log("[Reservations] Customer created:", data.id);
+      logger.debug("[Reservations] Customer created:", data.id);
       setCustomers((prev) => [...prev, data]);
       setForm({ ...form, customer_id: data.id });
       setQuickCustomerOpen(false);
       setQuickCustomerForm({ full_name: "", phone: "" });
       toast.success("Cliente creado");
     } catch (err) {
-      console.error("[Reservations] Unexpected error:", err);
+      logger.error("[Reservations] Unexpected error:", err);
       toast.error(`Error inesperado: ${getErrorMessage(err, "Error desconocido")}`);
     } finally {
       setQuickCustomerSaving(false);
@@ -359,7 +360,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
 
     setCanceling(true);
     try {
-      console.log("[Reservations] Cancelling reservation:", cancelingReservation.id);
+      logger.debug("[Reservations] Cancelling reservation:", cancelingReservation.id);
       const { error, data } = await supabase
         .from("reservations")
         .update({
@@ -372,18 +373,18 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
         .select();
 
       if (error) {
-        console.error("[Reservations] Cancel error:", error);
+        logger.error("[Reservations] Cancel error:", error);
         toast.error(`Error al cancelar: ${error.message}${error.details ? ` - ${error.details}` : ""}`);
         return;
       }
 
       if (!data || data.length === 0) {
-        console.error("[Reservations] Cancel returned no rows");
+        logger.error("[Reservations] Cancel returned no rows");
         toast.error("Error: La reserva no se actualizó (puede que no tengas permisos)");
         return;
       }
 
-      console.log("[Reservations] Reservation cancelled successfully");
+      logger.debug("[Reservations] Reservation cancelled successfully");
 
       // Check if there are other active reservations for this vehicle
       const { data: otherActive } = await supabase
@@ -395,14 +396,14 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
 
       if (!otherActive || otherActive.length === 0) {
         // Return vehicle to 'publicado'
-        console.log("[Reservations] No other active reservations, returning vehicle to 'publicado'...");
+        logger.debug("[Reservations] No other active reservations, returning vehicle to 'publicado'...");
         const { error: vehError } = await supabase
           .from("vehicles")
           .update({ stage_code: "publicado" })
           .eq("id", cancelingReservation.vehicle_id);
 
         if (vehError) {
-          console.error("[Reservations] Vehicle update error:", vehError);
+          logger.error("[Reservations] Vehicle update error:", vehError);
           toast.warning(`Reserva cancelada, pero el vehículo no se actualizó: ${vehError.message}`);
         }
       }
@@ -413,7 +414,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
       fetchData();
       onRefresh?.();
     } catch (err) {
-      console.error("[Reservations] Unexpected error:", err);
+      logger.error("[Reservations] Unexpected error:", err);
       toast.error(`Error inesperado: ${getErrorMessage(err, "Error desconocido")}`);
     } finally {
       setCanceling(false);

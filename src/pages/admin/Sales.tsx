@@ -19,6 +19,7 @@ import { SalesTab } from "@/components/sales/SalesTab";
 import { PaymentsTab } from "@/components/sales/PaymentsTab";
 import { DocumentsTab } from "@/components/sales/DocumentsTab";
 import { formatCOP } from "@/lib/format";
+import { logger } from "@/lib/logger";
 
 interface ReservationToConvert {
   id: string;
@@ -52,7 +53,7 @@ export default function AdminSales() {
   const [paymentMethods, setPaymentMethods] = useState<{ code: string; name: string }[]>([]);
   
   const handleConvertToSale = async (reservation: ReservationToConvert) => {
-    console.log("[Convert] Opening dialog for reservation:", reservation.id);
+    logger.debug("[Convert] Opening dialog for reservation:", reservation.id);
     
     // Fetch payment methods
     const { data: pmData, error: pmError } = await supabase
@@ -61,7 +62,7 @@ export default function AdminSales() {
       .eq("is_active", true);
     
     if (pmError) {
-      console.error("[Convert] Error fetching payment methods:", pmError);
+      logger.error("[Convert] Error fetching payment methods:", pmError);
       toast.error(`Error al cargar métodos de pago: ${pmError.message}`);
       return;
     }

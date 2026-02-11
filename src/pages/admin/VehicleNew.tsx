@@ -16,6 +16,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import { toast } from "sonner";
+import { logger } from "@/lib/logger";
 
 interface VehicleStage {
   code: string;
@@ -184,7 +185,7 @@ export default function VehicleNew() {
       toast.success("Vehículo creado exitosamente");
       navigate(`/admin/vehicles/${vehicleId}`);
     } catch (error: unknown) {
-      console.error("Error creating vehicle:", error);
+      logger.error("Error creating vehicle:", error);
       toast.error(error.message || "Error al crear vehículo");
     } finally {
       setLoading(false);

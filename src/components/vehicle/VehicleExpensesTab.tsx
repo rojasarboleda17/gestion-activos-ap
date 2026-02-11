@@ -52,6 +52,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useAudit } from "@/hooks/use-audit";
+import { logger } from "@/lib/logger";
 
 interface Props {
   vehicleId: string;
@@ -168,7 +169,7 @@ export function VehicleExpensesTab({ vehicleId }: Props) {
       );
       setVendors(vendorProfiles.length > 0 ? vendorProfiles : vendorsData || []);
     } catch (err) {
-      console.error("Error fetching expenses:", err);
+      logger.error("Error fetching expenses:", err);
     } finally {
       setLoading(false);
     }

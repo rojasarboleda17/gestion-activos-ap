@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import type { Json } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 
 interface AuditLog {
   id: string;
@@ -142,7 +143,7 @@ export default function AdminAudit() {
       const { data, error } = await query;
 
       if (error) {
-        console.error("Error fetching audit logs:", error);
+        logger.error("Error fetching audit logs:", error);
         toast({ title: "Error", description: error.message, variant: "destructive" });
       } else {
         setLogs((data || []).map(l => ({
@@ -151,7 +152,7 @@ export default function AdminAudit() {
         })));
       }
     } catch (err) {
-      console.error("Error in fetchData:", err);
+      logger.error("Error in fetchData:", err);
     } finally {
       setLoading(false);
     }

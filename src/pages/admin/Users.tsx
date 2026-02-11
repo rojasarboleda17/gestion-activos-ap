@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { Users, Shield, Settings, Search, X, Edit, Key, AlertTriangle, Plus, Trash2, Info } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { logger } from "@/lib/logger";
 
 interface Profile {
   id: string;
@@ -110,13 +111,13 @@ export default function AdminUsers() {
       ]);
 
       if (profilesRes.error) {
-        console.error("Error fetching profiles:", profilesRes.error);
+        logger.error("Error fetching profiles:", profilesRes.error);
         setRlsError(`Error al cargar perfiles: ${profilesRes.error.message}. Verifica las políticas RLS para admin.`);
       }
-      if (branchesRes.error) console.error("Error fetching branches:", branchesRes.error);
-      if (permissionsRes.error) console.error("Error fetching permissions:", permissionsRes.error);
-      if (rolePermsRes.error) console.error("Error fetching role permissions:", rolePermsRes.error);
-      if (overridesRes.error) console.error("Error fetching overrides:", overridesRes.error);
+      if (branchesRes.error) logger.error("Error fetching branches:", branchesRes.error);
+      if (permissionsRes.error) logger.error("Error fetching permissions:", permissionsRes.error);
+      if (rolePermsRes.error) logger.error("Error fetching role permissions:", rolePermsRes.error);
+      if (overridesRes.error) logger.error("Error fetching overrides:", overridesRes.error);
 
       setProfiles(profilesRes.data || []);
       setBranches(branchesRes.data || []);
@@ -124,7 +125,7 @@ export default function AdminUsers() {
       setRolePermissions(rolePermsRes.data || []);
       setUserOverrides(overridesRes.data || []);
     } catch (err: unknown) {
-      console.error("Fetch error:", err);
+      logger.error("Fetch error:", err);
       setRlsError(getErrorMessage(err));
     } finally {
       setLoading(false);
@@ -209,7 +210,7 @@ export default function AdminUsers() {
     setSaving(false);
 
     if (error) {
-      console.error("Error updating profile:", error);
+      logger.error("Error updating profile:", error);
       toast.error(`Error al actualizar: ${error.message}${error.details ? ` - ${error.details}` : ""}`);
       return;
     }

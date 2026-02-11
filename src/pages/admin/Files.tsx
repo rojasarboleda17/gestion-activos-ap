@@ -22,6 +22,7 @@ import {
   FileText, ExternalLink, Download, Image, File, Search, 
   AlertTriangle, Car, Calendar, Eye, Shield, Clock 
 } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 // Types
 interface VehicleFile {
@@ -161,15 +162,15 @@ export default function AdminFiles() {
       ]);
 
       if (vfRes.error) {
-        console.error("Error fetching vehicle_files:", vfRes.error);
+        logger.error("Error fetching vehicle_files:", vfRes.error);
         toast({ title: "Error", description: vfRes.error.message, variant: "destructive" });
       }
       if (ddRes.error) {
-        console.error("Error fetching deal_documents:", ddRes.error);
+        logger.error("Error fetching deal_documents:", ddRes.error);
         toast({ title: "Error", description: ddRes.error.message, variant: "destructive" });
       }
       if (vcRes.error) {
-        console.error("Error fetching vehicle_compliance:", vcRes.error);
+        logger.error("Error fetching vehicle_compliance:", vcRes.error);
       }
 
       // Process vehicle files
@@ -234,7 +235,7 @@ export default function AdminFiles() {
       setComplianceAlerts(alerts);
       
     } catch (err) {
-      console.error("Error in fetchData:", err);
+      logger.error("Error in fetchData:", err);
     } finally {
       setLoading(false);
     }
@@ -347,14 +348,14 @@ export default function AdminFiles() {
         .createSignedUrl(file.storage_path, 300);
 
       if (error) {
-        console.error("Error creating signed URL:", error);
+        logger.error("Error creating signed URL:", error);
         toast({ title: "Error", description: error.message, variant: "destructive" });
         setPreviewUrl(null);
       } else {
         setPreviewUrl(data.signedUrl);
       }
     } catch (err: unknown) {
-      console.error("Error in openPreview:", err);
+      logger.error("Error in openPreview:", err);
       toast({ title: "Error", description: getErrorMessage(err), variant: "destructive" });
       setPreviewUrl(null);
     } finally {
@@ -369,14 +370,14 @@ export default function AdminFiles() {
         .createSignedUrl(file.storage_path, 60);
 
       if (error) {
-        console.error("Error creating signed URL:", error);
+        logger.error("Error creating signed URL:", error);
         toast({ title: "Error", description: error.message, variant: "destructive" });
         return;
       }
 
       window.open(data.signedUrl, "_blank");
     } catch (err: unknown) {
-      console.error("Error in downloadFile:", err);
+      logger.error("Error in downloadFile:", err);
       toast({ title: "Error", description: getErrorMessage(err), variant: "destructive" });
     }
   };

@@ -53,6 +53,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useAudit } from "@/hooks/use-audit";
+import { logger } from "@/lib/logger";
 
 interface Vehicle {
   id: string;
@@ -212,7 +213,7 @@ export function WorkOrderSheet({
       setCatalog(catalogRes.data || []);
       setProfiles(profilesRes.data || []);
     } catch (err) {
-      console.error("Error fetching work order:", err);
+      logger.error("Error fetching work order:", err);
     } finally {
       setLoading(false);
     }

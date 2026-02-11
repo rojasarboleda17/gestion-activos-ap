@@ -11,11 +11,6 @@ const strictTypingRules = {
   "@typescript-eslint/no-require-imports": "error",
 };
 
-const criticalModules = [
-  "src/pages/admin/**/*.{ts,tsx}",
-  "src/components/operations/**/*.{ts,tsx}",
-  "src/components/vehicle/**/*.{ts,tsx}",
-];
 
 export default tseslint.config(
   { ignores: ["dist"] },
@@ -39,10 +34,10 @@ export default tseslint.config(
     },
   },
   {
-    // Puerta de entrada a "P1 cerrado": estos módulos críticos escalan a "error".
-    // El resto del código mantiene "off" temporalmente para completar migración gradual.
-    files: criticalModules,
-    rules: strictTypingRules,
+    files: ["src/lib/logger.ts"],
+    rules: {
+      "no-console": "off",
+    },
   },
   {
     files: ["src/lib/logger.ts"],

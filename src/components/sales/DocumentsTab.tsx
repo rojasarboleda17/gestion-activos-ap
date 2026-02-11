@@ -32,6 +32,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatDate } from "@/lib/format";
 import { FileText, Plus, Search, Download } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 interface DealDocument {
   id: string;
@@ -156,7 +157,7 @@ export function DocumentsTab() {
         }))
       );
     } catch (err) {
-      console.error("Error fetching documents:", err);
+      logger.error("Error fetching documents:", err);
     } finally {
       setLoading(false);
     }

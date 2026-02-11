@@ -50,6 +50,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { logger } from "@/lib/logger";
 
 interface Props {
   vehicleId: string;
@@ -184,7 +185,7 @@ export function VehicleWorkOrdersTab({ vehicleId }: Props) {
         setItems([]);
       }
     } catch (err) {
-      console.error("Error fetching work order data:", err);
+      logger.error("Error fetching work order data:", err);
     } finally {
       setLoading(false);
     }

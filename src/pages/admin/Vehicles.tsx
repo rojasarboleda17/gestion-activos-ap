@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { VehicleFilters } from "@/components/vehicle/VehicleFilters";
 import { VehicleKanban } from "@/components/vehicle/VehicleKanban";
 import { VehicleQuickEdit } from "@/components/vehicle/VehicleQuickEdit";
+import { logger } from "@/lib/logger";
 
 interface VehicleStage {
   code: string;
@@ -179,7 +180,7 @@ export default function AdminVehicles() {
       setStages(stagesData);
       setBranches(branchesData);
     } catch (err) {
-      console.error("Error fetching vehicles:", err);
+      logger.error("Error fetching vehicles:", err);
       toast.error("Error al cargar vehículos");
     } finally {
       setLoading(false);

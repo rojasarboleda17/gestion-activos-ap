@@ -33,6 +33,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { formatCOP, formatDate } from "@/lib/format";
 import { validateCustomerData } from "@/lib/validations";
 import { Users2, Plus, Pencil, Search, Eye, Bookmark, DollarSign } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 interface Customer {
   id: string;
@@ -111,7 +112,7 @@ export function CustomersTab() {
       if (error) throw error;
       setCustomers(data || []);
     } catch (err) {
-      console.error("Error fetching customers:", err);
+      logger.error("Error fetching customers:", err);
     } finally {
       setLoading(false);
     }
@@ -190,7 +191,7 @@ export function CustomersTab() {
         sales: salesRes.data || [],
       });
     } catch (err) {
-      console.error("Error fetching customer history:", err);
+      logger.error("Error fetching customer history:", err);
     } finally {
       setLoadingHistory(false);
     }

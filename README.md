@@ -32,6 +32,14 @@ Asset Vault es un MVP para la gestión interna de activos (vehículos y motos) d
 - Supabase (Auth + PostgREST + RLS)
 - TanStack React Query
 
+## Estándar de logging
+
+- Usar `logger` central (`src/lib/logger.ts`) en lugar de `console.log` o `console.debug` dentro de módulos de negocio.
+- `logger.debug(...)` solo emite en entorno de desarrollo (`import.meta.env.DEV`).
+- Para eventos operativos relevantes usar `logger.info(...)` o `logger.warn(...)` según corresponda.
+- Errores de negocio e integración deben reportarse con `logger.error(...)`.
+- Evitar llamadas directas a `console.*` en la app, salvo casos muy excepcionales de borde crítico.
+
 ## Requisitos
 
 - Node.js + npm

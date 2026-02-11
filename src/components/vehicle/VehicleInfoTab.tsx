@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 import { toast } from "sonner";
+import { logger } from "@/lib/logger";
 
 type VehicleForm = Tables<"vehicles"> & { [key: string]: string | number | boolean | null | undefined };
 
@@ -66,7 +67,7 @@ export function VehicleInfoTab({ vehicle, onUpdate }: Props) {
       onUpdate({ ...vehicle, ...form });
       toast.success("Información actualizada");
     } catch (err: unknown) {
-      console.error(err);
+      logger.error(err);
       toast.error(getErrorMessage(err, "Error al guardar"));
     } finally {
       setSaving(false);

@@ -50,6 +50,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatCOP, formatDate } from "@/lib/format";
 import { ShoppingCart, Search, Eye, XCircle, DollarSign, CreditCard, Plus } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 interface Sale {
   id: string;
@@ -160,7 +161,7 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
     setLoading(true);
 
     try {
-      console.log("[Sales] Fetching data...");
+      logger.debug("[Sales] Fetching data...");
       const [salesRes, pmRes, stagesRes, vehiclesRes, customersRes] = await Promise.all([
         supabase
           .from("sales")
@@ -191,7 +192,7 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
       ]);
 
       if (salesRes.error) {
-        console.error("[Sales] Error fetching sales:", salesRes.error);
+        logger.error("[Sales] Error fetching sales:", salesRes.error);
         toast.error(`Error al cargar ventas: ${salesRes.error.message}`);
       }
 
@@ -221,9 +222,9 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
       setVehicleStages((stagesRes.data || []) as VehicleStage[]);
       setVehicles((vehiclesRes.data || []) as Vehicle[]);
       setCustomers((customersRes.data || []) as Customer[]);
-      console.log("[Sales] Data loaded successfully");
+      logger.debug("[Sales] Data loaded successfully");
     } catch (err) {
-      console.error("[Sales] Unexpected error:", err);
+      logger.error("[Sales] Unexpected error:", err);
       toast.error("Error al cargar datos");
     } finally {
       setLoading(false);
@@ -240,7 +241,7 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
     setLoadingDetail(true);
 
     try {
-      console.log("[Sales] Fetching payments for sale:", sale.id);
+      logger.debug("[Sales] Fetching payments for sale:", sale.id);
       const { data, error } = await supabase
         .from("sale_payments")
         .select("*")
@@ -248,13 +249,13 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
         .order("paid_at", { ascending: false });
 
       if (error) {
-        console.error("[Sales] Error fetching payments:", error);
+        logger.error("[Sales] Error fetching payments:", error);
         toast.error(`Error al cargar pagos: ${error.message}`);
       }
 
       setSalePayments(data || []);
     } catch (err) {
-      console.error("[Sales] Unexpected error fetching payments:", err);
+      logger.error("[Sales] Unexpected error fetching payments:", err);
     } finally {
       setLoadingDetail(false);
     }
@@ -313,7 +314,7 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
         created_by: profile.id,
         notes: createForm.notes?.trim() || null,
       };
-      console.log("[Sales] Creating sale:", payload);
+      logger.debug("[Sales] Creating sale:", payload);
 
       const { data, error } = await supabase
         .from("sales")
@@ -322,28 +323,28 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
         .single();
 
       if (error) {
-        console.error("[Sales] Create error:", error);
+        logger.error("[Sales] Create error:", error);
         toast.error(`Error al crear venta: ${error.message}${error.details ? ` - ${error.details}` : ""}`);
         return;
       }
 
       if (!data) {
-        console.error("[Sales] No data returned");
+        logger.error("[Sales] No data returned");
         toast.error("Error: No se creó la venta (0 filas insertadas)");
         return;
       }
 
-      console.log("[Sales] Sale created:", data.id);
+      logger.debug("[Sales] Sale created:", data.id);
 
       // Update vehicle to 'vendido'
-      console.log("[Sales] Updating vehicle to 'vendido'...");
+      logger.debug("[Sales] Updating vehicle to 'vendido'...");
       const { error: vehError } = await supabase
         .from("vehicles")
         .update({ stage_code: "vendido" })
         .eq("id", createForm.vehicle_id);
 
       if (vehError) {
-        console.error("[Sales] Vehicle update error:", vehError);
+        logger.error("[Sales] Vehicle update error:", vehError);
         toast.warning(`Venta creada, pero el vehículo no se actualizó: ${vehError.message}`);
       }
 
@@ -352,7 +353,7 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
       fetchData();
       onRefresh?.();
     } catch (err) {
-      console.error("[Sales] Unexpected error:", err);
+      logger.error("[Sales] Unexpected error:", err);
       toast.error(`Error inesperado: ${getErrorMessage(err, "Error desconocido")}`);
     } finally {
       setSaving(false);
@@ -380,7 +381,7 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
 
     setVoiding(true);
     try {
-      console.log("[Sales] Voiding sale:", selectedSale.id);
+      logger.debug("[Sales] Voiding sale:", selectedSale.id);
       
       // Step 1: Update sale to voided
       const { error: saleError, data: saleData } = await supabase
@@ -396,35 +397,35 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
         .select();
 
       if (saleError) {
-        console.error("[Sales] Void error:", saleError);
+        logger.error("[Sales] Void error:", saleError);
         toast.error(`Error al anular venta: ${saleError.message}${saleError.details ? ` - ${saleError.details}` : ""}`);
         return;
       }
 
       if (!saleData || saleData.length === 0) {
-        console.error("[Sales] Void returned no rows");
+        logger.error("[Sales] Void returned no rows");
         toast.error("Error: La venta no se actualizó (puede que no tengas permisos)");
         return;
       }
 
-      console.log("[Sales] Sale voided successfully");
+      logger.debug("[Sales] Sale voided successfully");
 
       // Step 2: Update vehicle stage
-      console.log("[Sales] Updating vehicle stage to:", voidForm.return_stage_code);
+      logger.debug("[Sales] Updating vehicle stage to:", voidForm.return_stage_code);
       const { error: vehError } = await supabase
         .from("vehicles")
         .update({ stage_code: voidForm.return_stage_code })
         .eq("id", selectedSale.vehicle_id);
 
       if (vehError) {
-        console.error("[Sales] Vehicle update error:", vehError);
+        logger.error("[Sales] Vehicle update error:", vehError);
         toast.warning(`Venta anulada, pero el vehículo no se actualizó: ${vehError.message}`);
       }
 
       // Step 3: Create refund payment if amount > 0
       const refundAmount = parseInt(voidForm.refund_amount);
       if (voidForm.refund_amount && !isNaN(refundAmount) && refundAmount > 0) {
-        console.log("[Sales] Creating refund payment:", refundAmount);
+        logger.debug("[Sales] Creating refund payment:", refundAmount);
         const { error: refundError } = await supabase.from("sale_payments").insert({
           org_id: profile.org_id,
           sale_id: selectedSale.id,
@@ -436,7 +437,7 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
         });
 
         if (refundError) {
-          console.error("[Sales] Refund error:", refundError);
+          logger.error("[Sales] Refund error:", refundError);
           toast.warning(`Venta anulada, pero el reembolso no se registró: ${refundError.message}`);
         }
       }
@@ -447,7 +448,7 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
       fetchData();
       onRefresh?.();
     } catch (err) {
-      console.error("[Sales] Unexpected error:", err);
+      logger.error("[Sales] Unexpected error:", err);
       toast.error(`Error inesperado: ${getErrorMessage(err, "Error desconocido")}`);
     } finally {
       setVoiding(false);

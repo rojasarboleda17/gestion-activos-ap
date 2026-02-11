@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import { useCallback } from "react";
+import { logger } from "@/lib/logger";
 
 type AuditAction =
   | "stage_change"
@@ -48,7 +49,7 @@ export function useAudit() {
   const log = useCallback(
     async ({ action, entity, entity_id, payload = {} }: AuditPayload) => {
       if (!profile?.org_id || !profile?.id) {
-        console.warn("[Audit] No profile/org_id, skipping audit log");
+        logger.warn("[Audit] No profile/org_id, skipping audit log");
         return;
       }
 
@@ -63,12 +64,12 @@ export function useAudit() {
         });
 
         if (error) {
-          console.error("[Audit] Error inserting audit log:", error.message, error.details);
+          logger.error("[Audit] Error inserting audit log:", error.message, error.details);
         } else {
-          console.log(`[Audit] ${action} on ${entity}`, { entity_id, payload });
+          logger.debug(`[Audit] ${action} on ${entity}`, { entity_id, payload });
         }
       } catch (err) {
-        console.error("[Audit] Exception:", err);
+        logger.error("[Audit] Exception:", err);
       }
     },
     [profile?.org_id, profile?.id]
@@ -107,11 +108,11 @@ export async function logAudit({
     });
 
     if (error) {
-      console.error("[Audit] Error inserting audit log:", error.message, error.details);
+      logger.error("[Audit] Error inserting audit log:", error.message, error.details);
     } else {
-      console.log(`[Audit] ${action} on ${entity}`, { entity_id, payload });
+      logger.debug(`[Audit] ${action} on ${entity}`, { entity_id, payload });
     }
   } catch (err) {
-    console.error("[Audit] Exception:", err);
+    logger.error("[Audit] Exception:", err);
   }
 }

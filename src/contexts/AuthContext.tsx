@@ -4,6 +4,7 @@ import { Session, User } from "@supabase/supabase-js";
 
 import { supabase } from "@/integrations/supabase/client";
 import { AuthContext, Profile } from "@/contexts/auth-context";
+import { logger } from "@/lib/logger";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -19,7 +20,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .single();
 
     if (error) {
-      console.error("Error fetching profile:", error);
+      logger.error("Error fetching profile:", error);
       setProfile(null);
     } else {
       setProfile(data);

@@ -23,6 +23,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { logger } from "@/lib/logger";
 
 // Tab components
 import { VehicleSummaryTab } from "@/components/vehicle/VehicleSummaryTab";
@@ -72,7 +73,7 @@ export default function VehicleDetail() {
       setVehicle(vehicleRes.data);
       setStages(stagesRes.data || []);
     } catch (err: unknown) {
-      console.error("Error fetching vehicle:", err);
+      logger.error("Error fetching vehicle:", err);
       setError(getErrorMessage(err, "Error al cargar vehículo"));
     } finally {
       setLoading(false);
@@ -95,7 +96,7 @@ export default function VehicleDetail() {
       setVehicle({ ...vehicle, stage_code: newStage });
       toast.success("Estado actualizado");
     } catch (err: unknown) {
-      console.error(err);
+      logger.error(err);
       toast.error(getErrorMessage(err, "Error al cambiar estado"));
     } finally {
       setChangingStage(false);

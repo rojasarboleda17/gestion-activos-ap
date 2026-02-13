@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import { toast } from "sonner";
 import { logger } from "@/lib/logger";
+import { useAudit } from "@/hooks/use-audit";
 
 interface VehicleStage {
   code: string;
@@ -49,6 +50,26 @@ interface VehicleRow {
   listed_price_cop: number | null;
 }
 
+const QUICK_EDIT_TRACKED_FIELDS = [
+  "brand",
+  "line",
+  "model_year",
+  "mileage_km",
+  "fuel_type",
+  "transmission",
+  "color",
+  "stage_code",
+  "branch_id",
+  "is_listed",
+  "listed_price_cop",
+] as const;
+
+const toNumberOrNull = (value: string) => {
+  if (!value) return null;
+  const parsed = parseInt(value, 10);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
 interface VehicleQuickEditProps {
   vehicle: VehicleRow | null;
   stages: VehicleStage[];
@@ -68,6 +89,7 @@ export function VehicleQuickEdit({
 }: VehicleQuickEditProps) {
   const { profile } = useAuth();
   const [saving, setSaving] = useState(false);
+  const { log: logAudit } = useAudit();
   const [form, setForm] = useState({
     brand: "",
     line: "",
@@ -107,22 +129,52 @@ export function VehicleQuickEdit({
   const handleSave = async () => {
     if (!vehicle || !profile?.org_id) return;
 
+    const normalizedVehicle = {
+      brand: form.brand.trim(),
+      line: form.line.trim() || null,
+      model_year: toNumberOrNull(form.model_year),
+      mileage_km: toNumberOrNull(form.mileage_km),
+      fuel_type: form.fuel_type || null,
+      transmission: form.transmission || null,
+      color: form.color || null,
+      stage_code: form.stage_code,
+      branch_id: form.branch_id || null,
+    };
+
+    const normalizedListing = {
+      is_listed: form.is_listed,
+      listed_price_cop: toNumberOrNull(form.listed_price_cop),
+    };
+
+    const beforeState = {
+      brand: vehicle.brand,
+      line: vehicle.line,
+      model_year: vehicle.model_year,
+      mileage_km: vehicle.mileage_km,
+      fuel_type: vehicle.fuel_type,
+      transmission: vehicle.transmission,
+      color: vehicle.color,
+      stage_code: vehicle.stage_code,
+      branch_id: vehicle.branch_id,
+      is_listed: vehicle.is_listed,
+      listed_price_cop: vehicle.listed_price_cop,
+    };
+
+    const afterState = {
+      ...normalizedVehicle,
+      ...normalizedListing,
+    };
+
+    const changed_fields = QUICK_EDIT_TRACKED_FIELDS.filter(
+      (field) => beforeState[field] !== afterState[field]
+    );
+
     setSaving(true);
     try {
       // Update vehicle
       const { error: vehicleError } = await supabase
         .from("vehicles")
-        .update({
-          brand: form.brand.trim(),
-          line: form.line.trim() || null,
-          model_year: form.model_year ? parseInt(form.model_year) : null,
-          mileage_km: form.mileage_km ? parseInt(form.mileage_km) : null,
-          fuel_type: form.fuel_type || null,
-          transmission: form.transmission || null,
-          color: form.color || null,
-          stage_code: form.stage_code,
-          branch_id: form.branch_id || null,
-        })
+        .update(normalizedVehicle)
         .eq("id", vehicle.id);
 
       if (vehicleError) throw vehicleError;
@@ -133,13 +185,26 @@ export function VehicleQuickEdit({
         .upsert({
           vehicle_id: vehicle.id,
           org_id: profile.org_id,
-          is_listed: form.is_listed,
-          listed_price_cop: form.listed_price_cop
-            ? parseInt(form.listed_price_cop)
-            : null,
+          ...normalizedListing,
         });
 
       if (listingError) throw listingError;
+
+      if (changed_fields.length > 0) {
+        void logAudit({
+          action: "vehicle_quick_edit",
+          entity: "vehicle",
+          entity_id: vehicle.id,
+          payload: {
+            vehicle_id: vehicle.id,
+            changed_fields,
+            before: beforeState,
+            after: afterState,
+          },
+        }).catch((auditErr) => {
+          logger.error("[Audit] vehicle_quick_edit failed", auditErr);
+        });
+      }
 
       toast.success("Vehículo actualizado");
       onSave();

@@ -5,6 +5,10 @@ import { logger } from "@/lib/logger";
 
 type AuditAction =
   | "stage_change"
+  | "vehicle_archive_toggle"
+  | "vehicle_delete"
+  | "vehicle_quick_edit"
+  | "vehicle_info_update"
   | "work_order_create"
   | "work_order_close"
   | "work_order_item_status"

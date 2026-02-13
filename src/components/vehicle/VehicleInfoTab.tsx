@@ -9,18 +9,42 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import { logger } from "@/lib/logger";
+import { useAudit } from "@/hooks/use-audit";
 
 type VehicleForm = Tables<"vehicles"> & { [key: string]: string | number | boolean | null | undefined };
+
+const VEHICLE_INFO_TRACKED_FIELDS = [
+  "license_plate",
+  "vin",
+  "brand",
+  "line",
+  "model_year",
+  "vehicle_class",
+  "body_type",
+  "fuel_type",
+  "transmission",
+  "engine_displacement_cc",
+  "doors",
+  "capacity_passengers",
+  "color",
+  "mileage_km",
+  "engine_number",
+  "serial_number",
+  "chassis_number",
+  "branch_id",
+] as const;
 
 interface Props {
   vehicle: Tables<"vehicles">;
   onUpdate: (vehicle: Tables<"vehicles">) => void;
+  onAudit?: ReturnType<typeof useAudit>["log"];
 }
 
-export function VehicleInfoTab({ vehicle, onUpdate }: Props) {
+export function VehicleInfoTab({ vehicle, onUpdate, onAudit }: Props) {
   const [form, setForm] = useState<VehicleForm>({ ...vehicle });
   const [branches, setBranches] = useState<Pick<Tables<"branches">, "id" | "name">[]>([]);
   const [saving, setSaving] = useState(false);
+  const { log: logAudit } = useAudit();
 
   useEffect(() => {
     supabase.from("branches").select("id, name").eq("is_active", true).then(({ data }) => {
@@ -37,33 +61,64 @@ export function VehicleInfoTab({ vehicle, onUpdate }: Props) {
   };
 
   const handleSave = async () => {
+    const normalizedPayload = {
+      license_plate: form.license_plate?.toUpperCase().trim() || null,
+      vin: form.vin?.trim() || null,
+      brand: form.brand?.trim() || "",
+      line: form.line?.trim() || null,
+      model_year: form.model_year ? parseInt(form.model_year) : null,
+      vehicle_class: form.vehicle_class || null,
+      body_type: form.body_type || null,
+      fuel_type: form.fuel_type || null,
+      transmission: form.transmission || null,
+      engine_displacement_cc: form.engine_displacement_cc ? parseInt(form.engine_displacement_cc) : null,
+      doors: form.doors ? parseInt(form.doors) : null,
+      capacity_passengers: form.capacity_passengers ? parseInt(form.capacity_passengers) : null,
+      color: form.color || null,
+      mileage_km: form.mileage_km ? parseInt(form.mileage_km) : null,
+      engine_number: form.engine_number || null,
+      serial_number: form.serial_number || null,
+      chassis_number: form.chassis_number || null,
+      branch_id: form.branch_id || null,
+    };
+
+    const before = Object.fromEntries(
+      VEHICLE_INFO_TRACKED_FIELDS.map((field) => [field, vehicle[field]])
+    );
+    const after = Object.fromEntries(
+      VEHICLE_INFO_TRACKED_FIELDS.map((field) => [field, normalizedPayload[field]])
+    );
+    const changed_fields = VEHICLE_INFO_TRACKED_FIELDS.filter(
+      (field) => before[field] !== after[field]
+    );
+
     setSaving(true);
     try {
       const { error } = await supabase
         .from("vehicles")
-        .update({
-          license_plate: form.license_plate?.toUpperCase().trim() || null,
-          vin: form.vin?.trim() || null,
-          brand: form.brand?.trim() || "",
-          line: form.line?.trim() || null,
-          model_year: form.model_year ? parseInt(form.model_year) : null,
-          vehicle_class: form.vehicle_class || null,
-          body_type: form.body_type || null,
-          fuel_type: form.fuel_type || null,
-          transmission: form.transmission || null,
-          engine_displacement_cc: form.engine_displacement_cc ? parseInt(form.engine_displacement_cc) : null,
-          doors: form.doors ? parseInt(form.doors) : null,
-          capacity_passengers: form.capacity_passengers ? parseInt(form.capacity_passengers) : null,
-          color: form.color || null,
-          mileage_km: form.mileage_km ? parseInt(form.mileage_km) : null,
-          engine_number: form.engine_number || null,
-          serial_number: form.serial_number || null,
-          chassis_number: form.chassis_number || null,
-          branch_id: form.branch_id || null,
-        })
+        .update(normalizedPayload)
         .eq("id", vehicle.id);
 
       if (error) throw error;
+
+      if (changed_fields.length > 0) {
+        const auditLogger = onAudit ?? logAudit;
+        void auditLogger({
+          action: "vehicle_info_update",
+          entity: "vehicle",
+          entity_id: vehicle.id,
+          payload: {
+            vehicle_id: vehicle.id,
+            section: "general_info",
+            changed_fields,
+            before,
+            after,
+          },
+        }).catch((auditErr) => {
+          logger.error("[Audit] vehicle_info_update failed", auditErr);
+        });
+      }
+
       onUpdate({ ...vehicle, ...form });
       toast.success("Información actualizada");
     } catch (err: unknown) {

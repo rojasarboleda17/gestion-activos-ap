@@ -12,8 +12,19 @@ import { toast } from "sonner";
 import { LoadingState } from "@/components/ui/loading-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatDate } from "@/lib/format";
-import { Upload, FileText, Image, Download } from "lucide-react";
+import { Upload, FileText, Image, Download, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useAudit } from "@/hooks/use-audit";
 
 interface Props { vehicleId: string; }
@@ -25,6 +36,7 @@ export function VehicleFilesTab({ vehicleId }: Props) {
   const [files, setFiles] = useState<Tables<"vehicle_files">[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
   const [form, setForm] = useState({ file_kind: "photo", visibility: "operations", doc_type: "", expires_at: "" });
 
   const fetchFiles = useCallback(async () => {
@@ -78,6 +90,56 @@ export function VehicleFilesTab({ vehicleId }: Props) {
     finally { setUploading(false); }
   };
 
+  const handleDownload = async (file: Tables<"vehicle_files">) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from(file.storage_bucket)
+        .createSignedUrl(file.storage_path, 60);
+
+      if (error || !data?.signedUrl) {
+        throw error || new Error("No se pudo generar URL de descarga");
+      }
+
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+      toast.success("Descarga iniciada");
+      fetchFiles();
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err));
+    }
+  };
+
+  const handleDelete = async (file: Tables<"vehicle_files">) => {
+    setDeletingFileId(file.id);
+    try {
+      const { error: storageError } = await supabase.storage.from(file.storage_bucket).remove([file.storage_path]);
+      if (storageError) throw storageError;
+
+      const { error: dbError } = await supabase.from("vehicle_files").delete().eq("id", file.id);
+      if (dbError) throw dbError;
+
+      auditLog({
+        action: "file_delete",
+        entity: "vehicle_file",
+        entity_id: file.id,
+        payload: {
+          vehicle_id: vehicleId,
+          file_id: file.id,
+          file_name: file.file_name,
+          storage_bucket: file.storage_bucket,
+          storage_path: file.storage_path,
+          visibility: file.visibility,
+        },
+      });
+
+      toast.success("Archivo eliminado");
+      fetchFiles();
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setDeletingFileId(null);
+    }
+  };
+
   if (loading) return <LoadingState variant="table" />;
 
   return (
@@ -111,6 +173,32 @@ export function VehicleFilesTab({ vehicleId }: Props) {
             <Card key={f.id}><CardContent className="py-3 flex items-center gap-3">
               {f.file_kind === "photo" ? <Image className="h-8 w-8 text-muted-foreground" /> : <FileText className="h-8 w-8 text-muted-foreground" />}
               <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate">{f.file_name || "Archivo"}</p><p className="text-xs text-muted-foreground">{f.visibility} · {formatDate(f.created_at)}</p></div>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" onClick={() => handleDownload(f)} title="Descargar">
+                  <Download className="h-4 w-4" />
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" title="Eliminar" disabled={deletingFileId === f.id}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>¿Eliminar archivo?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Esta acción no se puede deshacer. Se eliminará el archivo del almacenamiento y su registro.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleDelete(f)} disabled={deletingFileId === f.id}>
+                        Eliminar
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             </CardContent></Card>
           ))}
         </div>

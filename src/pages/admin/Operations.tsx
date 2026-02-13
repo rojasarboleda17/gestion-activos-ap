@@ -198,9 +198,9 @@ export default function AdminOperations() {
         if (item.status === "blocked") itemCounts[item.work_order_id].blocked++;
       });
 
-      const enrichedWOs: WorkOrder[] = (woRes.data || []).map((wo: WorkOrder & { vehicles: Vehicle | null }) => ({
+      const enrichedWOs: WorkOrder[] = (woRes.data || []).map((wo: any) => ({
         ...wo,
-        vehicle: wo.vehicles,
+        vehicle: wo.vehicles ?? null,
         stage_name: wo.vehicles
           ? stageMap.get(wo.vehicles.stage_code) || wo.vehicles.stage_code
           : "—",

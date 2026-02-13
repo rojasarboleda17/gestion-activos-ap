@@ -188,7 +188,7 @@ export default function VehicleNew() {
       navigate(`/admin/vehicles/${vehicleId}`);
     } catch (error: unknown) {
       logger.error("Error creating vehicle:", error);
-      toast.error(error.message || "Error al crear vehículo");
+      toast.error(error instanceof Error ? error.message : "Error al crear vehículo");
     } finally {
       setLoading(false);
     }

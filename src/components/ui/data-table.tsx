@@ -164,7 +164,7 @@ export function DataTable<T extends Record<string, unknown>>({
                   >
                     {columns.map((column) => (
                       <TableCell key={column.key} className={column.className}>
-                        {column.cell ? column.cell(row) : row[column.key]}
+                        {column.cell ? column.cell(row) : (row[column.key] as React.ReactNode)}
                       </TableCell>
                     ))}
                   </TableRow>
@@ -199,7 +199,7 @@ export function DataTable<T extends Record<string, unknown>>({
                       "text-xs text-right min-w-0 break-words",
                       colIdx === 0 ? "font-semibold" : "font-medium"
                     )}>
-                      {column.cell ? column.cell(row) : row[column.key] ?? "-"}
+                      {column.cell ? column.cell(row) : (row[column.key] as React.ReactNode) ?? "-"}
                     </span>
                   </div>
                 ))}

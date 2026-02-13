@@ -129,7 +129,7 @@ export function VehicleExpensesTab({ vehicleId }: Props) {
         .order("incurred_at", { ascending: false });
 
       // Enrich expenses
-      const enriched: Expense[] = (expensesData || []).map((e: Tables<"vehicle_expenses"> & { work_order_items: { title: string | null } | null; vendor: { full_name: string | null } | null; creator: { full_name: string | null } | null }) => ({
+      const enriched: Expense[] = (expensesData || []).map((e: any) => ({
         ...e,
         work_order_item_title: e.work_order_items?.title || null,
         vendor_name: e.vendor?.full_name || null,

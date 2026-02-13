@@ -126,7 +126,7 @@ export default function AdminVehicles() {
   const [totalCount, setTotalCount] = useState(0);
 
   const addQueryFilters = useCallback(
-    <T extends ReturnType<typeof supabase.from>>(query: T) => {
+    (query: any) => {
       let q = query;
       if (!filters.include_archived) q = q.eq("is_archived", false);
       if (filters.stage_code !== "all") q = q.eq("stage_code", filters.stage_code);
@@ -144,7 +144,7 @@ export default function AdminVehicles() {
   const escapeIlike = useCallback((value: string) => value.replace(/[%_,]/g, ""), []);
 
   const addSearchFilter = useCallback(
-    <T extends ReturnType<typeof supabase.from>>(query: T) => {
+    (query: any) => {
       const searchTerm = search.trim();
       if (!searchTerm) return query;
 
@@ -157,7 +157,7 @@ export default function AdminVehicles() {
   );
 
   const addKpiFilter = useCallback(
-    <T extends ReturnType<typeof supabase.from>>(query: T) => {
+    (query: any) => {
       const today = new Date();
       const endDate = new Date(today);
       endDate.setDate(endDate.getDate() + 30);
@@ -639,8 +639,8 @@ export default function AdminVehicles() {
             </div>
 
             <DataTable
-              columns={columns}
-              data={vehicles}
+              columns={columns as unknown as Column<Record<string, unknown>>[]}
+              data={vehicles as unknown as Record<string, unknown>[]}
               loading={loading}
               searchable={false}
               emptyTitle="Sin vehículos"
@@ -649,8 +649,8 @@ export default function AdminVehicles() {
                 label: "Crear Vehículo",
                 onClick: () => navigate("/admin/vehicles/new"),
               }}
-              onRowClick={(row) => navigate(`/admin/vehicles/${row.id}`)}
-              getRowId={(row) => row.id}
+              onRowClick={(row) => navigate(`/admin/vehicles/${(row as any).id}`)}
+              getRowId={(row) => (row as any).id}
               pageSize={Math.max(vehicles.length, 1)}
             />
 

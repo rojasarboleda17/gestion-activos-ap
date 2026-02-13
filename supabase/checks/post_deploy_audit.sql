@@ -187,6 +187,125 @@ checks as (
       then 'authenticated tiene SELECT sobre public.profiles'
       else 'Falta grant SELECT para authenticated sobre public.profiles'
     end
+
+  -- 5) Integridad de inventario
+  union all
+
+  select
+    'inventory.listed_without_valid_price',
+    case when exists (
+      select 1
+      from public.vehicle_listing vl
+      where vl.is_listed = true
+        and coalesce(vl.listed_price_cop, 0) <= 0
+    ) then 'FAIL' else 'PASS' end,
+    case when exists (
+      select 1
+      from public.vehicle_listing vl
+      where vl.is_listed = true
+        and coalesce(vl.listed_price_cop, 0) <= 0
+    )
+      then 'Hay vehículos publicados con precio nulo/0 (' || (
+        select count(*)::text
+        from public.vehicle_listing vl
+        where vl.is_listed = true
+          and coalesce(vl.listed_price_cop, 0) <= 0
+      ) || ')'
+      else 'No hay vehículos publicados con precio nulo/0'
+    end
+
+  union all
+
+  select
+    'inventory.missing_satellite_records',
+    case when exists (
+      select 1
+      from public.vehicles v
+      left join public.vehicle_listing vl on vl.vehicle_id = v.id
+      left join public.vehicle_compliance vc on vc.vehicle_id = v.id
+      left join public.vehicle_financials vf on vf.vehicle_id = v.id
+      left join public.vehicle_property_card vpc on vpc.vehicle_id = v.id
+      where vl.vehicle_id is null
+         or vc.vehicle_id is null
+         or vf.vehicle_id is null
+         or vpc.vehicle_id is null
+    ) then 'FAIL' else 'PASS' end,
+    case when exists (
+      select 1
+      from public.vehicles v
+      left join public.vehicle_listing vl on vl.vehicle_id = v.id
+      left join public.vehicle_compliance vc on vc.vehicle_id = v.id
+      left join public.vehicle_financials vf on vf.vehicle_id = v.id
+      left join public.vehicle_property_card vpc on vpc.vehicle_id = v.id
+      where vl.vehicle_id is null
+         or vc.vehicle_id is null
+         or vf.vehicle_id is null
+         or vpc.vehicle_id is null
+    )
+      then 'Hay vehículos sin registro satélite (listing/compliance/financials/property_card) (' || (
+        select count(*)::text
+        from public.vehicles v
+        left join public.vehicle_listing vl on vl.vehicle_id = v.id
+        left join public.vehicle_compliance vc on vc.vehicle_id = v.id
+        left join public.vehicle_financials vf on vf.vehicle_id = v.id
+        left join public.vehicle_property_card vpc on vpc.vehicle_id = v.id
+        where vl.vehicle_id is null
+           or vc.vehicle_id is null
+           or vf.vehicle_id is null
+           or vpc.vehicle_id is null
+      ) || ')'
+      else 'Todos los vehículos tienen listing/compliance/financials/property_card'
+    end
+
+  union all
+
+  select
+    'inventory.org_mismatch_vehicle_expenses',
+    case when exists (
+      select 1
+      from public.vehicle_expenses ve
+      join public.vehicles v on v.id = ve.vehicle_id
+      where ve.org_id <> v.org_id
+    ) then 'FAIL' else 'PASS' end,
+    case when exists (
+      select 1
+      from public.vehicle_expenses ve
+      join public.vehicles v on v.id = ve.vehicle_id
+      where ve.org_id <> v.org_id
+    )
+      then 'Hay gastos con org_id distinto al del vehículo (' || (
+        select count(*)::text
+        from public.vehicle_expenses ve
+        join public.vehicles v on v.id = ve.vehicle_id
+        where ve.org_id <> v.org_id
+      ) || ')'
+      else 'No hay gastos con org_id distinto al del vehículo'
+    end
+
+  union all
+
+  select
+    'inventory.invalid_stage_code',
+    case when exists (
+      select 1
+      from public.vehicles v
+      left join public.vehicle_stages vs on vs.code = v.stage_code
+      where vs.code is null
+    ) then 'FAIL' else 'PASS' end,
+    case when exists (
+      select 1
+      from public.vehicles v
+      left join public.vehicle_stages vs on vs.code = v.stage_code
+      where vs.code is null
+    )
+      then 'Hay vehículos con stage_code inexistente en vehicle_stages (' || (
+        select count(*)::text
+        from public.vehicles v
+        left join public.vehicle_stages vs on vs.code = v.stage_code
+        where vs.code is null
+      ) || ')'
+      else 'Todos los vehicles.stage_code existen en vehicle_stages'
+    end
 )
 select
   check_name,

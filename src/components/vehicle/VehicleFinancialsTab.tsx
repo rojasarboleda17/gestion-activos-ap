@@ -72,6 +72,10 @@ interface FinancialSummary {
   reservationDeposit: number;
 }
 
+interface ListingData {
+  listed_price_cop: number | null;
+}
+
 export function VehicleFinancialsTab({ vehicleId }: Props) {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -88,6 +92,7 @@ export function VehicleFinancialsTab({ vehicleId }: Props) {
   const [payments, setPayments] = useState<PaymentData[]>([]);
   const [reservation, setReservation] = useState<ReservationData | null>(null);
   const [vehicleCreatedAt, setVehicleCreatedAt] = useState<string | null>(null);
+  const [listing, setListing] = useState<ListingData | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -95,17 +100,19 @@ export function VehicleFinancialsTab({ vehicleId }: Props) {
         financialsRes, 
         expensesRes, 
         vehicleRes,
+        listingRes,
         saleRes,
         reservationRes,
       ] = await Promise.all([
         supabase.from("vehicle_financials").select("*").eq("vehicle_id", vehicleId).maybeSingle(),
         supabase.from("vehicle_expenses").select("amount_cop, description").eq("vehicle_id", vehicleId),
         supabase.from("vehicles").select("created_at").eq("id", vehicleId).single(),
+        supabase.from("vehicle_listing").select("listed_price_cop").eq("vehicle_id", vehicleId).maybeSingle(),
         supabase.from("sales")
           .select("id, final_price_cop, sale_date, status, customers(full_name)")
           .eq("vehicle_id", vehicleId)
-          .eq("status", "active")
-          .maybeSingle(),
+          .in("status", ["active", "final"])
+          .order("sale_date", { ascending: false }),
         supabase.from("reservations")
           .select("id, deposit_amount_cop, reserved_at, status")
           .eq("vehicle_id", vehicleId)
@@ -123,24 +130,31 @@ export function VehicleFinancialsTab({ vehicleId }: Props) {
       
       setExpenses(expensesRes.data || []);
       setVehicleCreatedAt(vehicleRes.data?.created_at || null);
+      setListing(listingRes.data);
       
-      if (saleRes.data) {
+      const selectedSale = saleRes.data?.find((s) => s.status === "active")
+        || saleRes.data?.find((s) => s.status === "final");
+
+      if (selectedSale) {
         setSale({
-          id: saleRes.data.id,
-          final_price_cop: saleRes.data.final_price_cop,
-          sale_date: saleRes.data.sale_date,
-          status: saleRes.data.status,
-          customer_name: ((saleRes.data.customers as { full_name: string | null } | null)?.full_name) || "Cliente",
+          id: selectedSale.id,
+          final_price_cop: selectedSale.final_price_cop,
+          sale_date: selectedSale.sale_date,
+          status: selectedSale.status,
+          customer_name: ((selectedSale.customers as { full_name: string | null } | null)?.full_name) || "Cliente",
         });
         
         // Fetch payments for this sale
         const paymentsRes = await supabase
           .from("sale_payments")
           .select("id, amount_cop, direction, paid_at, payment_method_code, notes")
-          .eq("sale_id", saleRes.data.id)
+          .eq("sale_id", selectedSale.id)
           .order("paid_at", { ascending: true });
         
         setPayments(paymentsRes.data || []);
+      } else {
+        setSale(null);
+        setPayments([]);
       }
       
       setReservation(reservationRes.data);
@@ -179,6 +193,7 @@ export function VehicleFinancialsTab({ vehicleId }: Props) {
 
   // Calculate financial summary
   const purchasePrice = form.purchase_price_cop ? parseInt(form.purchase_price_cop) : 0;
+  const listedPrice = listing?.listed_price_cop ?? null;
   const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount_cop || 0), 0);
   const totalCost = purchasePrice + totalExpenses;
   
@@ -267,6 +282,7 @@ export function VehicleFinancialsTab({ vehicleId }: Props) {
               <div>
                 <p className="text-sm text-muted-foreground">Costo Total</p>
                 <p className="text-xl font-bold">{formatCOP(totalCost)}</p>
+                <p className="text-xs text-muted-foreground">Fuente: compra + gastos</p>
               </div>
             </div>
           </CardContent>
@@ -279,8 +295,9 @@ export function VehicleFinancialsTab({ vehicleId }: Props) {
                 <Wallet className="h-5 w-5 text-green-600" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Precio Venta</p>
-                <p className="text-xl font-bold">{isSold ? formatCOP(salePrice) : "—"}</p>
+                <p className="text-sm text-muted-foreground">Precio objetivo</p>
+                <p className="text-xl font-bold">{listedPrice !== null ? formatCOP(listedPrice) : "—"}</p>
+                <p className="text-xs text-muted-foreground">Fuente: vehicle_listing.listed_price_cop</p>
               </div>
             </div>
           </CardContent>
@@ -296,10 +313,11 @@ export function VehicleFinancialsTab({ vehicleId }: Props) {
                 }
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Utilidad Bruta</p>
-                <p className={`text-xl font-bold ${grossProfit >= 0 ? "text-green-600" : "text-destructive"}`}>
-                  {isSold ? formatCOP(grossProfit) : "—"}
+                <p className="text-sm text-muted-foreground">Venta real</p>
+                <p className={`text-xl font-bold ${isSold ? "" : "text-muted-foreground"}`}>
+                  {isSold ? formatCOP(salePrice) : "—"}
                 </p>
+                <p className="text-xs text-muted-foreground">Fuente: sales activa/final</p>
               </div>
             </div>
           </CardContent>

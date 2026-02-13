@@ -5,7 +5,15 @@ import { AdminLayout } from "@/components/layouts/AdminLayout";
 import { DataTable, Column } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +29,10 @@ import {
   Pencil,
   Archive,
   ArchiveRestore,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -101,11 +113,33 @@ const DEFAULT_FILTERS: Filters = {
 export default function AdminVehicles() {
   const navigate = useNavigate();
   const [vehicles, setVehicles] = useState<VehicleRow[]>([]);
+  const [kanbanVehicles, setKanbanVehicles] = useState<VehicleRow[]>([]);
   const [stages, setStages] = useState<VehicleStage[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingKanban, setLoadingKanban] = useState(false);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
+  const [totalCount, setTotalCount] = useState(0);
+
+  const addQueryFilters = useCallback(
+    <T extends ReturnType<typeof supabase.from>>(query: T) => {
+      let q = query;
+      if (!filters.include_archived) q = q.eq("is_archived", false);
+      if (filters.stage_code !== "all") q = q.eq("stage_code", filters.stage_code);
+      if (filters.branch_id !== "all") q = q.eq("branch_id", filters.branch_id);
+      if (filters.vehicle_class !== "all") {
+        q = q.eq("vehicle_class", filters.vehicle_class);
+      }
+      return q;
+    },
+    [filters]
+  );
+
+  const escapeIlike = useCallback((value: string) => value.replace(/[%_,]/g, ""), []);
 
   // Quick edit modal
   const [editVehicle, setEditVehicle] = useState<VehicleRow | null>(null);
@@ -115,16 +149,32 @@ export default function AdminVehicles() {
     setLoading(true);
 
     try {
-      // Parallel fetches
-      const [vehiclesRes, stagesRes, branchesRes, listingsRes, complianceRes] =
+      const offset = (page - 1) * pageSize;
+      const from = offset;
+      const to = offset + pageSize - 1;
+
+      let vehiclesQuery = addQueryFilters(
+        supabase
+          .from("vehicles")
+          .select(
+            "id, license_plate, vin, brand, line, model_year, vehicle_class, stage_code, mileage_km, fuel_type, transmission, color, branch_id, is_archived, created_at",
+            { count: "exact" }
+          )
+          .order("created_at", { ascending: false })
+          .range(from, to)
+      );
+
+      const searchTerm = search.trim();
+      if (searchTerm) {
+        const safe = escapeIlike(searchTerm);
+        vehiclesQuery = vehiclesQuery.or(
+          `license_plate.ilike.%${safe}%,vin.ilike.%${safe}%,brand.ilike.%${safe}%,line.ilike.%${safe}%`
+        );
+      }
+
+      const [vehiclesRes, stagesRes, branchesRes] =
         await Promise.all([
-          supabase
-            .from("vehicles")
-            .select(
-              "id, license_plate, vin, brand, line, model_year, vehicle_class, stage_code, mileage_km, fuel_type, transmission, color, branch_id, is_archived, created_at"
-            )
-            .order("created_at", { ascending: false })
-            .limit(500),
+          vehiclesQuery,
           supabase
             .from("vehicle_stages")
             .select("code, name, sort_order")
@@ -133,15 +183,24 @@ export default function AdminVehicles() {
             .from("branches")
             .select("id, name, is_active")
             .order("name"),
-          supabase
-            .from("vehicle_listing")
-            .select("vehicle_id, is_listed, listed_price_cop"),
-          supabase
-            .from("vehicle_compliance")
-            .select(
-              "vehicle_id, soat_expires_at, tecnomecanica_expires_at, has_fines, fines_amount_cop"
-            ),
         ]);
+
+      const vehicleIds = (vehiclesRes.data || []).map((v) => v.id);
+
+      const [listingsRes, complianceRes] = vehicleIds.length
+        ? await Promise.all([
+            supabase
+              .from("vehicle_listing")
+              .select("vehicle_id, is_listed, listed_price_cop")
+              .in("vehicle_id", vehicleIds),
+            supabase
+              .from("vehicle_compliance")
+              .select(
+                "vehicle_id, soat_expires_at, tecnomecanica_expires_at, has_fines, fines_amount_cop"
+              )
+              .in("vehicle_id", vehicleIds),
+          ])
+        : [{ data: [] }, { data: [] }];
 
       const stagesData = stagesRes.data || [];
       const branchesData = branchesRes.data || [];
@@ -177,6 +236,7 @@ export default function AdminVehicles() {
       );
 
       setVehicles(enrichedVehicles);
+      setTotalCount(vehiclesRes.count || 0);
       setStages(stagesData);
       setBranches(branchesData);
     } catch (err) {
@@ -185,36 +245,106 @@ export default function AdminVehicles() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [addQueryFilters, escapeIlike, page, pageSize, search]);
+
+  const fetchKanbanData = useCallback(async () => {
+    if (viewMode !== "kanban") return;
+
+    setLoadingKanban(true);
+    try {
+      const vehiclesQuery = addQueryFilters(
+        supabase
+          .from("vehicles")
+          .select(
+            "id, license_plate, vin, brand, line, model_year, vehicle_class, stage_code, mileage_km, fuel_type, transmission, color, branch_id, is_archived, created_at"
+          )
+          .order("created_at", { ascending: false })
+      );
+
+      const vehiclesRes = await vehiclesQuery;
+      const vehicleIds = (vehiclesRes.data || []).map((v) => v.id);
+
+      const [listingsRes, complianceRes] = vehicleIds.length
+        ? await Promise.all([
+            supabase
+              .from("vehicle_listing")
+              .select("vehicle_id, is_listed, listed_price_cop")
+              .in("vehicle_id", vehicleIds),
+            supabase
+              .from("vehicle_compliance")
+              .select(
+                "vehicle_id, soat_expires_at, tecnomecanica_expires_at, has_fines, fines_amount_cop"
+              )
+              .in("vehicle_id", vehicleIds),
+          ])
+        : [{ data: [] }, { data: [] }];
+
+      const listingsMap = new Map<string, VehicleListing>();
+      const complianceMap = new Map<string, VehicleCompliance>();
+      const stagesMap = new Map(stages.map((s) => [s.code, s.name]));
+      const branchesMap = new Map(branches.map((b) => [b.id, b.name]));
+
+      (listingsRes.data || []).forEach((l) => listingsMap.set(l.vehicle_id, l));
+      (complianceRes.data || []).forEach((c) =>
+        complianceMap.set(c.vehicle_id, c)
+      );
+
+      const data: VehicleRow[] = (vehiclesRes.data || []).map((v) => {
+        const listing = listingsMap.get(v.id);
+        const compliance = complianceMap.get(v.id);
+        return {
+          ...v,
+          branch_name: v.branch_id ? branchesMap.get(v.branch_id) || null : null,
+          stage_name: stagesMap.get(v.stage_code) || v.stage_code,
+          is_listed: listing?.is_listed || false,
+          listed_price_cop: listing?.listed_price_cop || null,
+          soat_expires_at: compliance?.soat_expires_at || null,
+          tecnomecanica_expires_at: compliance?.tecnomecanica_expires_at || null,
+          has_fines: compliance?.has_fines || false,
+          fines_amount_cop: compliance?.fines_amount_cop || null,
+        };
+      });
+
+      setKanbanVehicles(data);
+    } catch (err) {
+      logger.error("Error fetching kanban vehicles:", err);
+      toast.error("Error al cargar kanban");
+    } finally {
+      setLoadingKanban(false);
+    }
+  }, [addQueryFilters, branches, stages, viewMode]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Apply filters
+  useEffect(() => {
+    fetchKanbanData();
+  }, [fetchKanbanData]);
+
   const filteredVehicles = useMemo(() => {
     return vehicles.filter((v) => {
-      if (!filters.include_archived && v.is_archived) return false;
-      if (filters.stage_code !== "all" && v.stage_code !== filters.stage_code)
-        return false;
-      if (filters.branch_id !== "all" && v.branch_id !== filters.branch_id)
-        return false;
-      if (
-        filters.vehicle_class !== "all" &&
-        v.vehicle_class !== filters.vehicle_class
-      )
-        return false;
       if (filters.is_listed === "true" && !v.is_listed) return false;
       if (filters.is_listed === "false" && v.is_listed) return false;
       return true;
     });
-  }, [vehicles, filters]);
+  }, [vehicles, filters.is_listed]);
+
+  const filteredKanbanVehicles = useMemo(() => {
+    return kanbanVehicles.filter((v) => {
+      if (filters.is_listed === "true" && !v.is_listed) return false;
+      if (filters.is_listed === "false" && v.is_listed) return false;
+      return true;
+    });
+  }, [kanbanVehicles, filters.is_listed]);
 
   const handleFilterChange = <K extends keyof Filters>(key: K, value: Filters[K]) => {
+    setPage(1);
     setFilters((f) => ({ ...f, [key]: value }));
   };
 
   const handleClearFilters = () => {
+    setPage(1);
     setFilters(DEFAULT_FILTERS);
   };
 
@@ -239,6 +369,8 @@ export default function AdminVehicles() {
     setEditVehicle(vehicle);
     setQuickEditOpen(true);
   };
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   const columns: Column<VehicleRow>[] = [
     {
@@ -456,12 +588,54 @@ export default function AdminVehicles() {
           </div>
 
           <TabsContent value="list" className="mt-4">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative w-full sm:w-80">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por placa, VIN, marca, línea..."
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
+                  className="pl-9 pr-8"
+                />
+                {search && (
+                  <button
+                    onClick={() => {
+                      setSearch("");
+                      setPage(1);
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              <Select
+                value={String(pageSize)}
+                onValueChange={(value) => {
+                  setPageSize(Number(value));
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-[130px]">
+                  <SelectValue placeholder="Filas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10 / página</SelectItem>
+                  <SelectItem value="15">15 / página</SelectItem>
+                  <SelectItem value="30">30 / página</SelectItem>
+                  <SelectItem value="50">50 / página</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <DataTable
               columns={columns}
               data={filteredVehicles}
               loading={loading}
-              searchKeys={["license_plate", "vin", "brand", "line"]}
-              searchPlaceholder="Buscar por placa, VIN, marca, línea..."
+              searchable={false}
               emptyTitle="Sin vehículos"
               emptyDescription="Agrega tu primer vehículo al inventario."
               emptyAction={{
@@ -470,17 +644,51 @@ export default function AdminVehicles() {
               }}
               onRowClick={(row) => navigate(`/admin/vehicles/${row.id}`)}
               getRowId={(row) => row.id}
-              pageSize={15}
+              pageSize={Math.max(filteredVehicles.length, 1)}
             />
+
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
+                {totalCount === 0
+                  ? "0 resultados"
+                  : `${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, totalCount)} de ${totalCount}`}
+              </p>
+              <div className="flex items-center justify-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1 || loading}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-xs sm:text-sm min-w-[60px] text-center">
+                  {page} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages || loading}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="kanban" className="mt-4">
             <VehicleKanban
-              vehicles={filteredVehicles}
+              vehicles={filteredKanbanVehicles}
               stages={stages}
-              onRefresh={fetchData}
+              onRefresh={fetchKanbanData}
               onVehicleClick={(id) => navigate(`/admin/vehicles/${id}`)}
             />
+            {loadingKanban && (
+              <p className="text-sm text-muted-foreground mt-2">Cargando kanban...</p>
+            )}
           </TabsContent>
         </Tabs>
       </div>

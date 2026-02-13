@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { logger } from "@/lib/logger";
+import { useAudit } from "@/hooks/use-audit";
 
 // Tab components
 import { VehicleSummaryTab } from "@/components/vehicle/VehicleSummaryTab";
@@ -57,6 +58,7 @@ export default function VehicleDetail() {
   const [error, setError] = useState<string | null>(null);
   const [changingStage, setChangingStage] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const { log: logAudit } = useAudit();
 
   const fetchVehicle = useCallback(async () => {
     if (!id) return;
@@ -105,13 +107,30 @@ export default function VehicleDetail() {
 
   const handleArchive = async () => {
     if (!vehicle) return;
+    const toIsArchived = !vehicle.is_archived;
+
     try {
       const { error } = await supabase
         .from("vehicles")
-        .update({ is_archived: !vehicle.is_archived })
+        .update({ is_archived: toIsArchived })
         .eq("id", vehicle.id);
       if (error) throw error;
-      setVehicle({ ...vehicle, is_archived: !vehicle.is_archived });
+
+      void logAudit({
+        action: "vehicle_archive_toggle",
+        entity: "vehicle",
+        entity_id: vehicle.id,
+        payload: {
+          vehicle_id: vehicle.id,
+          license_plate: vehicle.license_plate,
+          from_is_archived: vehicle.is_archived,
+          to_is_archived: toIsArchived,
+        },
+      }).catch((auditErr) => {
+        logger.error("[Audit] vehicle_archive_toggle failed", auditErr);
+      });
+
+      setVehicle({ ...vehicle, is_archived: toIsArchived });
       toast.success(vehicle.is_archived ? "Vehículo desarchivado" : "Vehículo archivado");
     } catch (err: unknown) {
       toast.error(getErrorMessage(err));
@@ -123,6 +142,25 @@ export default function VehicleDetail() {
     try {
       const { error } = await supabase.from("vehicles").delete().eq("id", vehicle.id);
       if (error) throw error;
+
+      void logAudit({
+        action: "vehicle_delete",
+        entity: "vehicle",
+        entity_id: vehicle.id,
+        payload: {
+          vehicle_id: vehicle.id,
+          license_plate: vehicle.license_plate,
+          brand: vehicle.brand,
+          line: vehicle.line,
+          model_year: vehicle.model_year,
+          stage_code: vehicle.stage_code,
+          is_archived: vehicle.is_archived,
+          branch_id: vehicle.branch_id,
+        },
+      }).catch((auditErr) => {
+        logger.error("[Audit] vehicle_delete failed", auditErr);
+      });
+
       toast.success("Vehículo eliminado");
       navigate("/admin/vehicles");
     } catch (err: unknown) {
@@ -231,7 +269,7 @@ export default function VehicleDetail() {
           </TabsContent>
 
           <TabsContent value="info" className="mt-4 space-y-4">
-            <VehicleInfoTab vehicle={vehicle} onUpdate={(v) => setVehicle(v)} />
+            <VehicleInfoTab vehicle={vehicle} onUpdate={(v) => setVehicle(v)} onAudit={logAudit} />
             {activeTab === "info" ? <VehicleLegalTab vehicleId={vehicle.id} /> : null}
           </TabsContent>
 

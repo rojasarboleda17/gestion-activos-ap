@@ -40,6 +40,7 @@ import { VehicleFilters } from "@/components/vehicle/VehicleFilters";
 import { VehicleKanban } from "@/components/vehicle/VehicleKanban";
 import { VehicleQuickEdit } from "@/components/vehicle/VehicleQuickEdit";
 import { logger } from "@/lib/logger";
+import { useAudit } from "@/hooks/use-audit";
 
 interface VehicleStage {
   code: string;
@@ -109,6 +110,7 @@ export default function AdminVehicles() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
+  const { log: logAudit } = useAudit();
   const [totalCount, setTotalCount] = useState(0);
 
   const addQueryFilters = useCallback(
@@ -239,13 +241,30 @@ export default function AdminVehicles() {
   };
 
   const handleArchive = async (vehicle: VehicleRow) => {
+    const toIsArchived = !vehicle.is_archived;
+
     try {
       const { error } = await supabase
         .from("vehicles")
-        .update({ is_archived: !vehicle.is_archived })
+        .update({ is_archived: toIsArchived })
         .eq("id", vehicle.id);
 
       if (error) throw error;
+
+      void logAudit({
+        action: "vehicle_archive_toggle",
+        entity: "vehicle",
+        entity_id: vehicle.id,
+        payload: {
+          vehicle_id: vehicle.id,
+          license_plate: vehicle.license_plate,
+          from_is_archived: vehicle.is_archived,
+          to_is_archived: toIsArchived,
+        },
+      }).catch((auditErr) => {
+        logger.error("[Audit] vehicle_archive_toggle failed", auditErr);
+      });
+
       toast.success(
         vehicle.is_archived ? "Vehículo desarchivado" : "Vehículo archivado"
       );

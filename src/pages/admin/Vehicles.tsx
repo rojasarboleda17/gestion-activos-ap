@@ -53,20 +53,6 @@ interface Branch {
   is_active?: boolean;
 }
 
-interface VehicleListing {
-  vehicle_id: string;
-  is_listed: boolean;
-  listed_price_cop: number | null;
-}
-
-interface VehicleCompliance {
-  vehicle_id: string;
-  soat_expires_at: string | null;
-  tecnomecanica_expires_at: string | null;
-  has_fines: boolean;
-  fines_amount_cop: number | null;
-}
-
 interface VehicleRow {
   id: string;
   license_plate: string | null;
@@ -155,9 +141,9 @@ export default function AdminVehicles() {
 
       let vehiclesQuery = addQueryFilters(
         supabase
-          .from("vehicles")
+          .from("inventory_vehicle_overview")
           .select(
-            "id, license_plate, vin, brand, line, model_year, vehicle_class, stage_code, mileage_km, fuel_type, transmission, color, branch_id, is_archived, created_at",
+            "id, license_plate, vin, brand, line, model_year, vehicle_class, stage_code, mileage_km, fuel_type, transmission, color, branch_id, is_archived, created_at, branch_name, stage_name, is_listed, listed_price_cop, soat_expires_at, tecnomecanica_expires_at, has_fines, fines_amount_cop",
             { count: "exact" }
           )
           .order("created_at", { ascending: false })
@@ -185,57 +171,9 @@ export default function AdminVehicles() {
             .order("name"),
         ]);
 
-      const vehicleIds = (vehiclesRes.data || []).map((v) => v.id);
-
-      const [listingsRes, complianceRes] = vehicleIds.length
-        ? await Promise.all([
-            supabase
-              .from("vehicle_listing")
-              .select("vehicle_id, is_listed, listed_price_cop")
-              .in("vehicle_id", vehicleIds),
-            supabase
-              .from("vehicle_compliance")
-              .select(
-                "vehicle_id, soat_expires_at, tecnomecanica_expires_at, has_fines, fines_amount_cop"
-              )
-              .in("vehicle_id", vehicleIds),
-          ])
-        : [{ data: [] }, { data: [] }];
-
       const stagesData = stagesRes.data || [];
       const branchesData = branchesRes.data || [];
-      const listingsMap = new Map<string, VehicleListing>();
-      const complianceMap = new Map<string, VehicleCompliance>();
-
-      (listingsRes.data || []).forEach((l) =>
-        listingsMap.set(l.vehicle_id, l)
-      );
-      (complianceRes.data || []).forEach((c) =>
-        complianceMap.set(c.vehicle_id, c)
-      );
-
-      const stagesMap = new Map(stagesData.map((s) => [s.code, s.name]));
-      const branchesMap = new Map(branchesData.map((b) => [b.id, b.name]));
-
-      const enrichedVehicles: VehicleRow[] = (vehiclesRes.data || []).map(
-        (v) => {
-          const listing = listingsMap.get(v.id);
-          const compliance = complianceMap.get(v.id);
-          return {
-            ...v,
-            branch_name: v.branch_id ? branchesMap.get(v.branch_id) || null : null,
-            stage_name: stagesMap.get(v.stage_code) || v.stage_code,
-            is_listed: listing?.is_listed || false,
-            listed_price_cop: listing?.listed_price_cop || null,
-            soat_expires_at: compliance?.soat_expires_at || null,
-            tecnomecanica_expires_at: compliance?.tecnomecanica_expires_at || null,
-            has_fines: compliance?.has_fines || false,
-            fines_amount_cop: compliance?.fines_amount_cop || null,
-          };
-        }
-      );
-
-      setVehicles(enrichedVehicles);
+      setVehicles((vehiclesRes.data || []) as VehicleRow[]);
       setTotalCount(vehiclesRes.count || 0);
       setStages(stagesData);
       setBranches(branchesData);
@@ -254,65 +192,22 @@ export default function AdminVehicles() {
     try {
       const vehiclesQuery = addQueryFilters(
         supabase
-          .from("vehicles")
+          .from("inventory_vehicle_overview")
           .select(
-            "id, license_plate, vin, brand, line, model_year, vehicle_class, stage_code, mileage_km, fuel_type, transmission, color, branch_id, is_archived, created_at"
+            "id, license_plate, vin, brand, line, model_year, vehicle_class, stage_code, mileage_km, fuel_type, transmission, color, branch_id, is_archived, created_at, branch_name, stage_name, is_listed, listed_price_cop, soat_expires_at, tecnomecanica_expires_at, has_fines, fines_amount_cop"
           )
           .order("created_at", { ascending: false })
       );
 
       const vehiclesRes = await vehiclesQuery;
-      const vehicleIds = (vehiclesRes.data || []).map((v) => v.id);
-
-      const [listingsRes, complianceRes] = vehicleIds.length
-        ? await Promise.all([
-            supabase
-              .from("vehicle_listing")
-              .select("vehicle_id, is_listed, listed_price_cop")
-              .in("vehicle_id", vehicleIds),
-            supabase
-              .from("vehicle_compliance")
-              .select(
-                "vehicle_id, soat_expires_at, tecnomecanica_expires_at, has_fines, fines_amount_cop"
-              )
-              .in("vehicle_id", vehicleIds),
-          ])
-        : [{ data: [] }, { data: [] }];
-
-      const listingsMap = new Map<string, VehicleListing>();
-      const complianceMap = new Map<string, VehicleCompliance>();
-      const stagesMap = new Map(stages.map((s) => [s.code, s.name]));
-      const branchesMap = new Map(branches.map((b) => [b.id, b.name]));
-
-      (listingsRes.data || []).forEach((l) => listingsMap.set(l.vehicle_id, l));
-      (complianceRes.data || []).forEach((c) =>
-        complianceMap.set(c.vehicle_id, c)
-      );
-
-      const data: VehicleRow[] = (vehiclesRes.data || []).map((v) => {
-        const listing = listingsMap.get(v.id);
-        const compliance = complianceMap.get(v.id);
-        return {
-          ...v,
-          branch_name: v.branch_id ? branchesMap.get(v.branch_id) || null : null,
-          stage_name: stagesMap.get(v.stage_code) || v.stage_code,
-          is_listed: listing?.is_listed || false,
-          listed_price_cop: listing?.listed_price_cop || null,
-          soat_expires_at: compliance?.soat_expires_at || null,
-          tecnomecanica_expires_at: compliance?.tecnomecanica_expires_at || null,
-          has_fines: compliance?.has_fines || false,
-          fines_amount_cop: compliance?.fines_amount_cop || null,
-        };
-      });
-
-      setKanbanVehicles(data);
+      setKanbanVehicles((vehiclesRes.data || []) as VehicleRow[]);
     } catch (err) {
       logger.error("Error fetching kanban vehicles:", err);
       toast.error("Error al cargar kanban");
     } finally {
       setLoadingKanban(false);
     }
-  }, [addQueryFilters, branches, stages, viewMode]);
+  }, [addQueryFilters, viewMode]);
 
   useEffect(() => {
     fetchData();

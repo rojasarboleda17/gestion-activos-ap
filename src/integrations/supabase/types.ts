@@ -1543,7 +1543,57 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      inventory_vehicle_overview: {
+        Row: {
+          branch_id: string | null
+          branch_name: string | null
+          brand: string
+          color: string | null
+          created_at: string
+          fines_amount_cop: number | null
+          fuel_type: string | null
+          has_fines: boolean
+          id: string
+          is_archived: boolean
+          is_listed: boolean
+          license_plate: string | null
+          line: string | null
+          listed_price_cop: number | null
+          mileage_km: number | null
+          model_year: number | null
+          org_id: string
+          soat_expires_at: string | null
+          stage_code: string
+          stage_name: string | null
+          tecnomecanica_expires_at: string | null
+          transmission: string | null
+          vehicle_class: string | null
+          vin: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicles_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicles_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicles_stage_code_fkey"
+            columns: ["stage_code"]
+            isOneToOne: false
+            referencedRelation: "vehicle_stages"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
     }
     Functions: {
       app_current_org_id: { Args: never; Returns: string }

@@ -11,6 +11,7 @@ import {
   Users,
   Building2,
   ClipboardList,
+  Landmark,
   LogOut,
   Menu,
   X,
@@ -40,6 +41,7 @@ const navigation = [
   { name: "Archivos", href: "/admin/files", icon: FileText },
   { name: "Usuarios", href: "/admin/users", icon: Users },
   { name: "Sedes", href: "/admin/branches", icon: Building2 },
+  { name: "Finanzas", href: "/admin/finance", icon: Landmark },
   { name: "Auditoría", href: "/admin/audit", icon: ClipboardList },
 ];
 

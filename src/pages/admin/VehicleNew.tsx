@@ -117,8 +117,12 @@ export default function VehicleNew() {
       return;
     }
 
-    if (form.is_listed && !form.listed_price_cop) {
-      toast.error("El precio es requerido si el vehículo está publicado");
+    const listedPrice = form.listed_price_cop
+      ? parseInt(form.listed_price_cop, 10)
+      : null;
+
+    if (form.is_listed && (!listedPrice || listedPrice <= 0)) {
+      toast.error("Si el vehículo está publicado, el precio debe ser mayor a 0");
       return;
     }
 
@@ -164,9 +168,7 @@ export default function VehicleNew() {
           vehicle_id: vehicleId,
           org_id: orgId,
           is_listed: form.is_listed,
-          listed_price_cop: form.listed_price_cop
-            ? parseInt(form.listed_price_cop)
-            : null,
+          listed_price_cop: listedPrice,
         }),
         supabase.from("vehicle_compliance").upsert({
           vehicle_id: vehicleId,

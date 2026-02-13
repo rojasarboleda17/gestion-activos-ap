@@ -49,13 +49,21 @@ export function VehicleListingTab({ vehicleId }: Props) {
 
   const handleSave = async () => {
     if (!profile?.org_id) return;
+
+    const listedPrice = form.listed_price_cop ? parseInt(form.listed_price_cop, 10) : null;
+
+    if (form.is_listed && (!listedPrice || listedPrice <= 0)) {
+      toast.error("Si el vehículo está publicado, el precio debe ser mayor a 0");
+      return;
+    }
+
     setSaving(true);
     try {
       const payload = {
         vehicle_id: vehicleId,
         org_id: profile.org_id,
         is_listed: form.is_listed,
-        listed_price_cop: form.listed_price_cop ? parseInt(form.listed_price_cop) : null,
+        listed_price_cop: listedPrice,
       };
 
       const { error } = await supabase

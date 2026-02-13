@@ -29,9 +29,8 @@ import { useAudit } from "@/hooks/use-audit";
 // Tab components
 import { VehicleSummaryTab } from "@/components/vehicle/VehicleSummaryTab";
 import { VehicleInfoTab } from "@/components/vehicle/VehicleInfoTab";
-import { VehicleListingTab } from "@/components/vehicle/VehicleListingTab";
+import { VehicleAcquisitionTab } from "@/components/vehicle/VehicleAcquisitionTab";
 import { VehicleComplianceTab } from "@/components/vehicle/VehicleComplianceTab";
-import { VehicleFinancialsTab } from "@/components/vehicle/VehicleFinancialsTab";
 import { VehicleLegalTab } from "@/components/vehicle/VehicleLegalTab";
 import { VehicleWorkOrdersTab } from "@/components/vehicle/VehicleWorkOrdersTab";
 import { VehicleExpensesTab } from "@/components/vehicle/VehicleExpensesTab";
@@ -279,9 +278,8 @@ export default function VehicleDetail() {
           </TabsContent>
 
           <TabsContent value="internal" className="mt-4 space-y-4">
-            <VehicleListingTab vehicleId={vehicle.id} />
+            <VehicleAcquisitionTab vehicleId={vehicle.id} />
             <VehicleComplianceTab vehicleId={vehicle.id} />
-            <VehicleFinancialsTab vehicleId={vehicle.id} />
             <VehicleFilesTab vehicleId={vehicle.id} />
           </TabsContent>
         </Tabs>

@@ -108,8 +108,7 @@ export function DocumentsTab() {
             *,
             sale:sales(id),
             reservation:reservations(id),
-            customer:customers(full_name),
-            vehicle:vehicles!sales_vehicle_id_fkey(license_plate)
+            customer:customers(full_name)
           `)
           .eq("org_id", profile.org_id)
           .order("created_at", { ascending: false }),
@@ -117,7 +116,7 @@ export function DocumentsTab() {
           .from("sales")
           .select(`
             id,
-            vehicle:vehicles!sales_vehicle_id_fkey(license_plate),
+            vehicle:vehicles(license_plate),
             customer:customers(full_name)
           `)
           .eq("org_id", profile.org_id)
@@ -126,7 +125,7 @@ export function DocumentsTab() {
           .from("reservations")
           .select(`
             id,
-            vehicle:vehicles!sales_vehicle_id_fkey(license_plate),
+            vehicle:vehicles(license_plate),
             customer:customers(full_name)
           `)
           .eq("org_id", profile.org_id)
@@ -139,22 +138,21 @@ export function DocumentsTab() {
           sale: d.sale,
           reservation: d.reservation,
           customer: d.customer,
-          vehicle: d.vehicle,
-        }))
+        })) as DealDocument[]
       );
       setSales(
         (salesRes.data || []).map((s) => ({
           ...s,
-          vehicle: s.vehicle,
+          vehicle: Array.isArray(s.vehicle) ? s.vehicle[0] ?? null : s.vehicle,
           customer: s.customer,
-        }))
+        })) as Sale[]
       );
       setReservations(
         (resRes.data || []).map((r) => ({
           ...r,
-          vehicle: r.vehicle,
+          vehicle: Array.isArray(r.vehicle) ? r.vehicle[0] ?? null : r.vehicle,
           customer: r.customer,
-        }))
+        })) as Reservation[]
       );
     } catch (err) {
       logger.error("Error fetching documents:", err);

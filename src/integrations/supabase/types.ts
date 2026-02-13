@@ -222,33 +222,6 @@ export type Database = {
           },
         ]
       }
-      document_types: {
-        Row: {
-          code: string
-          created_at: string
-          is_active: boolean
-          label: string
-          sort_order: number
-          updated_at: string
-        }
-        Insert: {
-          code: string
-          created_at?: string
-          is_active?: boolean
-          label: string
-          sort_order?: number
-          updated_at?: string
-        }
-        Update: {
-          code?: string
-          created_at?: string
-          is_active?: boolean
-          label?: string
-          sort_order?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
       deal_documents: {
         Row: {
           created_at: string
@@ -329,10 +302,44 @@ export type Database = {
             foreignKeyName: "deal_documents_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: false
+            referencedRelation: "inventory_vehicle_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_documents_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
             referencedRelation: "vehicles"
             referencedColumns: ["id"]
           },
         ]
+      }
+      document_types: {
+        Row: {
+          code: string
+          created_at: string
+          is_active: boolean
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          is_active?: boolean
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          is_active?: boolean
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       operation_catalog: {
         Row: {
@@ -581,6 +588,13 @@ export type Database = {
             foreignKeyName: "reservations_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: false
+            referencedRelation: "inventory_vehicle_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservations_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
             referencedRelation: "vehicles"
             referencedColumns: ["id"]
           },
@@ -782,6 +796,13 @@ export type Database = {
             foreignKeyName: "sales_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: false
+            referencedRelation: "inventory_vehicle_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
             referencedRelation: "vehicles"
             referencedColumns: ["id"]
           },
@@ -873,6 +894,13 @@ export type Database = {
             foreignKeyName: "vehicle_compliance_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: true
+            referencedRelation: "inventory_vehicle_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_compliance_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: true
             referencedRelation: "vehicles"
             referencedColumns: ["id"]
           },
@@ -947,6 +975,13 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_expenses_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_vehicle_overview"
             referencedColumns: ["id"]
           },
           {
@@ -1047,6 +1082,13 @@ export type Database = {
             foreignKeyName: "vehicle_files_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: false
+            referencedRelation: "inventory_vehicle_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_files_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
             referencedRelation: "vehicles"
             referencedColumns: ["id"]
           },
@@ -1092,6 +1134,13 @@ export type Database = {
             foreignKeyName: "vehicle_financials_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: true
+            referencedRelation: "inventory_vehicle_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_financials_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: true
             referencedRelation: "vehicles"
             referencedColumns: ["id"]
           },
@@ -1128,6 +1177,13 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_listing_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: true
+            referencedRelation: "inventory_vehicle_overview"
             referencedColumns: ["id"]
           },
           {
@@ -1194,6 +1250,13 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_property_card_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: true
+            referencedRelation: "inventory_vehicle_overview"
             referencedColumns: ["id"]
           },
           {
@@ -1267,6 +1330,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vehicle_stages"
             referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "vehicle_stage_history_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_vehicle_overview"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "vehicle_stage_history_vehicle_id_fkey"
@@ -1573,6 +1643,13 @@ export type Database = {
             foreignKeyName: "work_orders_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: false
+            referencedRelation: "inventory_vehicle_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_orders_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
             referencedRelation: "vehicles"
             referencedColumns: ["id"]
           },
@@ -1584,23 +1661,23 @@ export type Database = {
         Row: {
           branch_id: string | null
           branch_name: string | null
-          brand: string
+          brand: string | null
           color: string | null
-          created_at: string
+          created_at: string | null
           fines_amount_cop: number | null
           fuel_type: string | null
-          has_fines: boolean
-          id: string
-          is_archived: boolean
-          is_listed: boolean
+          has_fines: boolean | null
+          id: string | null
+          is_archived: boolean | null
+          is_listed: boolean | null
           license_plate: string | null
           line: string | null
           listed_price_cop: number | null
           mileage_km: number | null
           model_year: number | null
-          org_id: string
+          org_id: string | null
           soat_expires_at: string | null
-          stage_code: string
+          stage_code: string | null
           stage_name: string | null
           tecnomecanica_expires_at: string | null
           transmission: string | null
@@ -1643,7 +1720,7 @@ export type Database = {
       convert_reservation_to_sale: {
         Args: {
           p_final_price_cop: number
-          p_notes?: string | null
+          p_notes?: string
           p_payment_method_code: string
           p_register_deposit_as_payment?: boolean
           p_reservation_id: string

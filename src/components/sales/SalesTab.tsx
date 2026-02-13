@@ -64,7 +64,7 @@ interface Sale {
   customer_id: string;
   vehicle_id: string;
   reservation_id: string | null;
-  vehicle_snapshot: Record<string, unknown> | null;
+  vehicle_snapshot: unknown;
   customer?: { full_name: string; phone: string | null };
   vehicle?: { license_plate: string | null; brand: string; line: string | null; model_year: number | null };
 }

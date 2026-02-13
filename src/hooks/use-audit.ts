@@ -58,14 +58,14 @@ export function useAudit() {
       }
 
       try {
-        const { error } = await supabase.from("audit_log").insert({
+        const { error } = await supabase.from("audit_log").insert([{
           org_id: profile.org_id,
           actor_id: profile.id,
           action,
           entity,
           entity_id: entity_id || null,
-          payload,
-        });
+          payload: payload as any,
+        }]);
 
         if (error) {
           logger.error("[Audit] Error inserting audit log:", error.message, error.details);
@@ -102,14 +102,14 @@ export async function logAudit({
   payload?: Record<string, unknown>;
 }) {
   try {
-    const { error } = await supabase.from("audit_log").insert({
+    const { error } = await supabase.from("audit_log").insert([{
       org_id,
       actor_id,
       action,
       entity,
       entity_id: entity_id || null,
-      payload,
-    });
+      payload: payload as any,
+    }]);
 
     if (error) {
       logger.error("[Audit] Error inserting audit log:", error.message, error.details);

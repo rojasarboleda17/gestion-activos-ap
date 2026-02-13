@@ -176,19 +176,25 @@ export function CustomersTab() {
       const [resRes, salesRes] = await Promise.all([
         supabase
           .from("reservations")
-          .select("*, vehicles!sales_vehicle_id_fkey(license_plate, brand, line)")
+          .select("*, vehicles(license_plate, brand, line)")
           .eq("customer_id", customer.id)
           .order("reserved_at", { ascending: false }),
         supabase
           .from("sales")
-          .select("*, vehicles!sales_vehicle_id_fkey(license_plate, brand, line)")
+          .select("*, vehicles(license_plate, brand, line)")
           .eq("customer_id", customer.id)
           .order("sale_date", { ascending: false }),
       ]);
 
       setHistory({
-        reservations: resRes.data || [],
-        sales: salesRes.data || [],
+        reservations: (resRes.data || []).map((r) => ({
+          ...r,
+          vehicles: Array.isArray(r.vehicles) ? r.vehicles[0] ?? null : r.vehicles,
+        })) as ReservationHistoryItem[],
+        sales: (salesRes.data || []).map((s) => ({
+          ...s,
+          vehicles: Array.isArray(s.vehicles) ? s.vehicles[0] ?? null : s.vehicles,
+        })) as SaleHistoryItem[],
       });
     } catch (err) {
       logger.error("Error fetching customer history:", err);

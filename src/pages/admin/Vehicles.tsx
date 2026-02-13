@@ -37,6 +37,10 @@ import {
 import { toast } from "sonner";
 
 import { VehicleFilters } from "@/components/vehicle/VehicleFilters";
+import {
+  InventoryKpis,
+  InventoryKpiFilter,
+} from "@/components/vehicle/InventoryKpis";
 import { VehicleKanban } from "@/components/vehicle/VehicleKanban";
 import { VehicleQuickEdit } from "@/components/vehicle/VehicleQuickEdit";
 import { logger } from "@/lib/logger";
@@ -110,6 +114,14 @@ export default function AdminVehicles() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
+  const [kpiFilter, setKpiFilter] = useState<InventoryKpiFilter>("all");
+  const [kpiValues, setKpiValues] = useState({
+    active: 0,
+    published: 0,
+    archived: 0,
+    soatDue: 0,
+    tecnomecanicaDue: 0,
+  });
   const { log: logAudit } = useAudit();
   const [totalCount, setTotalCount] = useState(0);
 
@@ -144,6 +156,37 @@ export default function AdminVehicles() {
     [escapeIlike, search]
   );
 
+  const addKpiFilter = useCallback(
+    <T extends ReturnType<typeof supabase.from>>(query: T) => {
+      const today = new Date();
+      const endDate = new Date(today);
+      endDate.setDate(endDate.getDate() + 30);
+      const todayIso = today.toISOString().split("T")[0];
+      const endDateIso = endDate.toISOString().split("T")[0];
+
+      if (kpiFilter === "active") return query.eq("is_archived", false);
+      if (kpiFilter === "published") {
+        return query.eq("is_listed", true).eq("is_archived", false);
+      }
+      if (kpiFilter === "archived") return query.eq("is_archived", true);
+      if (kpiFilter === "soat_due") {
+        return query
+          .eq("is_archived", false)
+          .gte("soat_expires_at", todayIso)
+          .lte("soat_expires_at", endDateIso);
+      }
+      if (kpiFilter === "tecnomecanica_due") {
+        return query
+          .eq("is_archived", false)
+          .gte("tecnomecanica_expires_at", todayIso)
+          .lte("tecnomecanica_expires_at", endDateIso);
+      }
+
+      return query;
+    },
+    [kpiFilter]
+  );
+
   // Quick edit modal
   const [editVehicle, setEditVehicle] = useState<VehicleRow | null>(null);
   const [quickEditOpen, setQuickEditOpen] = useState(false);
@@ -157,21 +200,32 @@ export default function AdminVehicles() {
       const to = offset + pageSize - 1;
 
       const vehiclesQuery = addSearchFilter(
-        addQueryFilters(
-        supabase
-          .from("inventory_vehicle_overview")
-          .select(
-            "id, license_plate, vin, brand, line, model_year, vehicle_class, stage_code, mileage_km, fuel_type, transmission, color, branch_id, is_archived, created_at, branch_name, stage_name, is_listed, listed_price_cop, soat_expires_at, tecnomecanica_expires_at, has_fines, fines_amount_cop",
-            { count: "exact" }
+        addKpiFilter(
+          addQueryFilters(
+            supabase
+              .from("inventory_vehicle_overview")
+              .select(
+                "id, license_plate, vin, brand, line, model_year, vehicle_class, stage_code, mileage_km, fuel_type, transmission, color, branch_id, is_archived, created_at, branch_name, stage_name, is_listed, listed_price_cop, soat_expires_at, tecnomecanica_expires_at, has_fines, fines_amount_cop",
+                { count: "exact" }
+              )
+              .order("created_at", { ascending: false })
+              .range(from, to)
           )
-          .order("created_at", { ascending: false })
-          .range(from, to)
         )
       );
 
-      const [vehiclesRes, stagesRes, branchesRes] =
+      const kpiQuery = addSearchFilter(
+        addQueryFilters(
+          supabase
+            .from("inventory_vehicle_overview")
+            .select("is_archived, is_listed, soat_expires_at, tecnomecanica_expires_at")
+        )
+      );
+
+      const [vehiclesRes, kpiRes, stagesRes, branchesRes] =
         await Promise.all([
           vehiclesQuery,
+          kpiQuery,
           supabase
             .from("vehicle_stages")
             .select("code, name, sort_order")
@@ -186,6 +240,32 @@ export default function AdminVehicles() {
       const branchesData = branchesRes.data || [];
       setVehicles((vehiclesRes.data || []) as VehicleRow[]);
       setTotalCount(vehiclesRes.count || 0);
+
+      const today = new Date();
+      const limitDate = new Date(today);
+      limitDate.setDate(limitDate.getDate() + 30);
+      const isDueIn30Days = (value: string | null) => {
+        if (!value) return false;
+        const expiration = new Date(value);
+        return expiration >= today && expiration <= limitDate;
+      };
+
+      const baseRows = (kpiRes.data || []) as Pick<
+        VehicleRow,
+        "is_archived" | "is_listed" | "soat_expires_at" | "tecnomecanica_expires_at"
+      >[];
+
+      setKpiValues({
+        active: baseRows.filter((row) => !row.is_archived).length,
+        published: baseRows.filter((row) => row.is_listed && !row.is_archived).length,
+        archived: baseRows.filter((row) => row.is_archived).length,
+        soatDue: baseRows.filter((row) => !row.is_archived && isDueIn30Days(row.soat_expires_at))
+          .length,
+        tecnomecanicaDue: baseRows.filter(
+          (row) => !row.is_archived && isDueIn30Days(row.tecnomecanica_expires_at)
+        ).length,
+      });
+
       setStages(stagesData);
       setBranches(branchesData);
     } catch (err) {
@@ -194,7 +274,7 @@ export default function AdminVehicles() {
     } finally {
       setLoading(false);
     }
-  }, [addQueryFilters, addSearchFilter, page, pageSize]);
+  }, [addKpiFilter, addQueryFilters, addSearchFilter, page, pageSize]);
 
   const fetchKanbanData = useCallback(async () => {
     if (viewMode !== "kanban") return;
@@ -202,13 +282,15 @@ export default function AdminVehicles() {
     setLoadingKanban(true);
     try {
       const vehiclesQuery = addSearchFilter(
-        addQueryFilters(
-          supabase
-            .from("inventory_vehicle_overview")
-            .select(
-              "id, license_plate, vin, brand, line, model_year, vehicle_class, stage_code, mileage_km, fuel_type, transmission, color, branch_id, is_archived, created_at, branch_name, stage_name, is_listed, listed_price_cop, soat_expires_at, tecnomecanica_expires_at, has_fines, fines_amount_cop"
-            )
-            .order("created_at", { ascending: false })
+        addKpiFilter(
+          addQueryFilters(
+            supabase
+              .from("inventory_vehicle_overview")
+              .select(
+                "id, license_plate, vin, brand, line, model_year, vehicle_class, stage_code, mileage_km, fuel_type, transmission, color, branch_id, is_archived, created_at, branch_name, stage_name, is_listed, listed_price_cop, soat_expires_at, tecnomecanica_expires_at, has_fines, fines_amount_cop"
+              )
+              .order("created_at", { ascending: false })
+          )
         )
       );
 
@@ -220,7 +302,7 @@ export default function AdminVehicles() {
     } finally {
       setLoadingKanban(false);
     }
-  }, [addQueryFilters, addSearchFilter, viewMode]);
+  }, [addKpiFilter, addQueryFilters, addSearchFilter, viewMode]);
 
   useEffect(() => {
     fetchData();
@@ -238,6 +320,7 @@ export default function AdminVehicles() {
   const handleClearFilters = () => {
     setPage(1);
     setFilters(DEFAULT_FILTERS);
+    setKpiFilter("all");
   };
 
   const handleArchive = async (vehicle: VehicleRow) => {
@@ -501,6 +584,15 @@ export default function AdminVehicles() {
               onClear={handleClearFilters}
             />
           </div>
+
+          <InventoryKpis
+            values={kpiValues}
+            activeFilter={kpiFilter}
+            onSelectFilter={(selected) => {
+              setPage(1);
+              setKpiFilter(selected);
+            }}
+          />
 
           <TabsContent value="list" className="mt-4">
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

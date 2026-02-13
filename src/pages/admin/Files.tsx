@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { getErrorMessage } from "@/lib/errors";
 import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "@/components/layouts/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
+import { Tables } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +32,7 @@ interface VehicleFile {
   file_kind: string;
   visibility: string;
   doc_type: string | null;
+  doc_type_other: string | null;
   file_name: string | null;
   mime_type: string | null;
   storage_bucket: string;
@@ -78,6 +80,7 @@ interface FileAlert {
   brand: string;
   line: string | null;
   doc_type: string | null;
+  doc_type_other: string | null;
   file_name: string | null;
   expires_at: string;
   days_until: number;
@@ -85,16 +88,22 @@ interface FileAlert {
 
 type UnifiedFile = VehicleFile | DealDocument;
 
-const DOC_TYPES = [
+const DEAL_DOC_TYPES = [
   { value: "contrato", label: "Contrato" },
   { value: "factura", label: "Factura" },
   { value: "cedula", label: "Cédula/Documento" },
   { value: "soat", label: "SOAT" },
-  { value: "tecno", label: "Tecnomecánica" },
+  { value: "tecnomecanica", label: "Tecnomecánica" },
   { value: "titulo", label: "Título de Propiedad" },
   { value: "revision", label: "Revisión" },
   { value: "otro", label: "Otro" },
 ];
+
+const normalizeDocType = (docType: string | null) => {
+  if (!docType) return null;
+  if (docType === "tecno") return "tecnomecanica";
+  return docType;
+};
 
 export default function AdminFiles() {
   const { profile } = useAuth();
@@ -105,6 +114,7 @@ export default function AdminFiles() {
   const [vehicleFiles, setVehicleFiles] = useState<VehicleFile[]>([]);
   const [dealDocuments, setDealDocuments] = useState<DealDocument[]>([]);
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
+  const [documentTypes, setDocumentTypes] = useState<Tables<"document_types">[]>([]);
   
   // Filters
   const [search, setSearch] = useState("");
@@ -125,7 +135,7 @@ export default function AdminFiles() {
     setLoading(true);
 
     try {
-      const [vfRes, ddRes, vcRes] = await Promise.all([
+      const [vfRes, ddRes, vcRes, dtRes] = await Promise.all([
         // Vehicle files
         supabase
           .from("vehicle_files")
@@ -159,6 +169,12 @@ export default function AdminFiles() {
             vehicles!inner(id, license_plate, brand, line, is_archived)
           `)
           .eq("org_id", profile.org_id),
+
+        supabase
+          .from("document_types")
+          .select("*")
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true }),
       ]);
 
       if (vfRes.error) {
@@ -171,6 +187,9 @@ export default function AdminFiles() {
       }
       if (vcRes.error) {
         logger.error("Error fetching vehicle_compliance:", vcRes.error);
+      }
+      if (dtRes.error) {
+        logger.error("Error fetching document_types:", dtRes.error);
       }
 
       // Process vehicle files
@@ -187,6 +206,8 @@ export default function AdminFiles() {
         vehicle: d.vehicle as DealDocument["vehicle"],
         customer: d.customer as DealDocument["customer"],
       })));
+
+      setDocumentTypes(dtRes.data || []);
 
       // Process compliance alerts (only for non-archived vehicles)
       const today = new Date();
@@ -251,6 +272,13 @@ export default function AdminFiles() {
     ...dealDocuments,
   ];
 
+  const filterDocTypes = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of documentTypes) map.set(t.code, t.label);
+    for (const t of DEAL_DOC_TYPES) if (!map.has(t.value)) map.set(t.value, t.label);
+    return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
+  }, [documentTypes]);
+
   // File alerts (vehicle_files with expires_at in next 30 days)
   const today = new Date();
   const in30Days = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
@@ -271,6 +299,7 @@ export default function AdminFiles() {
         brand: f.vehicles?.brand || "",
         line: f.vehicles?.line || null,
         doc_type: f.doc_type,
+        doc_type_other: f.doc_type_other,
         file_name: f.file_name,
         expires_at: f.expires_at!,
         days_until: daysUntil,
@@ -298,8 +327,8 @@ export default function AdminFiles() {
     
     // Doc type filter
     if (filterDocType !== "all") {
-      if (f.source === "vehicle" && (f as VehicleFile).doc_type !== filterDocType) return false;
-      if (f.source === "deal" && (f as DealDocument).doc_type !== filterDocType) return false;
+      if (f.source === "vehicle" && normalizeDocType((f as VehicleFile).doc_type) !== filterDocType) return false;
+      if (f.source === "deal" && normalizeDocType((f as DealDocument).doc_type) !== filterDocType) return false;
     }
     
     // Expiring only
@@ -395,9 +424,11 @@ export default function AdminFiles() {
     return kind === "photo" ? <Image className="h-4 w-4" /> : <File className="h-4 w-4" />;
   };
 
-  const getDocTypeLabel = (docType: string | null) => {
+  const getDocTypeLabel = (docType: string | null, docTypeOther?: string | null) => {
     if (!docType) return "—";
-    const found = DOC_TYPES.find(t => t.value === docType);
+    if (docType === "otro" && docTypeOther) return `Otro (${docTypeOther})`;
+    const normalized = normalizeDocType(docType);
+    const found = filterDocTypes.find(t => t.value === normalized);
     return found ? found.label : docType;
   };
 
@@ -509,7 +540,7 @@ export default function AdminFiles() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
-                {DOC_TYPES.map(t => (
+                {filterDocTypes.map(t => (
                   <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                 ))}
               </SelectContent>
@@ -590,7 +621,7 @@ export default function AdminFiles() {
                         </TableCell>
                         <TableCell>
                           {file.source === "vehicle" 
-                            ? getDocTypeLabel((file as VehicleFile).doc_type)
+                            ? getDocTypeLabel((file as VehicleFile).doc_type, (file as VehicleFile).doc_type_other)
                             : getDocTypeLabel((file as DealDocument).doc_type)
                           }
                         </TableCell>
@@ -755,7 +786,7 @@ export default function AdminFiles() {
                               <TableCell className="max-w-[150px] truncate">
                                 {alert.file_name || "—"}
                               </TableCell>
-                              <TableCell>{getDocTypeLabel(alert.doc_type)}</TableCell>
+                              <TableCell>{getDocTypeLabel(alert.doc_type, alert.doc_type_other)}</TableCell>
                               <TableCell className="text-amber-600 dark:text-amber-400 font-medium">
                                 {formatDate(alert.expires_at)}
                               </TableCell>

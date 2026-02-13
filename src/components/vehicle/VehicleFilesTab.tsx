@@ -37,7 +37,8 @@ export function VehicleFilesTab({ vehicleId }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
-  const [form, setForm] = useState({ file_kind: "photo", visibility: "operations", doc_type: "", expires_at: "" });
+  const [documentTypes, setDocumentTypes] = useState<Tables<"document_types">[]>([]);
+  const [form, setForm] = useState({ file_kind: "photo", visibility: "operations", doc_type: "", doc_type_other: "", expires_at: "" });
 
   const fetchFiles = useCallback(async () => {
     const { data } = await supabase.from("vehicle_files").select("*").eq("vehicle_id", vehicleId).order("created_at", { ascending: false });
@@ -46,6 +47,20 @@ export function VehicleFilesTab({ vehicleId }: Props) {
   }, [vehicleId]);
 
   useEffect(() => { fetchFiles(); }, [fetchFiles]);
+
+  useEffect(() => {
+    const fetchDocumentTypes = async () => {
+      const { data } = await supabase
+        .from("document_types")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+
+      setDocumentTypes(data || []);
+    };
+
+    fetchDocumentTypes();
+  }, []);
 
   const getBucket = (visibility: string) => {
     if (visibility === "sales") return "vehicle-public";
@@ -56,6 +71,10 @@ export function VehicleFilesTab({ vehicleId }: Props) {
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile?.org_id) return;
+    if (form.doc_type === "otro" && !form.doc_type_other.trim()) {
+      toast.error("Debes especificar el tipo documental en \"Otro\"");
+      return;
+    }
     setUploading(true);
     try {
       const bucket = getBucket(form.visibility);
@@ -65,7 +84,10 @@ export function VehicleFilesTab({ vehicleId }: Props) {
       const { data: fileRecord, error: dbError } = await supabase.from("vehicle_files").insert({
         org_id: profile.org_id, vehicle_id: vehicleId, storage_bucket: bucket, storage_path: path,
         file_name: file.name, mime_type: file.type, file_kind: form.file_kind, visibility: form.visibility,
-        doc_type: form.doc_type || null, expires_at: form.expires_at || null, uploaded_by: profile.id,
+        doc_type: form.doc_type || null,
+        doc_type_other: form.doc_type === "otro" ? form.doc_type_other.trim() || null : null,
+        expires_at: form.expires_at || null,
+        uploaded_by: profile.id,
       }).select("id").single();
       if (dbError) throw dbError;
       
@@ -80,6 +102,7 @@ export function VehicleFilesTab({ vehicleId }: Props) {
           file_kind: form.file_kind,
           visibility: form.visibility,
           doc_type: form.doc_type || null,
+          doc_type_other: form.doc_type === "otro" ? form.doc_type_other.trim() || null : null,
         },
       });
       
@@ -160,7 +183,39 @@ export function VehicleFilesTab({ vehicleId }: Props) {
                   <Select value={form.visibility} onValueChange={(v) => setForm(f => ({ ...f, visibility: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="sales">Ventas</SelectItem><SelectItem value="operations">Operaciones</SelectItem><SelectItem value="restricted">Restringido</SelectItem></SelectContent></Select>
                 </div>
               </div>
-              <div className="space-y-2"><Label>Tipo de documento</Label><Input value={form.doc_type} onChange={(e) => setForm(f => ({ ...f, doc_type: e.target.value }))} placeholder="SOAT, Factura..." /></div>
+              <div className="space-y-2">
+                <Label>Tipo de documento</Label>
+                <Select
+                  value={form.doc_type || "none"}
+                  onValueChange={(value) => setForm((f) => ({
+                    ...f,
+                    doc_type: value === "none" ? "" : value,
+                    doc_type_other: value === "otro" ? f.doc_type_other : "",
+                  }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona un tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sin tipo</SelectItem>
+                    {documentTypes.map((docType) => (
+                      <SelectItem key={docType.code} value={docType.code}>
+                        {docType.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {form.doc_type === "otro" && (
+                <div className="space-y-2">
+                  <Label>Especificar documento</Label>
+                  <Input
+                    value={form.doc_type_other}
+                    onChange={(e) => setForm((f) => ({ ...f, doc_type_other: e.target.value }))}
+                    placeholder="Describe el tipo documental"
+                  />
+                </div>
+              )}
               <div className="space-y-2"><Label>Vence</Label><Input type="date" value={form.expires_at} onChange={(e) => setForm(f => ({ ...f, expires_at: e.target.value }))} /></div>
               <Input type="file" onChange={handleUpload} disabled={uploading} />
             </div>

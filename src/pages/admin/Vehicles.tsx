@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { getErrorMessage } from "@/lib/errors";
 import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "@/components/layouts/AdminLayout";
@@ -120,12 +120,27 @@ export default function AdminVehicles() {
       if (filters.vehicle_class !== "all") {
         q = q.eq("vehicle_class", filters.vehicle_class);
       }
+      if (filters.is_listed === "true") q = q.eq("is_listed", true);
+      if (filters.is_listed === "false") q = q.eq("is_listed", false);
       return q;
     },
     [filters]
   );
 
   const escapeIlike = useCallback((value: string) => value.replace(/[%_,]/g, ""), []);
+
+  const addSearchFilter = useCallback(
+    <T extends ReturnType<typeof supabase.from>>(query: T) => {
+      const searchTerm = search.trim();
+      if (!searchTerm) return query;
+
+      const safe = escapeIlike(searchTerm);
+      return query.or(
+        `license_plate.ilike.%${safe}%,vin.ilike.%${safe}%,brand.ilike.%${safe}%,line.ilike.%${safe}%`
+      );
+    },
+    [escapeIlike, search]
+  );
 
   // Quick edit modal
   const [editVehicle, setEditVehicle] = useState<VehicleRow | null>(null);
@@ -139,7 +154,8 @@ export default function AdminVehicles() {
       const from = offset;
       const to = offset + pageSize - 1;
 
-      let vehiclesQuery = addQueryFilters(
+      const vehiclesQuery = addSearchFilter(
+        addQueryFilters(
         supabase
           .from("inventory_vehicle_overview")
           .select(
@@ -148,15 +164,8 @@ export default function AdminVehicles() {
           )
           .order("created_at", { ascending: false })
           .range(from, to)
+        )
       );
-
-      const searchTerm = search.trim();
-      if (searchTerm) {
-        const safe = escapeIlike(searchTerm);
-        vehiclesQuery = vehiclesQuery.or(
-          `license_plate.ilike.%${safe}%,vin.ilike.%${safe}%,brand.ilike.%${safe}%,line.ilike.%${safe}%`
-        );
-      }
 
       const [vehiclesRes, stagesRes, branchesRes] =
         await Promise.all([
@@ -183,20 +192,22 @@ export default function AdminVehicles() {
     } finally {
       setLoading(false);
     }
-  }, [addQueryFilters, escapeIlike, page, pageSize, search]);
+  }, [addQueryFilters, addSearchFilter, page, pageSize]);
 
   const fetchKanbanData = useCallback(async () => {
     if (viewMode !== "kanban") return;
 
     setLoadingKanban(true);
     try {
-      const vehiclesQuery = addQueryFilters(
-        supabase
-          .from("inventory_vehicle_overview")
-          .select(
-            "id, license_plate, vin, brand, line, model_year, vehicle_class, stage_code, mileage_km, fuel_type, transmission, color, branch_id, is_archived, created_at, branch_name, stage_name, is_listed, listed_price_cop, soat_expires_at, tecnomecanica_expires_at, has_fines, fines_amount_cop"
-          )
-          .order("created_at", { ascending: false })
+      const vehiclesQuery = addSearchFilter(
+        addQueryFilters(
+          supabase
+            .from("inventory_vehicle_overview")
+            .select(
+              "id, license_plate, vin, brand, line, model_year, vehicle_class, stage_code, mileage_km, fuel_type, transmission, color, branch_id, is_archived, created_at, branch_name, stage_name, is_listed, listed_price_cop, soat_expires_at, tecnomecanica_expires_at, has_fines, fines_amount_cop"
+            )
+            .order("created_at", { ascending: false })
+        )
       );
 
       const vehiclesRes = await vehiclesQuery;
@@ -207,7 +218,7 @@ export default function AdminVehicles() {
     } finally {
       setLoadingKanban(false);
     }
-  }, [addQueryFilters, viewMode]);
+  }, [addQueryFilters, addSearchFilter, viewMode]);
 
   useEffect(() => {
     fetchData();
@@ -216,22 +227,6 @@ export default function AdminVehicles() {
   useEffect(() => {
     fetchKanbanData();
   }, [fetchKanbanData]);
-
-  const filteredVehicles = useMemo(() => {
-    return vehicles.filter((v) => {
-      if (filters.is_listed === "true" && !v.is_listed) return false;
-      if (filters.is_listed === "false" && v.is_listed) return false;
-      return true;
-    });
-  }, [vehicles, filters.is_listed]);
-
-  const filteredKanbanVehicles = useMemo(() => {
-    return kanbanVehicles.filter((v) => {
-      if (filters.is_listed === "true" && !v.is_listed) return false;
-      if (filters.is_listed === "false" && v.is_listed) return false;
-      return true;
-    });
-  }, [kanbanVehicles, filters.is_listed]);
 
   const handleFilterChange = <K extends keyof Filters>(key: K, value: Filters[K]) => {
     setPage(1);
@@ -266,6 +261,12 @@ export default function AdminVehicles() {
   };
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   const columns: Column<VehicleRow>[] = [
     {
@@ -528,7 +529,7 @@ export default function AdminVehicles() {
 
             <DataTable
               columns={columns}
-              data={filteredVehicles}
+              data={vehicles}
               loading={loading}
               searchable={false}
               emptyTitle="Sin vehículos"
@@ -539,7 +540,7 @@ export default function AdminVehicles() {
               }}
               onRowClick={(row) => navigate(`/admin/vehicles/${row.id}`)}
               getRowId={(row) => row.id}
-              pageSize={Math.max(filteredVehicles.length, 1)}
+              pageSize={Math.max(vehicles.length, 1)}
             />
 
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -576,7 +577,7 @@ export default function AdminVehicles() {
 
           <TabsContent value="kanban" className="mt-4">
             <VehicleKanban
-              vehicles={filteredKanbanVehicles}
+              vehicles={kanbanVehicles}
               stages={stages}
               onRefresh={fetchKanbanData}
               onVehicleClick={(id) => navigate(`/admin/vehicles/${id}`)}

@@ -270,13 +270,12 @@ export default function VehicleDetail() {
 
           <TabsContent value="info" className="mt-4 space-y-4">
             <VehicleInfoTab vehicle={vehicle} onUpdate={(v) => setVehicle(v)} onAudit={logAudit} />
-            {activeTab === "info" ? <VehicleLegalTab vehicleId={vehicle.id} /> : null}
+            <VehicleLegalTab vehicleId={vehicle.id} />
           </TabsContent>
 
           <TabsContent value="operations" className="mt-4 space-y-4">
             <VehicleWorkOrdersTab vehicleId={vehicle.id} />
             <VehicleExpensesTab vehicleId={vehicle.id} />
-            <VehicleLegalTab vehicleId={vehicle.id} />
           </TabsContent>
 
           <TabsContent value="internal" className="mt-4 space-y-4">

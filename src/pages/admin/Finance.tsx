@@ -16,7 +16,7 @@ export default function AdminFinance() {
         <CardContent>
           <p className="text-sm text-muted-foreground">
             Por ahora no incluye cálculos ni lógica financiera. Es un punto de partida para que después podamos
-            construir funcionalidades con prompts.
+            construir funcionalidades.
           </p>
         </CardContent>
       </Card>

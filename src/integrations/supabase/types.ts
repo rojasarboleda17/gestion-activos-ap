@@ -222,6 +222,33 @@ export type Database = {
           },
         ]
       }
+      document_types: {
+        Row: {
+          code: string
+          created_at: string
+          is_active: boolean
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          is_active?: boolean
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          is_active?: boolean
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       deal_documents: {
         Row: {
           created_at: string
@@ -949,6 +976,7 @@ export type Database = {
         Row: {
           created_at: string
           doc_type: string | null
+          doc_type_other: string | null
           expires_at: string | null
           file_kind: string
           file_name: string | null
@@ -964,6 +992,7 @@ export type Database = {
         Insert: {
           created_at?: string
           doc_type?: string | null
+          doc_type_other?: string | null
           expires_at?: string | null
           file_kind: string
           file_name?: string | null
@@ -979,6 +1008,7 @@ export type Database = {
         Update: {
           created_at?: string
           doc_type?: string | null
+          doc_type_other?: string | null
           expires_at?: string | null
           file_kind?: string
           file_name?: string | null
@@ -992,6 +1022,13 @@ export type Database = {
           visibility?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "vehicle_files_doc_type_fkey"
+            columns: ["doc_type"]
+            isOneToOne: false
+            referencedRelation: "document_types"
+            referencedColumns: ["code"]
+          },
           {
             foreignKeyName: "vehicle_files_org_id_fkey"
             columns: ["org_id"]

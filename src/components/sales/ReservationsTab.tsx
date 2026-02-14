@@ -258,12 +258,12 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
           .select(`
             *,
             customer:customers(full_name, phone, document_id),
-            vehicle:vehicles(license_plate, brand, line, model_year, listed_price_cop)
+            vehicle:inventory_vehicle_overview(license_plate, brand, line, model_year, listed_price_cop)
           `)
           .eq("org_id", profile.org_id)
           .order("reserved_at", { ascending: false }),
         supabase
-          .from("vehicles")
+          .from("inventory_vehicle_overview")
           .select("id, license_plate, brand, line, model_year, stage_code, listed_price_cop")
           .eq("org_id", profile.org_id)
           .eq("is_archived", false)
@@ -323,7 +323,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
         .select(`
           *,
           customer:customers(full_name, phone, document_id),
-          vehicle:vehicles(license_plate, brand, line, model_year, listed_price_cop)
+          vehicle:inventory_vehicle_overview(license_plate, brand, line, model_year, listed_price_cop)
         `)
         .eq("id", reservation.id)
         .single();
@@ -987,44 +987,6 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
               <Label>Notas</Label>
               <Textarea value={editForm.notes} onChange={(e) => setEditForm((prev) => ({ ...prev, notes: e.target.value }))} rows={2} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Depósito</Label>
-                <Input type="number" min="1" value={editForm.deposit_amount_cop} onChange={(e) => setEditForm((prev) => ({ ...prev, deposit_amount_cop: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Método de pago</Label>
-                <Select value={editForm.payment_method_code} onValueChange={(v) => setEditForm((prev) => ({ ...prev, payment_method_code: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {paymentMethods.map((p) => (<SelectItem key={p.code} value={p.code}>{p.name}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Asesor</Label>
-              <Input value={editForm.advisor_name} onChange={(e) => setEditForm((prev) => ({ ...prev, advisor_name: e.target.value }))} />
-            </div>
-            <div className="space-y-2">
-              <Label>Notas</Label>
-              <Textarea value={editForm.notes} onChange={(e) => setEditForm((prev) => ({ ...prev, notes: e.target.value }))} rows={2} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleEdit} disabled={editSaving || !isAdmin}>{editSaving ? "Guardando..." : "Guardar cambios"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={quickCustomerOpen} onOpenChange={setQuickCustomerOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Crear Cliente Rápido</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2"><Label>Nombre *</Label><Input value={quickCustomerForm.full_name} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, full_name: e.target.value })} /></div>
-            <div className="space-y-2"><Label>Documento</Label><Input value={quickCustomerForm.document_id} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, document_id: e.target.value })} /></div>
-            <div className="space-y-2"><Label>Teléfono</Label><Input value={quickCustomerForm.phone} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, phone: e.target.value })} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancelar</Button>

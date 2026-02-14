@@ -90,8 +90,8 @@ interface Reservation {
     brand: string;
     line: string | null;
     model_year: number | null;
+    listed_price_cop: number | null;
   };
-  listed_price_cop?: number | null;
 }
 
 interface Vehicle {
@@ -101,7 +101,7 @@ interface Vehicle {
   line: string | null;
   model_year: number | null;
   stage_code: string;
-  listed_price_cop?: number | null;
+  listed_price_cop: number | null;
 }
 
 interface Customer {
@@ -133,6 +133,71 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const DEFAULT_ADVISOR = "Esteban Ocampo";
+
+const escapePdfText = (value: string) =>
+  value.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+
+const buildSimplePdfBlob = (lines: string[]) => {
+  const content = [
+    "BT",
+    "/F1 11 Tf",
+    "14 TL",
+    "40 760 Td",
+    ...lines.flatMap((line, index) => [
+      `(${escapePdfText(line)}) Tj`,
+      ...(index === lines.length - 1 ? [] : ["T*"]),
+    ]),
+    "ET",
+  ].join("\n");
+
+  const objects = [
+    "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+    "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+    "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n",
+    "4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
+    `5 0 obj\n<< /Length ${content.length} >>\nstream\n${content}\nendstream\nendobj\n`,
+  ];
+
+  let pdf = "%PDF-1.4\n";
+  const offsets: number[] = [0];
+
+  objects.forEach((object) => {
+    offsets.push(pdf.length);
+    pdf += object;
+  });
+
+  const xrefStart = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n`;
+  pdf += "0000000000 65535 f \n";
+  offsets.slice(1).forEach((offset) => {
+    pdf += `${offset.toString().padStart(10, "0")} 00000 n \n`;
+  });
+
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
+
+  return new Blob([pdf], { type: "application/pdf" });
+};
+
+const toPdfLines = (input: string, maxLength = 86) => {
+  if (!input) return [""];
+  const words = input.split(/\s+/);
+  const lines: string[] = [];
+  let current = "";
+
+  for (const word of words) {
+    const test = current ? `${current} ${word}` : word;
+    if (test.length > maxLength) {
+      lines.push(current || word);
+      current = current ? word : "";
+    } else {
+      current = test;
+    }
+  }
+
+  if (current) lines.push(current);
+  return lines;
+};
+
 
 export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicleId }: Props) {
   const { profile } = useAuth();
@@ -193,13 +258,13 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
           .select(`
             *,
             customer:customers(full_name, phone, document_id),
-            vehicle:vehicles(license_plate, brand, line, model_year)
+            vehicle:vehicles(license_plate, brand, line, model_year, listed_price_cop)
           `)
           .eq("org_id", profile.org_id)
           .order("reserved_at", { ascending: false }),
         supabase
           .from("vehicles")
-          .select("id, license_plate, brand, line, model_year, stage_code")
+          .select("id, license_plate, brand, line, model_year, stage_code, listed_price_cop")
           .eq("org_id", profile.org_id)
           .eq("is_archived", false)
           .in("stage_code", ["publicado", "bloqueado"])
@@ -219,8 +284,8 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
         toast.error(`Error al cargar reservas: ${resRes.error.message}`);
       }
 
-      setReservations((resRes.data || []) as unknown as Reservation[]);
-      setVehicles((vehRes.data || []) as unknown as Vehicle[]);
+      setReservations((resRes.data || []) as Reservation[]);
+      setVehicles((vehRes.data || []) as Vehicle[]);
       setCustomers((custRes.data || []) as Customer[]);
       setPaymentMethods((pmRes.data || []) as PaymentMethod[]);
     } catch (err) {
@@ -258,7 +323,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
         .select(`
           *,
           customer:customers(full_name, phone, document_id),
-          vehicle:vehicles(license_plate, brand, line, model_year)
+          vehicle:vehicles(license_plate, brand, line, model_year, listed_price_cop)
         `)
         .eq("id", reservation.id)
         .single();
@@ -268,7 +333,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
         return;
       }
 
-      setSelectedReservation(data as unknown as Reservation);
+      setSelectedReservation(data as Reservation);
     } catch (err) {
       logger.error("[Reservations] openDetail error", err);
       toast.error("No se pudo abrir el detalle");
@@ -555,96 +620,51 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
       const fullReservation = selectedReservation?.id === reservation.id ? selectedReservation : reservation;
       const receiptNumber = await getOrCreateReceiptNumber(fullReservation);
 
-      const vehicleValue = fullReservation.listed_price_cop || 0;
+      const vehicleValue = fullReservation.vehicle?.listed_price_cop || 0;
       const totalAbonado = fullReservation.deposit_amount_cop || 0;
       const saldo = Math.max(vehicleValue - totalAbonado, 0);
 
-      const html = `<!doctype html>
-      <html>
-      <head>
-        <meta charset="utf-8" />
-        <title>${receiptNumber} - Comprobante de Reserva</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 30px; color: #111; }
-          .header { border-top: 4px solid #1a2f98; padding-top: 16px; margin-bottom: 16px; }
-          .title { font-size: 34px; font-weight: 700; margin: 8px 0; }
-          .meta { margin-bottom: 14px; }
-          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0 16px; }
-          .label { color: #444; font-size: 12px; }
-          .value { font-size: 14px; font-weight: 600; }
-          table { width: 100%; border-collapse: collapse; margin: 16px 0; }
-          th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: left; }
-          th { background: #1a2f98; color: #fff; font-size: 12px; }
-          .totals { width: 320px; margin-left: auto; }
-          .totals-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
-          .total-final { font-size: 20px; font-weight: 700; }
-          .note { margin-top: 12px; }
-          .footer { margin-top: 40px; color: #666; font-size: 11px; }
-          @media print { body { margin: 24px; } }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h2>AutoPremium del Eje</h2>
-          <div>Mall Santa Lucia del Bosque - KM +1 Santa Rosa de Cabal - Dosquebradas</div>
-          <div>+57 313 701 4401</div>
-          <div>autopremiumdeleje@gmail.com</div>
-        </div>
+      const lines = [
+        "AUTOPREMIUM DEL EJE",
+        "Mall Santa Lucia del Bosque - KM +1 Santa Rosa de Cabal - Dosquebradas",
+        "Tel: +57 313 701 4401 | Correo: autopremiumdeleje@gmail.com",
+        "",
+        "COMPROBANTE DE RESERVA",
+        `No. Comprobante: ${receiptNumber}`,
+        `Fecha de emision: ${formatDate(new Date().toISOString())}`,
+        "",
+        `Cliente: ${fullReservation.customer?.full_name || "N/D"}`,
+        `Documento: ${fullReservation.customer?.document_id || "N/D"}`,
+        `Telefono: ${fullReservation.customer?.phone || "N/D"}`,
+        "Direccion: N/D",
+        `Placa: ${fullReservation.vehicle?.license_plate || "N/D"}`,
+        `Vehiculo: ${`${fullReservation.vehicle?.brand || ""} ${fullReservation.vehicle?.line || ""}`.trim() || "N/D"}`,
+        `Ano: ${fullReservation.vehicle?.model_year || "N/D"}`,
+        `Asesor: ${fullReservation.advisor_name || DEFAULT_ADVISOR}`,
+        "",
+        "Detalle",
+        "- Descripcion: Reserva de vehiculo",
+        `- Valor vehiculo reservado: ${formatCOP(vehicleValue)}`,
+        `- Valor abonado: ${formatCOP(totalAbonado)}`,
+        "",
+        `Subtotal: ${formatCOP(vehicleValue)}`,
+        `Total abonado: ${formatCOP(totalAbonado)}`,
+        `Saldo pendiente: ${formatCOP(saldo)}`,
+        "",
+        ...toPdfLines(`Nota: ${fullReservation.notes || "Sin notas"}`),
+        "",
+        "Documento de soporte interno/comercial. No reemplaza factura electronica DIAN.",
+      ];
 
-        <div class="title">Comprobante de Reserva</div>
-        <div class="meta"><strong>N.° Comprobante:</strong> ${receiptNumber}</div>
-        <div class="meta"><strong>Fecha de emisión:</strong> ${formatDate(new Date().toISOString())}</div>
-
-        <div class="grid">
-          <div><div class="label">Cliente</div><div class="value">${fullReservation.customer?.full_name || "N/D"}</div></div>
-          <div><div class="label">Documento</div><div class="value">${fullReservation.customer?.document_id || "N/D"}</div></div>
-          <div><div class="label">Teléfono</div><div class="value">${fullReservation.customer?.phone || "N/D"}</div></div>
-          <div><div class="label">Dirección</div><div class="value">N/D</div></div>
-          <div><div class="label">Placa</div><div class="value">${fullReservation.vehicle?.license_plate || "N/D"}</div></div>
-          <div><div class="label">Marca / Línea</div><div class="value">${`${fullReservation.vehicle?.brand || ""} ${fullReservation.vehicle?.line || ""}`.trim() || "N/D"}</div></div>
-          <div><div class="label">Año</div><div class="value">${fullReservation.vehicle?.model_year || "N/D"}</div></div>
-          <div><div class="label">Asesor</div><div class="value">${fullReservation.advisor_name || DEFAULT_ADVISOR}</div></div>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th>Descripción</th>
-              <th>Valor vehículo reservado</th>
-              <th>Valor abonado</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Reserva ${`${fullReservation.vehicle?.brand || "Vehículo"} ${fullReservation.vehicle?.line || ""}`.trim()}</td>
-              <td>${formatCOP(vehicleValue)}</td>
-              <td>${formatCOP(totalAbonado)}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div class="totals">
-          <div class="totals-row"><span>Subtotal</span><strong>${formatCOP(vehicleValue)}</strong></div>
-          <div class="totals-row"><span>Total abonado</span><strong>${formatCOP(totalAbonado)}</strong></div>
-          <div class="totals-row total-final"><span>Saldo pendiente</span><span>${formatCOP(saldo)}</span></div>
-        </div>
-
-        ${fullReservation.notes ? `<div class="note"><strong>Nota:</strong> ${fullReservation.notes}</div>` : ""}
-
-        <div class="footer">Documento de soporte interno/comercial. No reemplaza factura electrónica DIAN.</div>
-      </body>
-      </html>`;
-
-      const popup = window.open("", "_blank");
-      if (!popup) {
-        toast.error("Activa las ventanas emergentes para generar el comprobante");
-        return;
-      }
-
-      popup.document.write(html);
-      popup.document.close();
-      popup.focus();
-      popup.print();
+      const blob = buildSimplePdfBlob(lines);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${receiptNumber}_${fullReservation.vehicle?.license_plate || fullReservation.id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
 
       logAudit({
         action: "reservation_convert",
@@ -654,10 +674,10 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
       }).catch((e) => logger.error("[Audit] receipt generation failed", e));
 
       fetchData();
-      toast.success("Comprobante generado. Puedes guardarlo como PDF desde la impresión.");
+      toast.success("Comprobante descargado en PDF");
     } catch (err) {
       logger.error("[Reservations] PDF generation error", err);
-      toast.error(`No se pudo generar el comprobante: ${getErrorMessage(err, "error desconocido")}`);
+      toast.error(`No se pudo descargar el comprobante: ${getErrorMessage(err, "error desconocido")}`);
     }
   };
 
@@ -967,6 +987,44 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
               <Label>Notas</Label>
               <Textarea value={editForm.notes} onChange={(e) => setEditForm((prev) => ({ ...prev, notes: e.target.value }))} rows={2} />
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Depósito</Label>
+                <Input type="number" min="1" value={editForm.deposit_amount_cop} onChange={(e) => setEditForm((prev) => ({ ...prev, deposit_amount_cop: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Método de pago</Label>
+                <Select value={editForm.payment_method_code} onValueChange={(v) => setEditForm((prev) => ({ ...prev, payment_method_code: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {paymentMethods.map((p) => (<SelectItem key={p.code} value={p.code}>{p.name}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Asesor</Label>
+              <Input value={editForm.advisor_name} onChange={(e) => setEditForm((prev) => ({ ...prev, advisor_name: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Notas</Label>
+              <Textarea value={editForm.notes} onChange={(e) => setEditForm((prev) => ({ ...prev, notes: e.target.value }))} rows={2} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleEdit} disabled={editSaving || !isAdmin}>{editSaving ? "Guardando..." : "Guardar cambios"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={quickCustomerOpen} onOpenChange={setQuickCustomerOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Crear Cliente Rápido</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2"><Label>Nombre *</Label><Input value={quickCustomerForm.full_name} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, full_name: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Documento</Label><Input value={quickCustomerForm.document_id} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, document_id: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Teléfono</Label><Input value={quickCustomerForm.phone} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, phone: e.target.value })} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancelar</Button>
@@ -1021,9 +1079,9 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
                 <CardHeader className="pb-2"><CardTitle className="text-sm">Valores</CardTitle></CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex justify-between"><span className="text-muted-foreground">Fecha emisión</span><span>{formatDate(new Date().toISOString())}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Valor vehículo</span><span>{formatCOP(selectedReservation.listed_price_cop || 0)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Valor vehículo</span><span>{formatCOP(selectedReservation.vehicle?.listed_price_cop || 0)}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Total abonado</span><span className="font-medium">{formatCOP(selectedReservation.deposit_amount_cop)}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Saldo pendiente</span><span className="font-bold">{formatCOP(Math.max((selectedReservation.listed_price_cop || 0) - selectedReservation.deposit_amount_cop, 0))}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Saldo pendiente</span><span className="font-bold">{formatCOP(Math.max((selectedReservation.vehicle?.listed_price_cop || 0) - selectedReservation.deposit_amount_cop, 0))}</span></div>
                   {selectedReservation.notes && <div className="pt-2 border-t"><p className="text-muted-foreground">Nota:</p><p>{selectedReservation.notes}</p></div>}
                 </CardContent>
               </Card>

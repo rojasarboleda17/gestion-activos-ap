@@ -20,13 +20,11 @@ export function VehicleAcquisitionTab({ vehicleId, onDirtyChange, onCollectPaylo
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [isListed, setIsListed] = useState(false);
   const [initialForm, setInitialForm] = useState({
     purchase_price_cop: "",
     listed_price_cop: "",
     purchase_date: "",
     supplier_name: "",
-    is_listed: false,
   });
 
   const [form, setForm] = useState({
@@ -51,10 +49,8 @@ export function VehicleAcquisitionTab({ vehicleId, onDirtyChange, onCollectPaylo
           purchase_date: financialsRes.data?.purchase_date || "",
           supplier_name: financialsRes.data?.supplier_name || "",
         };
-        const listed = listingRes.data?.is_listed || false;
         setForm(nextForm);
-        setIsListed(listed);
-        setInitialForm({ ...nextForm, is_listed: listed });
+        setInitialForm(nextForm);
       }
 
       setLoading(false);
@@ -79,7 +75,6 @@ export function VehicleAcquisitionTab({ vehicleId, onDirtyChange, onCollectPaylo
       const listingPayload = {
         vehicle_id: vehicleId,
         org_id: profile.org_id,
-        is_listed: isListed,
         listed_price_cop: form.listed_price_cop ? parseInt(form.listed_price_cop, 10) : null,
       };
 
@@ -91,7 +86,7 @@ export function VehicleAcquisitionTab({ vehicleId, onDirtyChange, onCollectPaylo
       if (financialsSaveRes.error) throw financialsSaveRes.error;
       if (listingSaveRes.error) throw listingSaveRes.error;
 
-      setInitialForm({ ...form, is_listed: isListed });
+      setInitialForm(form);
       if (!silent) {
         toast.success("Adquisición actualizada");
       }
@@ -104,14 +99,13 @@ export function VehicleAcquisitionTab({ vehicleId, onDirtyChange, onCollectPaylo
     } finally {
       setSaving(false);
     }
-  }, [form, isListed, profile?.org_id, vehicleId]);
+  }, [form, profile?.org_id, vehicleId]);
 
   const isDirty =
     form.purchase_price_cop !== initialForm.purchase_price_cop ||
     form.listed_price_cop !== initialForm.listed_price_cop ||
     form.purchase_date !== initialForm.purchase_date ||
-    form.supplier_name !== initialForm.supplier_name ||
-    isListed !== initialForm.is_listed;
+    form.supplier_name !== initialForm.supplier_name;
 
   useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -143,7 +137,7 @@ export function VehicleAcquisitionTab({ vehicleId, onDirtyChange, onCollectPaylo
           </div>
 
           <div className="space-y-2">
-            <Label>Valor de venta objetivo</Label>
+            <Label>Valor de venta objetivo (COP)</Label>
             <Input
               type="number"
               min="0"

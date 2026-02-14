@@ -111,9 +111,6 @@ export function VehicleFilesTab({ vehicleId, onDirtyChange, onCollectPayload }: 
     return true;
   });
 
-  const expiredCount = files.filter((file) => getFileStatus(file.expires_at) === "expired").length;
-  const upcomingCount = files.filter((file) => getFileStatus(file.expires_at) === "upcoming").length;
-
   const fetchFiles = useCallback(async () => {
     const { data } = await supabase.from("vehicle_files").select("*").eq("vehicle_id", vehicleId).order("created_at", { ascending: false });
     setFiles(data || []);
@@ -303,29 +300,8 @@ export function VehicleFilesTab({ vehicleId, onDirtyChange, onCollectPayload }: 
           </DialogContent>
         </Dialog>
       </div>
-      <div className="space-y-3">
-        <div className="grid gap-2 sm:grid-cols-3">
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-muted-foreground">Total</p>
-              <p className="text-lg font-semibold">{files.length}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-muted-foreground">Vencidos</p>
-              <p className="text-lg font-semibold text-destructive">{expiredCount}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-muted-foreground">Próximos a vencer</p>
-              <p className="text-lg font-semibold text-amber-600 dark:text-amber-400">{upcomingCount}</p>
-            </CardContent>
-          </Card>
-        </div>
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <p className="text-sm text-muted-foreground">Filtrar por estado de vencimiento</p>
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <p className="text-sm text-muted-foreground">Filtrar por estado de vencimiento</p>
         <div className="flex flex-wrap gap-2">
           <Button variant={activeFilter === "all" ? "default" : "outline"} size="sm" onClick={() => setActiveFilter("all")}>Todos</Button>
           <Button variant={activeFilter === "expired" ? "default" : "outline"} size="sm" onClick={() => setActiveFilter("expired")}>Vencidos</Button>

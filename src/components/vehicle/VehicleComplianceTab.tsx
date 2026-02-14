@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getErrorMessage } from "@/lib/errors";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,14 +14,24 @@ import { logger } from "@/lib/logger";
 
 interface Props {
   vehicleId: string;
+  onDirtyChange?: (isDirty: boolean) => void;
+  onCollectPayload?: (collector: (() => Promise<void>) | null) => void;
 }
 
-export function VehicleComplianceTab({ vehicleId }: Props) {
+export function VehicleComplianceTab({ vehicleId, onDirtyChange, onCollectPayload }: Props) {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState({
+    soat_expires_at: "",
+    tecnomecanica_expires_at: "",
+    has_fines: false,
+    fines_amount_cop: "",
+    compliance_notes: "",
+  });
+
+  const [initialForm, setInitialForm] = useState({
     soat_expires_at: "",
     tecnomecanica_expires_at: "",
     has_fines: false,
@@ -38,20 +48,22 @@ export function VehicleComplianceTab({ vehicleId }: Props) {
         .maybeSingle();
       
       if (data) {
-        setForm({
+        const nextForm = {
           soat_expires_at: data.soat_expires_at || "",
           tecnomecanica_expires_at: data.tecnomecanica_expires_at || "",
           has_fines: data.has_fines || false,
           fines_amount_cop: data.fines_amount_cop?.toString() || "",
           compliance_notes: data.compliance_notes || "",
-        });
+        };
+        setForm(nextForm);
+        setInitialForm(nextForm);
       }
       setLoading(false);
     };
     fetchData();
   }, [vehicleId]);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async (silent = false) => {
     if (!profile?.org_id) return;
     setSaving(true);
     try {
@@ -70,14 +82,36 @@ export function VehicleComplianceTab({ vehicleId }: Props) {
         .upsert(payload, { onConflict: "vehicle_id" });
 
       if (error) throw error;
-      toast.success("Cumplimiento actualizado");
+      setInitialForm(form);
+      if (!silent) {
+        toast.success("Cumplimiento actualizado");
+      }
     } catch (err: unknown) {
       logger.error(err);
-      toast.error(getErrorMessage(err, "Error al guardar"));
+      if (!silent) {
+        toast.error(getErrorMessage(err, "Error al guardar"));
+      }
+      throw err;
     } finally {
       setSaving(false);
     }
-  };
+  }, [form, profile?.org_id, vehicleId]);
+
+  const isDirty =
+    form.soat_expires_at !== initialForm.soat_expires_at ||
+    form.tecnomecanica_expires_at !== initialForm.tecnomecanica_expires_at ||
+    form.has_fines !== initialForm.has_fines ||
+    form.fines_amount_cop !== initialForm.fines_amount_cop ||
+    form.compliance_notes !== initialForm.compliance_notes;
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  useEffect(() => {
+    onCollectPayload?.(() => handleSave(true));
+    return () => onCollectPayload?.(null);
+  }, [handleSave, onCollectPayload]);
 
   if (loading) return <LoadingState variant="detail" />;
 
@@ -138,7 +172,7 @@ export function VehicleComplianceTab({ vehicleId }: Props) {
           />
         </div>
 
-        <Button onClick={handleSave} disabled={saving}>
+        <Button onClick={() => void handleSave()} disabled={saving || !isDirty}>
           {saving ? "Guardando..." : "Guardar"}
         </Button>
       </CardContent>

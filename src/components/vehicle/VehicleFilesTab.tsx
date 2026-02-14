@@ -27,9 +27,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAudit } from "@/hooks/use-audit";
 
-interface Props { vehicleId: string; }
+interface Props {
+  vehicleId: string;
+  onDirtyChange?: (isDirty: boolean) => void;
+  onCollectPayload?: (collector: (() => Promise<void>) | null) => void;
+}
 
-export function VehicleFilesTab({ vehicleId }: Props) {
+export function VehicleFilesTab({ vehicleId, onDirtyChange, onCollectPayload }: Props) {
   const { profile } = useAuth();
   const { log: auditLog } = useAudit();
   const [loading, setLoading] = useState(true);
@@ -47,6 +51,13 @@ export function VehicleFilesTab({ vehicleId }: Props) {
   }, [vehicleId]);
 
   useEffect(() => { fetchFiles(); }, [fetchFiles]);
+
+  useEffect(() => {
+    onDirtyChange?.(false);
+    onCollectPayload?.(null);
+    return () => onCollectPayload?.(null);
+  }, [onCollectPayload, onDirtyChange]);
+
 
   useEffect(() => {
     const fetchDocumentTypes = async () => {

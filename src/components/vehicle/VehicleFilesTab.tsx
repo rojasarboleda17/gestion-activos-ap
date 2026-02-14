@@ -308,7 +308,6 @@ export function VehicleFilesTab({ vehicleId, onDirtyChange, onCollectPayload }: 
           <Button variant={activeFilter === "upcoming" ? "default" : "outline"} size="sm" onClick={() => setActiveFilter("upcoming")}>Próximos a vencer</Button>
         </div>
       </div>
-      </div>
       {filteredFiles.length === 0 ? <EmptyState icon={FileText} title="Sin archivos" description="Sube fotos o documentos del vehículo." /> : (
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {filteredFiles.map((f) => (

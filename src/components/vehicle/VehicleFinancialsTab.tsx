@@ -76,6 +76,10 @@ interface ListingData {
   listed_price_cop: number | null;
 }
 
+function getSafeInventoryDays(startDate: Date, endDate: Date) {
+  return Math.max(0, differenceInDays(endDate, startDate));
+}
+
 export function VehicleFinancialsTab({ vehicleId }: Props) {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -165,6 +169,18 @@ export function VehicleFinancialsTab({ vehicleId }: Props) {
 
   const handleSave = async () => {
     if (!profile?.org_id) return;
+
+    if (form.purchase_date) {
+      const purchaseDate = parseISO(form.purchase_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (purchaseDate > today) {
+        toast.error("La fecha de compra no puede estar en el futuro");
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       const payload = {
@@ -218,8 +234,10 @@ export function VehicleFinancialsTab({ vehicleId }: Props) {
       ? parseISO(vehicleCreatedAt) 
       : new Date();
   const endDate = sale?.sale_date ? parseISO(sale.sale_date) : new Date();
-  const daysInInventory = differenceInDays(endDate, startDate);
-  const costPerDay = daysInInventory > 0 ? totalCost / daysInInventory : 0;
+  const hasDateInconsistency = startDate > endDate;
+  const daysInInventory = getSafeInventoryDays(startDate, endDate);
+  const costPerDay = daysInInventory > 0 ? Math.max(0, totalCost) / daysInInventory : 0;
+  const profitPerDay = daysInInventory > 0 ? Math.max(0, grossProfit) / daysInInventory : 0;
   
   const isSold = !!sale;
   const hasActiveReservation = !!reservation;
@@ -419,6 +437,13 @@ export function VehicleFinancialsTab({ vehicleId }: Props) {
                   <span>{formatDate(sale!.sale_date)}</span>
                 </div>
               )}
+
+              {hasDateInconsistency && (
+                <div className="flex items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-2 py-1 text-xs text-warning">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  <span>Revisa fechas: la fecha de compra es posterior a la fecha de venta.</span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -580,7 +605,7 @@ export function VehicleFinancialsTab({ vehicleId }: Props) {
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Utilidad por Día</p>
                 <p className={`text-2xl font-bold ${grossProfit >= 0 ? "text-green-600" : "text-destructive"}`}>
-                  {formatCOP(daysInInventory > 0 ? Math.round(grossProfit / daysInInventory) : 0)}
+                  {formatCOP(Math.round(profitPerDay))}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {daysInInventory} días en inventario

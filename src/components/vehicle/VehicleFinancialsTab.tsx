@@ -350,11 +350,11 @@ export function VehicleFinancialsTab({ vehicleId }: Props) {
                 <Percent className="h-5 w-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Margen / ROI</p>
+                <p className="text-sm text-muted-foreground">Métricas (venta real)</p>
                 <p className="text-xl font-bold">
                   {marginPercent !== null && roi !== null ? `${marginPercent.toFixed(1)}% / ${roi.toFixed(1)}%` : "—"}
                 </p>
-                {!isSold && <p className="text-xs text-muted-foreground">Aún sin venta registrada</p>}
+                <p className="text-xs text-muted-foreground">{isSold ? "Calculado con venta real" : "Aún sin venta registrada"}</p>
               </div>
             </div>
           </CardContent>
@@ -571,7 +571,7 @@ export function VehicleFinancialsTab({ vehicleId }: Props) {
               }
               Análisis de Rentabilidad
             </CardTitle>
-            {!isSold && <CardDescription>Aún sin venta registrada</CardDescription>}
+            <CardDescription>{isSold ? "Utilidad, margen, ROI y utilidad por día calculados sobre venta real." : "Aún sin venta registrada: métricas no calculables hasta tener venta real."}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">

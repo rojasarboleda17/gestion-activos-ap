@@ -222,10 +222,11 @@ export function VehicleFinancialsTab({ vehicleId }: Props) {
     .reduce((sum, p) => sum + p.amount_cop, 0);
   const netPayments = totalPaymentsIn - totalPaymentsOut;
   const pendingBalance = salePrice - netPayments;
+  const isSold = !!sale;
   
-  const grossProfit = salePrice - totalCost;
-  const marginPercent = salePrice > 0 ? (grossProfit / salePrice) * 100 : 0;
-  const roi = totalCost > 0 ? (grossProfit / totalCost) * 100 : 0;
+  const grossProfit = isSold ? salePrice - totalCost : null;
+  const marginPercent = isSold && salePrice > 0 && grossProfit !== null ? (grossProfit / salePrice) * 100 : null;
+  const roi = isSold && totalCost > 0 && grossProfit !== null ? (grossProfit / totalCost) * 100 : null;
   
   // Days in inventory
   const startDate = form.purchase_date 
@@ -237,9 +238,10 @@ export function VehicleFinancialsTab({ vehicleId }: Props) {
   const hasDateInconsistency = startDate > endDate;
   const daysInInventory = getSafeInventoryDays(startDate, endDate);
   const costPerDay = daysInInventory > 0 ? Math.max(0, totalCost) / daysInInventory : 0;
-  const profitPerDay = daysInInventory > 0 ? Math.max(0, grossProfit) / daysInInventory : 0;
+  const profitPerDay = isSold && grossProfit !== null && daysInInventory > 0
+    ? Math.max(0, grossProfit) / daysInInventory
+    : null;
   
-  const isSold = !!sale;
   const hasActiveReservation = !!reservation;
   const reservationDeposit = reservation?.deposit_amount_cop || 0;
 
@@ -313,7 +315,7 @@ export function VehicleFinancialsTab({ vehicleId }: Props) {
                 <Wallet className="h-5 w-5 text-green-600" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Precio objetivo</p>
+                <p className="text-sm text-muted-foreground">Valor de venta objetivo</p>
                 <p className="text-xl font-bold">{listedPrice !== null ? formatCOP(listedPrice) : "—"}</p>
                 <p className="text-xs text-muted-foreground">Fuente: vehicle_listing.listed_price_cop</p>
               </div>
@@ -321,11 +323,11 @@ export function VehicleFinancialsTab({ vehicleId }: Props) {
           </CardContent>
         </Card>
 
-        <Card className={grossProfit >= 0 ? "" : "border-destructive/50"}>
+        <Card className={grossProfit !== null && grossProfit < 0 ? "border-destructive/50" : ""}>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className={`rounded-lg p-2.5 ${grossProfit >= 0 ? "bg-green-500/10" : "bg-destructive/10"}`}>
-                {grossProfit >= 0 
+              <div className={`rounded-lg p-2.5 ${grossProfit === null || grossProfit >= 0 ? "bg-green-500/10" : "bg-destructive/10"}`}>
+                {grossProfit === null || grossProfit >= 0
                   ? <TrendingUp className="h-5 w-5 text-green-600" />
                   : <TrendingDown className="h-5 w-5 text-destructive" />
                 }
@@ -350,8 +352,9 @@ export function VehicleFinancialsTab({ vehicleId }: Props) {
               <div>
                 <p className="text-sm text-muted-foreground">Margen / ROI</p>
                 <p className="text-xl font-bold">
-                  {isSold ? `${marginPercent.toFixed(1)}% / ${roi.toFixed(1)}%` : "—"}
+                  {marginPercent !== null && roi !== null ? `${marginPercent.toFixed(1)}% / ${roi.toFixed(1)}%` : "—"}
                 </p>
+                {!isSold && <p className="text-xs text-muted-foreground">Aún sin venta registrada</p>}
               </div>
             </div>
           </CardContent>
@@ -558,63 +561,62 @@ export function VehicleFinancialsTab({ vehicleId }: Props) {
         </Card>
       )}
 
-      {/* Profit Analysis (only if sold) */}
-      {isSold && (
-        <Card className={grossProfit >= 0 ? "border-green-500/30" : "border-destructive/30"}>
+      {/* Profit Analysis */}
+      <Card className={grossProfit === null || grossProfit >= 0 ? "border-green-500/30" : "border-destructive/30"}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              {grossProfit >= 0 
+              {grossProfit === null || grossProfit >= 0
                 ? <TrendingUp className="h-5 w-5 text-green-600" />
                 : <TrendingDown className="h-5 w-5 text-destructive" />
               }
               Análisis de Rentabilidad
             </CardTitle>
+            {!isSold && <CardDescription>Aún sin venta registrada</CardDescription>}
           </CardHeader>
           <CardContent>
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Utilidad Bruta</p>
-                <p className={`text-2xl font-bold ${grossProfit >= 0 ? "text-green-600" : "text-destructive"}`}>
-                  {formatCOP(grossProfit)}
+                <p className={`text-2xl font-bold ${grossProfit === null || grossProfit >= 0 ? "text-green-600" : "text-destructive"}`}>
+                  {grossProfit !== null ? formatCOP(grossProfit) : "—"}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Precio venta - Costo total
+                  Venta real - Costo total
                 </p>
               </div>
               
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Margen de Utilidad</p>
-                <p className={`text-2xl font-bold ${marginPercent >= 0 ? "text-green-600" : "text-destructive"}`}>
-                  {marginPercent.toFixed(1)}%
+                <p className={`text-2xl font-bold ${marginPercent === null || marginPercent >= 0 ? "text-green-600" : "text-destructive"}`}>
+                  {marginPercent !== null ? `${marginPercent.toFixed(1)}%` : "—"}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Utilidad / Precio venta
+                  Utilidad real / Venta real
                 </p>
               </div>
               
               <div>
                 <p className="text-sm text-muted-foreground mb-1">ROI</p>
-                <p className={`text-2xl font-bold ${roi >= 0 ? "text-green-600" : "text-destructive"}`}>
-                  {roi.toFixed(1)}%
+                <p className={`text-2xl font-bold ${roi === null || roi >= 0 ? "text-green-600" : "text-destructive"}`}>
+                  {roi !== null ? `${roi.toFixed(1)}%` : "—"}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Utilidad / Inversión
+                  Utilidad real / Inversión
                 </p>
               </div>
               
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Utilidad por Día</p>
-                <p className={`text-2xl font-bold ${grossProfit >= 0 ? "text-green-600" : "text-destructive"}`}>
-                  {formatCOP(Math.round(profitPerDay))}
+                <p className={`text-2xl font-bold ${grossProfit === null || grossProfit >= 0 ? "text-green-600" : "text-destructive"}`}>
+                  {profitPerDay !== null ? formatCOP(Math.round(profitPerDay)) : "—"}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {daysInInventory} días en inventario
+                  {isSold ? `${daysInInventory} días hasta la venta real` : "Aún sin venta registrada"}
                 </p>
               </div>
             </div>
           </CardContent>
         </Card>
-      )}
     </div>
   );
 }

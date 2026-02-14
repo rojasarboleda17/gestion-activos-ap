@@ -135,27 +135,22 @@ const STATUS_LABELS: Record<string, string> = {
 const DEFAULT_ADVISOR = "Esteban Ocampo";
 
 const escapePdfText = (value: string) =>
-  value.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+  value
+    .replace(/\\/g, "\\\\")
+    .replace(/\(/g, "\\(")
+    .replace(/\)/g, "\\)")
+    .replace(/\r?\n/g, " ");
 
-const buildSimplePdfBlob = (lines: string[]) => {
-  const content = [
-    "BT",
-    "/F1 11 Tf",
-    "14 TL",
-    "40 760 Td",
-    ...lines.flatMap((line, index) => [
-      `(${escapePdfText(line)}) Tj`,
-      ...(index === lines.length - 1 ? [] : ["T*"]),
-    ]),
-    "ET",
-  ].join("\n");
+const buildStyledPdfBlob = (commands: string[]) => {
+  const content = commands.join("\n");
 
   const objects = [
     "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
     "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
-    "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n",
-    "4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
-    `5 0 obj\n<< /Length ${content.length} >>\nstream\n${content}\nendstream\nendobj\n`,
+    "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>\nendobj\n",
+    "4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman >>\nendobj\n",
+    "5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Times-Bold >>\nendobj\n",
+    `6 0 obj\n<< /Length ${content.length} >>\nstream\n${content}\nendstream\nendobj\n`,
   ];
 
   let pdf = "%PDF-1.4\n";
@@ -178,7 +173,7 @@ const buildSimplePdfBlob = (lines: string[]) => {
   return new Blob([pdf], { type: "application/pdf" });
 };
 
-const toPdfLines = (input: string, maxLength = 86) => {
+const wrapPdfText = (input: string, maxLength = 62) => {
   if (!input) return [""];
   const words = input.split(/\s+/);
   const lines: string[] = [];
@@ -197,6 +192,21 @@ const toPdfLines = (input: string, maxLength = 86) => {
   if (current) lines.push(current);
   return lines;
 };
+
+const pdfText = (text: string, x: number, y: number, size = 11, bold = false) => [
+  "BT",
+  `${bold ? "/F2" : "/F1"} ${size} Tf`,
+  `${x} ${y} Td`,
+  `(${escapePdfText(text)}) Tj`,
+  "ET",
+];
+
+const pdfLine = (x1: number, y1: number, x2: number, y2: number) => `${x1} ${y1} m ${x2} ${y2} l S`;
+
+const pdfRect = (x: number, y: number, w: number, h: number) => `${x} ${y} ${w} ${h} re S`;
+
+const money = (value: number) => formatCOP(value || 0);
+
 
 
 export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicleId }: Props) {
@@ -623,6 +633,179 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
       const vehicleValue = fullReservation.vehicle?.listed_price_cop || 0;
       const totalAbonado = fullReservation.deposit_amount_cop || 0;
       const saldo = Math.max(vehicleValue - totalAbonado, 0);
+      const today = formatDate(new Date().toISOString());
+
+      const commands: string[] = [];
+
+      commands.push(...pdfText("AutoPremium del Eje", 50, 748, 24, true));
+      commands.push(...pdfText("Comprobante de Reserva", 50, 710, 22, true));
+      commands.push(pdfLine(50, 700, 560, 700));
+
+      commands.push(...pdfText("Mall Santa Lucia del Bosque - KM +1 Santa Rosa de Cabal - Dosquebradas", 50, 680, 10));
+      commands.push(...pdfText("Telefono: +57 313 701 4401", 50, 665, 10));
+      commands.push(...pdfText("Correo: autopremiumdeleje@gmail.com", 50, 650, 10));
+
+      commands.push(...pdfText(`N.° Comprobante: ${receiptNumber}`, 390, 710, 11, true));
+      commands.push(...pdfText(`Fecha de emisión: ${today}`, 390, 693, 10));
+
+      commands.push(pdfRect(50, 560, 510, 72));
+      commands.push(pdfLine(305, 560, 305, 632));
+      commands.push(...pdfText("A la atención de", 60, 615, 11, true));
+      commands.push(...pdfText(fullReservation.customer?.full_name || "N/D", 60, 598, 11));
+      commands.push(...pdfText(`Doc: ${fullReservation.customer?.document_id || "N/D"}`, 60, 582, 10));
+      commands.push(...pdfText(`Tel: ${fullReservation.customer?.phone || "N/D"}`, 60, 567, 10));
+
+      commands.push(...pdfText("Vehículo", 315, 615, 11, true));
+      commands.push(...pdfText(`${fullReservation.vehicle?.brand || "N/D"} ${fullReservation.vehicle?.line || ""}`.trim(), 315, 598, 11));
+      commands.push(...pdfText(`Placa: ${fullReservation.vehicle?.license_plate || "N/D"}`, 315, 582, 10));
+      commands.push(...pdfText(`Año: ${fullReservation.vehicle?.model_year || "N/D"}`, 315, 567, 10));
+      commands.push(...pdfText(`Asesor: ${fullReservation.advisor_name || DEFAULT_ADVISOR}`, 315, 551, 10));
+
+      commands.push(pdfRect(50, 470, 510, 80));
+      commands.push(pdfLine(290, 470, 290, 550));
+      commands.push(pdfLine(430, 470, 430, 550));
+      commands.push(pdfLine(50, 530, 560, 530));
+      commands.push(...pdfText("Descripción", 60, 537, 11, true));
+      commands.push(...pdfText("Valor vehículo", 305, 537, 11, true));
+      commands.push(...pdfText("Valor abonado", 443, 537, 11, true));
+
+      const descLines = wrapPdfText(`Reserva ${fullReservation.vehicle?.brand || "vehículo"} ${fullReservation.vehicle?.line || ""}`.trim(), 34);
+      commands.push(...pdfText(descLines[0] || "Reserva de vehículo", 60, 510, 10));
+      if (descLines[1]) commands.push(...pdfText(descLines[1], 60, 496, 10));
+      commands.push(...pdfText(money(vehicleValue), 305, 510, 10));
+      commands.push(...pdfText(money(totalAbonado), 443, 510, 10));
+
+      commands.push(...pdfText(`Subtotal: ${money(vehicleValue)}`, 360, 440, 11));
+      commands.push(...pdfText(`Total abonado: ${money(totalAbonado)}`, 360, 424, 11));
+      commands.push(...pdfText(`Saldo pendiente: ${money(saldo)}`, 360, 406, 14, true));
+
+      commands.push(...pdfText("Notas:", 50, 420, 11, true));
+      const noteLines = wrapPdfText(fullReservation.notes || "Sin notas", 80).slice(0, 3);
+      noteLines.forEach((line, index) => {
+        commands.push(...pdfText(line, 50, 402 - (index * 14), 10));
+      });
+
+      commands.push(pdfLine(50, 340, 560, 340));
+      commands.push(...pdfText("Documento de soporte interno/comercial. No reemplaza factura electrónica DIAN.", 50, 325, 9));
+      commands.push(...pdfText("Formato carta vertical - Moneda COP", 50, 312, 9));
+
+      const blob = buildStyledPdfBlob(commands);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${receiptNumber}_${fullReservation.vehicle?.license_plate || fullReservation.id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+
+      logAudit({
+        action: "reservation_convert",
+        entity: "reservation",
+        entity_id: fullReservation.id,
+        payload: { event: "receipt_generated", receipt_number: receiptNumber },
+      }).catch((e) => logger.error("[Audit] receipt generation failed", e));
+
+      fetchData();
+      toast.success("Comprobante descargado en PDF");
+    } catch (err) {
+      logger.error("[Reservations] PDF generation error", err);
+      toast.error(`No se pudo descargar el comprobante: ${getErrorMessage(err, "error desconocido")}`);
+    }
+
+    setEditSaving(true);
+    try {
+      if (editingReservation.vehicle_id !== editForm.vehicle_id) {
+        const { data: conflict } = await supabase
+          .from("reservations")
+          .select("id")
+          .eq("vehicle_id", editForm.vehicle_id)
+          .eq("status", "active")
+          .neq("id", editingReservation.id)
+          .maybeSingle();
+
+        if (conflict) {
+          toast.error("El vehículo seleccionado ya tiene una reserva activa");
+          return;
+        }
+      }
+
+      const { error } = await supabase
+        .from("reservations")
+        .update({
+          customer_id: editForm.customer_id,
+          vehicle_id: editForm.vehicle_id,
+          deposit_amount_cop: depositAmount,
+          payment_method_code: editForm.payment_method_code,
+          notes: editForm.notes?.trim() || null,
+          advisor_name: editForm.advisor_name?.trim() || DEFAULT_ADVISOR,
+        })
+        .eq("id", editingReservation.id);
+
+      if (error) {
+        toast.error(`Error al actualizar reserva: ${error.message}`);
+        return;
+      }
+
+      if (editingReservation.vehicle_id !== editForm.vehicle_id) {
+        await supabase.from("vehicles").update({ stage_code: "publicado" }).eq("id", editingReservation.vehicle_id);
+        await supabase.from("vehicles").update({ stage_code: "bloqueado" }).eq("id", editForm.vehicle_id);
+      }
+
+      toast.success("Reserva actualizada");
+      setEditDialogOpen(false);
+      fetchData();
+      onRefresh?.();
+    } catch (err) {
+      toast.error(`Error inesperado: ${getErrorMessage(err, "Error desconocido")}`);
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const getOrCreateReceiptNumber = async (reservation: Reservation) => {
+    const year = new Date().getFullYear();
+
+    if (reservation.receipt_year === year && reservation.receipt_sequence) {
+      return `CR-${String(reservation.receipt_sequence).padStart(4, "0")}`;
+    }
+
+    const { data: existingRows, error: existingError } = await supabase
+      .from("reservations")
+      .select("receipt_sequence")
+      .eq("org_id", profile?.org_id || "")
+      .eq("receipt_year", year)
+      .not("receipt_sequence", "is", null)
+      .order("receipt_sequence", { ascending: false })
+      .limit(1);
+
+    if (existingError) throw existingError;
+
+    const nextSeq = (existingRows?.[0]?.receipt_sequence || 0) + 1;
+
+    const { error: updateError } = await supabase
+      .from("reservations")
+      .update({
+        receipt_year: year,
+        receipt_sequence: nextSeq,
+        receipt_generated_at: new Date().toISOString(),
+      })
+      .eq("id", reservation.id)
+      .is("receipt_sequence", null);
+
+    if (updateError) throw updateError;
+
+    return `CR-${String(nextSeq).padStart(4, "0")}`;
+  };
+
+  const generateReceiptPdf = async (reservation: Reservation) => {
+    try {
+      const fullReservation = selectedReservation?.id === reservation.id ? selectedReservation : reservation;
+      const receiptNumber = await getOrCreateReceiptNumber(fullReservation);
+
+      const vehicleValue = fullReservation.vehicle?.listed_price_cop || 0;
+      const totalAbonado = fullReservation.deposit_amount_cop || 0;
+      const saldo = Math.max(vehicleValue - totalAbonado, 0);
 
       const lines = [
         "AUTOPREMIUM DEL EJE",
@@ -679,6 +862,10 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
       logger.error("[Reservations] PDF generation error", err);
       toast.error(`No se pudo descargar el comprobante: ${getErrorMessage(err, "error desconocido")}`);
     }
+  };
+
+  const handleConvert = (reservation: Reservation) => {
+    if (onConvertToSale) onConvertToSale(reservation);
   };
 
   const handleConvert = (reservation: Reservation) => {

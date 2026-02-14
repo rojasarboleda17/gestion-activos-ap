@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getErrorMessage } from "@/lib/errors";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,13 +12,22 @@ import { logger } from "@/lib/logger";
 
 interface Props {
   vehicleId: string;
+  onDirtyChange?: (isDirty: boolean) => void;
+  onCollectPayload?: (collector: (() => Promise<void>) | null) => void;
 }
 
-export function VehicleAcquisitionTab({ vehicleId }: Props) {
+export function VehicleAcquisitionTab({ vehicleId, onDirtyChange, onCollectPayload }: Props) {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isListed, setIsListed] = useState(false);
+  const [initialForm, setInitialForm] = useState({
+    purchase_price_cop: "",
+    listed_price_cop: "",
+    purchase_date: "",
+    supplier_name: "",
+    is_listed: false,
+  });
 
   const [form, setForm] = useState({
     purchase_price_cop: "",
@@ -36,13 +45,16 @@ export function VehicleAcquisitionTab({ vehicleId }: Props) {
       ]);
 
       if (financialsRes.data || listingRes.data) {
-        setForm({
+        const nextForm = {
           purchase_price_cop: financialsRes.data?.purchase_price_cop?.toString() || "",
           listed_price_cop: listingRes.data?.listed_price_cop?.toString() || "",
           purchase_date: financialsRes.data?.purchase_date || "",
           supplier_name: financialsRes.data?.supplier_name || "",
-        });
-        setIsListed(listingRes.data?.is_listed || false);
+        };
+        const listed = listingRes.data?.is_listed || false;
+        setForm(nextForm);
+        setIsListed(listed);
+        setInitialForm({ ...nextForm, is_listed: listed });
       }
 
       setLoading(false);
@@ -51,7 +63,7 @@ export function VehicleAcquisitionTab({ vehicleId }: Props) {
     void fetchData();
   }, [vehicleId]);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async (silent = false) => {
     if (!profile?.org_id) return;
     setSaving(true);
 
@@ -79,14 +91,36 @@ export function VehicleAcquisitionTab({ vehicleId }: Props) {
       if (financialsSaveRes.error) throw financialsSaveRes.error;
       if (listingSaveRes.error) throw listingSaveRes.error;
 
-      toast.success("Adquisición actualizada");
+      setInitialForm({ ...form, is_listed: isListed });
+      if (!silent) {
+        toast.success("Adquisición actualizada");
+      }
     } catch (err: unknown) {
       logger.error(err);
-      toast.error(getErrorMessage(err, "Error al guardar"));
+      if (!silent) {
+        toast.error(getErrorMessage(err, "Error al guardar"));
+      }
+      throw err;
     } finally {
       setSaving(false);
     }
-  };
+  }, [form, isListed, profile?.org_id, vehicleId]);
+
+  const isDirty =
+    form.purchase_price_cop !== initialForm.purchase_price_cop ||
+    form.listed_price_cop !== initialForm.listed_price_cop ||
+    form.purchase_date !== initialForm.purchase_date ||
+    form.supplier_name !== initialForm.supplier_name ||
+    isListed !== initialForm.is_listed;
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  useEffect(() => {
+    onCollectPayload?.(() => handleSave(true));
+    return () => onCollectPayload?.(null);
+  }, [handleSave, onCollectPayload]);
 
   if (loading) return <LoadingState variant="detail" />;
 
@@ -138,7 +172,7 @@ export function VehicleAcquisitionTab({ vehicleId }: Props) {
           </div>
         </div>
 
-        <Button onClick={handleSave} disabled={saving}>
+        <Button onClick={() => void handleSave()} disabled={saving || !isDirty}>
           {saving ? "Guardando..." : "Guardar"}
         </Button>
       </CardContent>

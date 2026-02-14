@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { getErrorMessage } from "@/lib/errors";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -80,6 +81,29 @@ export function VehicleFilesTab({ vehicleId, onDirtyChange, onCollectPayload }: 
     return documentTypes.find((docType) => docType.code === file.doc_type)?.label || file.doc_type;
   };
 
+  const getStatusMeta = (expiresAt: string | null) => {
+    const status = getFileStatus(expiresAt);
+
+    if (status === "expired") {
+      return {
+        label: "Vencido",
+        badgeClassName: "bg-destructive/10 text-destructive border-destructive/30",
+      };
+    }
+
+    if (status === "upcoming") {
+      return {
+        label: "Próximo",
+        badgeClassName: "bg-amber-500/10 text-amber-700 border-amber-500/30 dark:text-amber-400",
+      };
+    }
+
+    return {
+      label: "Vigente",
+      badgeClassName: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30 dark:text-emerald-400",
+    };
+  };
+
   const filteredFiles = files.filter((file) => {
     const status = getFileStatus(file.expires_at);
     if (activeFilter === "expired") return status === "expired";
@@ -87,10 +111,8 @@ export function VehicleFilesTab({ vehicleId, onDirtyChange, onCollectPayload }: 
     return true;
   });
 
-  const criticalCount = files.filter((file) => {
-    const status = getFileStatus(file.expires_at);
-    return status === "expired" || status === "upcoming";
-  }).length;
+  const expiredCount = files.filter((file) => getFileStatus(file.expires_at) === "expired").length;
+  const upcomingCount = files.filter((file) => getFileStatus(file.expires_at) === "upcoming").length;
 
   const fetchFiles = useCallback(async () => {
     const { data } = await supabase.from("vehicle_files").select("*").eq("vehicle_id", vehicleId).order("created_at", { ascending: false });
@@ -281,15 +303,35 @@ export function VehicleFilesTab({ vehicleId, onDirtyChange, onCollectPayload }: 
           </DialogContent>
         </Dialog>
       </div>
-      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-        <p className="text-sm text-muted-foreground">
-          Total: <span className="font-medium text-foreground">{files.length}</span> · Críticos (vencidos/próximos): <span className="font-medium text-foreground">{criticalCount}</span>
-        </p>
+      <div className="space-y-3">
+        <div className="grid gap-2 sm:grid-cols-3">
+          <Card>
+            <CardContent className="py-3">
+              <p className="text-xs text-muted-foreground">Total</p>
+              <p className="text-lg font-semibold">{files.length}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="py-3">
+              <p className="text-xs text-muted-foreground">Vencidos</p>
+              <p className="text-lg font-semibold text-destructive">{expiredCount}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="py-3">
+              <p className="text-xs text-muted-foreground">Próximos a vencer</p>
+              <p className="text-lg font-semibold text-amber-600 dark:text-amber-400">{upcomingCount}</p>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <p className="text-sm text-muted-foreground">Filtrar por estado de vencimiento</p>
         <div className="flex flex-wrap gap-2">
           <Button variant={activeFilter === "all" ? "default" : "outline"} size="sm" onClick={() => setActiveFilter("all")}>Todos</Button>
           <Button variant={activeFilter === "expired" ? "default" : "outline"} size="sm" onClick={() => setActiveFilter("expired")}>Vencidos</Button>
           <Button variant={activeFilter === "upcoming" ? "default" : "outline"} size="sm" onClick={() => setActiveFilter("upcoming")}>Próximos a vencer</Button>
         </div>
+      </div>
       </div>
       {filteredFiles.length === 0 ? <EmptyState icon={FileText} title="Sin archivos" description="Sube fotos o documentos del vehículo." /> : (
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -298,11 +340,18 @@ export function VehicleFilesTab({ vehicleId, onDirtyChange, onCollectPayload }: 
               {f.file_kind === "photo" ? <Image className="h-8 w-8 text-muted-foreground" /> : <FileText className="h-8 w-8 text-muted-foreground" />}
               <div className="flex-1 min-w-0 space-y-1">
                 <p className="text-sm font-medium truncate">{f.file_name || "Archivo"}</p>
-                <p className="text-xs text-muted-foreground">Tipo documental: {getDocumentLabel(f)}</p>
+                <p className="text-xs text-muted-foreground">Tipo documental (label): {getDocumentLabel(f)}</p>
+                <p className="text-xs text-muted-foreground">doc_type: {f.doc_type || "—"}</p>
+                <p className="text-xs text-muted-foreground">doc_type_other: {f.doc_type_other || "—"}</p>
+                <p className="text-xs text-muted-foreground">expires_at: {f.expires_at || "—"}</p>
                 <p className="text-xs text-muted-foreground">Vencimiento: {f.expires_at ? formatDate(f.expires_at) : "Sin vencimiento"}</p>
                 <p className="text-xs text-muted-foreground">Visibilidad: {f.visibility}</p>
                 <p className="text-xs text-muted-foreground">Fecha: {formatDate(f.created_at)}</p>
               </div>
+              <div className="flex flex-col items-end gap-2">
+                <Badge variant="outline" className={getStatusMeta(f.expires_at).badgeClassName}>
+                  {getStatusMeta(f.expires_at).label}
+                </Badge>
               <div className="flex items-center gap-1">
                 <Button variant="ghost" size="icon" onClick={() => handleDownload(f)} title="Descargar">
                   <Download className="h-4 w-4" />
@@ -328,6 +377,7 @@ export function VehicleFilesTab({ vehicleId, onDirtyChange, onCollectPayload }: 
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
+              </div>
               </div>
             </CardContent></Card>
           ))}

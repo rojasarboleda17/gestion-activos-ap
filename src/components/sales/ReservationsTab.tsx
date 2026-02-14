@@ -90,8 +90,8 @@ interface Reservation {
     brand: string;
     line: string | null;
     model_year: number | null;
-    listed_price_cop: number | null;
   };
+  listed_price_cop?: number | null;
 }
 
 interface Vehicle {
@@ -101,7 +101,7 @@ interface Vehicle {
   line: string | null;
   model_year: number | null;
   stage_code: string;
-  listed_price_cop: number | null;
+  listed_price_cop?: number | null;
 }
 
 interface Customer {
@@ -193,13 +193,13 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
           .select(`
             *,
             customer:customers(full_name, phone, document_id),
-            vehicle:vehicles(license_plate, brand, line, model_year, listed_price_cop)
+            vehicle:vehicles(license_plate, brand, line, model_year)
           `)
           .eq("org_id", profile.org_id)
           .order("reserved_at", { ascending: false }),
         supabase
           .from("vehicles")
-          .select("id, license_plate, brand, line, model_year, stage_code, listed_price_cop")
+          .select("id, license_plate, brand, line, model_year, stage_code")
           .eq("org_id", profile.org_id)
           .eq("is_archived", false)
           .in("stage_code", ["publicado", "bloqueado"])
@@ -219,8 +219,8 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
         toast.error(`Error al cargar reservas: ${resRes.error.message}`);
       }
 
-      setReservations((resRes.data || []) as Reservation[]);
-      setVehicles((vehRes.data || []) as Vehicle[]);
+      setReservations((resRes.data || []) as unknown as Reservation[]);
+      setVehicles((vehRes.data || []) as unknown as Vehicle[]);
       setCustomers((custRes.data || []) as Customer[]);
       setPaymentMethods((pmRes.data || []) as PaymentMethod[]);
     } catch (err) {
@@ -258,7 +258,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
         .select(`
           *,
           customer:customers(full_name, phone, document_id),
-          vehicle:vehicles(license_plate, brand, line, model_year, listed_price_cop)
+          vehicle:vehicles(license_plate, brand, line, model_year)
         `)
         .eq("id", reservation.id)
         .single();
@@ -268,7 +268,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
         return;
       }
 
-      setSelectedReservation(data as Reservation);
+      setSelectedReservation(data as unknown as Reservation);
     } catch (err) {
       logger.error("[Reservations] openDetail error", err);
       toast.error("No se pudo abrir el detalle");
@@ -555,7 +555,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
       const fullReservation = selectedReservation?.id === reservation.id ? selectedReservation : reservation;
       const receiptNumber = await getOrCreateReceiptNumber(fullReservation);
 
-      const vehicleValue = fullReservation.vehicle?.listed_price_cop || 0;
+      const vehicleValue = fullReservation.listed_price_cop || 0;
       const totalAbonado = fullReservation.deposit_amount_cop || 0;
       const saldo = Math.max(vehicleValue - totalAbonado, 0);
 
@@ -1021,9 +1021,9 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
                 <CardHeader className="pb-2"><CardTitle className="text-sm">Valores</CardTitle></CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex justify-between"><span className="text-muted-foreground">Fecha emisión</span><span>{formatDate(new Date().toISOString())}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Valor vehículo</span><span>{formatCOP(selectedReservation.vehicle?.listed_price_cop || 0)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Valor vehículo</span><span>{formatCOP(selectedReservation.listed_price_cop || 0)}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Total abonado</span><span className="font-medium">{formatCOP(selectedReservation.deposit_amount_cop)}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Saldo pendiente</span><span className="font-bold">{formatCOP(Math.max((selectedReservation.vehicle?.listed_price_cop || 0) - selectedReservation.deposit_amount_cop, 0))}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Saldo pendiente</span><span className="font-bold">{formatCOP(Math.max((selectedReservation.listed_price_cop || 0) - selectedReservation.deposit_amount_cop, 0))}</span></div>
                   {selectedReservation.notes && <div className="pt-2 border-t"><p className="text-muted-foreground">Nota:</p><p>{selectedReservation.notes}</p></div>}
                 </CardContent>
               </Card>

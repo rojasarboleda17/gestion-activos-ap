@@ -27,6 +27,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAudit } from "@/hooks/use-audit";
 
+type FileFilter = "all" | "expired" | "upcoming";
+
+const UPCOMING_DAYS = 30;
+
 interface Props {
   vehicleId: string;
   onDirtyChange?: (isDirty: boolean) => void;
@@ -42,7 +46,51 @@ export function VehicleFilesTab({ vehicleId, onDirtyChange, onCollectPayload }: 
   const [uploading, setUploading] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
   const [documentTypes, setDocumentTypes] = useState<Tables<"document_types">[]>([]);
+  const [activeFilter, setActiveFilter] = useState<FileFilter>("all");
   const [form, setForm] = useState({ file_kind: "photo", visibility: "operations", doc_type: "", doc_type_other: "", expires_at: "" });
+
+  const normalizeDate = (value: string | null) => {
+    if (!value) return null;
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return null;
+    parsed.setHours(0, 0, 0, 0);
+    return parsed;
+  };
+
+  const getFileStatus = (expiresAt: string | null) => {
+    const expiresDate = normalizeDate(expiresAt);
+    if (!expiresDate) return "none";
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (expiresDate < today) return "expired";
+
+    const upcomingLimit = new Date(today);
+    upcomingLimit.setDate(today.getDate() + UPCOMING_DAYS);
+
+    if (expiresDate <= upcomingLimit) return "upcoming";
+
+    return "ok";
+  };
+
+  const getDocumentLabel = (file: Tables<"vehicle_files">) => {
+    if (file.doc_type === "otro") return file.doc_type_other || "Otro";
+    if (!file.doc_type) return "Sin tipo";
+    return documentTypes.find((docType) => docType.code === file.doc_type)?.label || file.doc_type;
+  };
+
+  const filteredFiles = files.filter((file) => {
+    const status = getFileStatus(file.expires_at);
+    if (activeFilter === "expired") return status === "expired";
+    if (activeFilter === "upcoming") return status === "upcoming";
+    return true;
+  });
+
+  const criticalCount = files.filter((file) => {
+    const status = getFileStatus(file.expires_at);
+    return status === "expired" || status === "upcoming";
+  }).length;
 
   const fetchFiles = useCallback(async () => {
     const { data } = await supabase.from("vehicle_files").select("*").eq("vehicle_id", vehicleId).order("created_at", { ascending: false });
@@ -233,12 +281,28 @@ export function VehicleFilesTab({ vehicleId, onDirtyChange, onCollectPayload }: 
           </DialogContent>
         </Dialog>
       </div>
-      {files.length === 0 ? <EmptyState icon={FileText} title="Sin archivos" description="Sube fotos o documentos del vehículo." /> : (
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <p className="text-sm text-muted-foreground">
+          Total: <span className="font-medium text-foreground">{files.length}</span> · Críticos (vencidos/próximos): <span className="font-medium text-foreground">{criticalCount}</span>
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button variant={activeFilter === "all" ? "default" : "outline"} size="sm" onClick={() => setActiveFilter("all")}>Todos</Button>
+          <Button variant={activeFilter === "expired" ? "default" : "outline"} size="sm" onClick={() => setActiveFilter("expired")}>Vencidos</Button>
+          <Button variant={activeFilter === "upcoming" ? "default" : "outline"} size="sm" onClick={() => setActiveFilter("upcoming")}>Próximos a vencer</Button>
+        </div>
+      </div>
+      {filteredFiles.length === 0 ? <EmptyState icon={FileText} title="Sin archivos" description="Sube fotos o documentos del vehículo." /> : (
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {files.map((f) => (
+          {filteredFiles.map((f) => (
             <Card key={f.id}><CardContent className="py-3 flex items-center gap-3">
               {f.file_kind === "photo" ? <Image className="h-8 w-8 text-muted-foreground" /> : <FileText className="h-8 w-8 text-muted-foreground" />}
-              <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate">{f.file_name || "Archivo"}</p><p className="text-xs text-muted-foreground">{f.visibility} · {formatDate(f.created_at)}</p></div>
+              <div className="flex-1 min-w-0 space-y-1">
+                <p className="text-sm font-medium truncate">{f.file_name || "Archivo"}</p>
+                <p className="text-xs text-muted-foreground">Tipo documental: {getDocumentLabel(f)}</p>
+                <p className="text-xs text-muted-foreground">Vencimiento: {f.expires_at ? formatDate(f.expires_at) : "Sin vencimiento"}</p>
+                <p className="text-xs text-muted-foreground">Visibilidad: {f.visibility}</p>
+                <p className="text-xs text-muted-foreground">Fecha: {formatDate(f.created_at)}</p>
+              </div>
               <div className="flex items-center gap-1">
                 <Button variant="ghost" size="icon" onClick={() => handleDownload(f)} title="Descargar">
                   <Download className="h-4 w-4" />

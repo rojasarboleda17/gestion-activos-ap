@@ -644,6 +644,10 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
       {/* CTAs */}
       {!isSold && (
         <div className="flex flex-wrap gap-2">
+          <Button onClick={openCreateSale} disabled={hasActiveReservation}>
+            <DollarSign className="h-4 w-4 mr-2" />
+            Venta directa
+          </Button>
           <Button
             variant="outline"
             onClick={openCreateReservation}
@@ -651,10 +655,6 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
           >
             <Plus className="h-4 w-4 mr-2" />
             Crear Reserva
-          </Button>
-          <Button onClick={openCreateSale} disabled={hasActiveReservation}>
-            <DollarSign className="h-4 w-4 mr-2" />
-            Registrar Venta
           </Button>
         </div>
       )}

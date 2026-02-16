@@ -1,9 +1,22 @@
-# Inventory deletions log
+# Inventory module deletions log
 
-## 2026-02-16
+## Scope
+Cleanup pass focused on `src/components/vehicle` to remove unused legacy tabs that are not mounted in active admin routes.
 
-| Archivo eliminado | Motivo | Reemplazo |
-|---|---|---|
-| `src/components/vehicle/VehicleFinancialsTab.tsx` | Marcado como **candidato a eliminación** en el inventario técnico y sin imports/renderizado en rutas activas (`/admin/vehicles`, `/admin/vehicles/:id`). | No aplica (funcionalidad no montada actualmente). |
-| `src/components/vehicle/VehicleHistoryTab.tsx` | Marcado como **legacy confirmado** y sin imports/renderizado en rutas activas (`/admin/vehicles`, `/admin/vehicles/:id`). | No aplica (el flujo vigente usa `VehicleSummaryTab`, `VehicleInfoTab`, `VehicleWorkOrdersTab`, etc.). |
-| `src/components/vehicle/VehicleListingTab.tsx` | Marcado como **candidato a eliminación** en el inventario técnico y sin imports/renderizado en rutas activas (`/admin/vehicles`, `/admin/vehicles/:id`). | No aplica (la visualización/listado vigente está cubierta por `Vehicles`, `VehicleFilters` y `VehicleKanban`). |
+## Removed files
+
+1. `src/components/vehicle/VehicleFinancialsTab.tsx`
+   - Reason: not referenced by active pages/routes.
+   - Replacement: no direct replacement; financial and sales summaries remain covered by active `VehicleSummaryTab` and `VehicleSalesTab` flows.
+
+2. `src/components/vehicle/VehicleHistoryTab.tsx`
+   - Reason: not referenced by active pages/routes.
+   - Replacement: no direct replacement in UI yet; future timeline/history UX can be reintroduced as a scoped module when required.
+
+3. `src/components/vehicle/VehicleListingTab.tsx`
+   - Reason: not referenced by active pages/routes.
+   - Replacement: listing/commercial data updates are currently handled in active acquisition/commercial flows.
+
+## Verification method
+- Searched all `src/` references before deletion.
+- Confirmed none of these files were imported outside themselves.

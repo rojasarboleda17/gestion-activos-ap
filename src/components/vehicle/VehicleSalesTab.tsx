@@ -679,27 +679,18 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
       {/* CTAs */}
       {!isSold && (
         <div className="flex flex-wrap gap-2">
-          {hasActiveReservation ? (
-            <VehicleReservationConversionSection
-              onConvertToSale={() => {
-                const activeReservation = reservations.find((reservation) => reservation.status === "active");
-                if (activeReservation) {
-                  openConvertDialog(activeReservation);
-                }
-              }}
-            />
-          ) : (
-            <VehicleDirectSaleSection onDirectSale={openCreateSale} />
-          )}
-          <VehicleReservationSection
-            reservations={reservations}
-            statusLabels={STATUS_LABELS}
-            canManage={!isSold}
-            showList={false}
-            onCreateReservation={openCreateReservation}
-            onConvertReservation={openConvertDialog}
-            onCancelReservation={openCancelReservation}
-          />
+          <Button onClick={openCreateSale} disabled={hasActiveReservation}>
+            <DollarSign className="h-4 w-4 mr-2" />
+            Venta directa
+          </Button>
+          <Button
+            variant="outline"
+            onClick={openCreateReservation}
+            disabled={hasActiveReservation}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Crear Reserva
+          </Button>
         </div>
       )}
 

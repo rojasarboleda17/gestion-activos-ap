@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { getErrorMessage } from "@/lib/errors";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,8 +34,13 @@ import { useAuth } from "@/contexts/useAuth";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/ui/loading-state";
 import { formatCOP, formatDate } from "@/lib/format";
-import { Bookmark, DollarSign, Plus, X, ArrowRight, AlertTriangle, Eye } from "lucide-react";
+import { AlertTriangle, Eye } from "lucide-react";
 import { logger } from "@/lib/logger";
+import { VehicleDirectSaleSection } from "@/components/vehicle/commercial/VehicleDirectSaleSection";
+import { VehicleReservationSection } from "@/components/vehicle/commercial/VehicleReservationSection";
+import { VehicleReservationConversionSection } from "@/components/vehicle/commercial/VehicleReservationConversionSection";
+import { VehicleSaleVoidSection } from "@/components/vehicle/commercial/VehicleSaleVoidSection";
+import { CommercialModuleEvent } from "@/components/vehicle/commercial/contracts";
 
 interface Props {
   vehicleId: string;
@@ -199,6 +202,25 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
     fetchData();
   }, [fetchData]);
 
+  const emitModuleEvent = (event: CommercialModuleEvent) => {
+    if (event.toast) {
+      if (event.toast.type === "warning") {
+        toast.warning(event.toast.message);
+      } else {
+        toast.success(event.toast.message);
+      }
+    }
+
+    if (event.refresh) {
+      fetchData();
+      onRefresh?.();
+    }
+
+    if (event.invalidations?.length) {
+      logger.debug("[VehicleSalesTab] Commercial invalidations:", event.invalidations);
+    }
+  };
+
   // ===== CREATE RESERVATION =====
   const openCreateReservation = () => {
     setResForm({
@@ -262,10 +284,12 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
         p_target_stage: "bloqueado",
       });      
 
-      toast.success("Reserva creada");
       setCreateResOpen(false);
-      fetchData();
-      onRefresh?.();
+      emitModuleEvent({
+        toast: { message: "Reserva creada" },
+        refresh: true,
+        invalidations: ["reservations", "vehicle"],
+      });
     } catch (err: unknown) {
       logger.error("[VehicleSalesTab] Unexpected error:", err);
       toast.error(`Error: ${getErrorMessage(err)}`);
@@ -362,11 +386,13 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
           });
         }        
 
-      toast.success("Reserva cancelada");
       setCancelDialogOpen(false);
       setCancelingReservation(null);
-      fetchData();
-      onRefresh?.();
+      emitModuleEvent({
+        toast: { message: "Reserva cancelada" },
+        refresh: true,
+        invalidations: ["reservations", "vehicle"],
+      });
     } catch (err: unknown) {
       logger.error("[VehicleSalesTab] Unexpected error:", err);
       toast.error(`Error: ${getErrorMessage(err)}`);
@@ -443,7 +469,10 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
 
         if (paymentError) {
           logger.error("[VehicleSalesTab] Payment error:", paymentError);
-          toast.warning(`Venta creada, pero falló el pago: ${paymentError.message}`);
+          emitModuleEvent({
+            toast: { message: `Venta creada, pero falló el pago: ${paymentError.message}`, type: "warning" },
+            invalidations: ["sales"],
+          });
         }
       }
 
@@ -456,11 +485,13 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
       // Step 4: Update reservation
       await supabase.from("reservations").update({ status: "converted" }).eq("id", convertingReservation.id);
 
-      toast.success("Venta registrada exitosamente");
       setConvertDialogOpen(false);
       setConvertingReservation(null);
-      fetchData();
-      onRefresh?.();
+      emitModuleEvent({
+        toast: { message: "Venta registrada exitosamente" },
+        refresh: true,
+        invalidations: ["sales", "reservations", "vehicle"],
+      });
     } catch (err: unknown) {
       logger.error("[VehicleSalesTab] Unexpected error:", err);
       toast.error(`Error: ${getErrorMessage(err)}`);
@@ -531,10 +562,12 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
         p_sale_id: data.id,
       });      
 
-      toast.success("Venta registrada");
       setCreateSaleOpen(false);
-      fetchData();
-      onRefresh?.();
+      emitModuleEvent({
+        toast: { message: "Venta registrada" },
+        refresh: true,
+        invalidations: ["sales", "vehicle"],
+      });
     } catch (err: unknown) {
       logger.error("[VehicleSalesTab] Unexpected error:", err);
       toast.error(`Error: ${getErrorMessage(err)}`);
@@ -606,11 +639,13 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
         });
       }
 
-      toast.success("Venta anulada");
       setVoidDialogOpen(false);
       setVoidingSale(null);
-      fetchData();
-      onRefresh?.();
+      emitModuleEvent({
+        toast: { message: "Venta anulada" },
+        refresh: true,
+        invalidations: ["sales", "vehicle"],
+      });
     } catch (err: unknown) {
       logger.error("[VehicleSalesTab] Unexpected error:", err);
       toast.error(`Error: ${getErrorMessage(err)}`);
@@ -644,124 +679,46 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
       {/* CTAs */}
       {!isSold && (
         <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            onClick={openCreateReservation}
-            disabled={hasActiveReservation}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Crear Reserva
-          </Button>
-          <Button onClick={openCreateSale} disabled={hasActiveReservation}>
-            <DollarSign className="h-4 w-4 mr-2" />
-            Registrar Venta
-          </Button>
+          {hasActiveReservation ? (
+            <VehicleReservationConversionSection
+              onConvertToSale={() => {
+                const activeReservation = reservations.find((reservation) => reservation.status === "active");
+                if (activeReservation) {
+                  openConvertDialog(activeReservation);
+                }
+              }}
+            />
+          ) : (
+            <VehicleDirectSaleSection onDirectSale={openCreateSale} />
+          )}
+          <VehicleReservationSection
+            reservations={reservations}
+            statusLabels={STATUS_LABELS}
+            canManage={!isSold}
+            showList={false}
+            onCreateReservation={openCreateReservation}
+            onConvertReservation={openConvertDialog}
+            onCancelReservation={openCancelReservation}
+          />
         </div>
       )}
 
-      {/* Reservations */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Bookmark className="h-4 w-4" />
-            Reservas ({reservations.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {reservations.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sin reservas</p>
-          ) : (
-            <div className="space-y-3">
-              {reservations.map((r) => (
-                <div key={r.id} className="flex justify-between items-center py-2 border-b last:border-0">
-                  <div>
-                    <p className="font-medium">{r.customers?.full_name || "Cliente"}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDate(r.reserved_at)} · {r.customers?.phone || "—"}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="text-right">
-                      <Badge variant={r.status === "active" ? "default" : r.status === "converted" ? "secondary" : "destructive"}>
-                        {STATUS_LABELS[r.status] || r.status}
-                      </Badge>
-                      <p className="text-sm">{formatCOP(r.deposit_amount_cop)}</p>
-                    </div>
-                    {r.status === "active" && (
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openConvertDialog(r)}
-                          title="Convertir a venta"
-                        >
-                          <ArrowRight className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive"
-                          onClick={() => openCancelReservation(r)}
-                          title="Cancelar"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <VehicleReservationSection
+        reservations={reservations}
+        statusLabels={STATUS_LABELS}
+        canManage={!isSold}
+        showCreateButton={false}
+        onCreateReservation={openCreateReservation}
+        onConvertReservation={openConvertDialog}
+        onCancelReservation={openCancelReservation}
+      />
 
-      {/* Sales */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm flex items-center gap-2">
-            <DollarSign className="h-4 w-4" />
-            Ventas ({sales.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {sales.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sin ventas</p>
-          ) : (
-            <div className="space-y-3">
-              {sales.map((s) => (
-                <div key={s.id} className="flex justify-between items-center py-2 border-b last:border-0">
-                  <div>
-                    <p className="font-medium">{s.customers?.full_name || "Cliente"}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDate(s.sale_date)} · {s.customers?.phone || "—"}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="text-right">
-                      <Badge variant={s.status === "active" ? "default" : "destructive"}>
-                        {STATUS_LABELS[s.status] || s.status}
-                      </Badge>
-                      <p className="text-sm font-medium">{formatCOP(s.final_price_cop)}</p>
-                    </div>
-                    {s.status === "active" && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive"
-                        onClick={() => openVoidDialog(s)}
-                        title="Anular"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <VehicleSaleVoidSection
+        sales={sales}
+        statusLabels={STATUS_LABELS}
+        canManage={!isSold}
+        onVoidSale={openVoidDialog}
+      />
 
       {/* CREATE RESERVATION DIALOG */}
       <Dialog open={createResOpen} onOpenChange={setCreateResOpen}>

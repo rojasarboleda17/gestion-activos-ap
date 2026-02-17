@@ -186,7 +186,6 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
         p_target_stage: "bloqueado",
       });      
 
-      toast.success("Reserva creada");
       setCreateResOpen(false);
       refetch();
       onRefresh?.();
@@ -286,7 +285,6 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
           });
         }        
 
-      toast.success("Reserva cancelada");
       setCancelDialogOpen(false);
       setCancelingReservation(null);
       refetch();
@@ -367,7 +365,10 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
 
         if (paymentError) {
           logger.error("[VehicleSalesTab] Payment error:", paymentError);
-          toast.warning(`Venta creada, pero falló el pago: ${paymentError.message}`);
+          emitModuleEvent({
+            toast: { message: `Venta creada, pero falló el pago: ${paymentError.message}`, type: "warning" },
+            invalidations: ["sales"],
+          });
         }
       }
 
@@ -380,7 +381,6 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
       // Step 4: Update reservation
       await supabase.from("reservations").update({ status: "converted" }).eq("id", convertingReservation.id);
 
-      toast.success("Venta registrada exitosamente");
       setConvertDialogOpen(false);
       setConvertingReservation(null);
       refetch();
@@ -455,7 +455,6 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
         p_sale_id: data.id,
       });      
 
-      toast.success("Venta registrada");
       setCreateSaleOpen(false);
       refetch();
       onRefresh?.();
@@ -530,7 +529,6 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
         });
       }
 
-      toast.success("Venta anulada");
       setVoidDialogOpen(false);
       setVoidingSale(null);
       refetch();

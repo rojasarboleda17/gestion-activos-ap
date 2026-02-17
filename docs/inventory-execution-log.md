@@ -29,3 +29,7 @@
 ### Step S2-07: Extract cancel-reservation and void-sale dialogs
 - Commit: `97cf3cb`
 - Outcome: moved reservation cancellation and sale void dialogs from `VehicleSalesTab` into dedicated components.
+
+### Step S2-08: Centralize sales dialog state/openers in hook
+- Commit: `4c57f76`
+- Outcome: moved `VehicleSalesTab` UI state and opener functions into `useVehicleSalesUIState` to keep the tab focused on action handlers.

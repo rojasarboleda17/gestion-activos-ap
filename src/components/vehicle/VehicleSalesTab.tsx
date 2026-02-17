@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { getErrorMessage } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +17,8 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { formatCOP } from "@/lib/format";
 import { DollarSign, X, ArrowRight, Eye } from "lucide-react";
 import { logger } from "@/lib/logger";
-import { useVehicleSalesData, type Reservation, type Sale } from "@/hooks/vehicle/useVehicleSalesData";
+import { useVehicleSalesData, type Reservation } from "@/hooks/vehicle/useVehicleSalesData";
+import { useVehicleSalesUIState } from "@/hooks/vehicle/useVehicleSalesUIState";
 import { VehicleSalesActions } from "@/components/vehicle/VehicleSalesActions";
 import { VehicleReservationsCard } from "@/components/vehicle/VehicleReservationsCard";
 import { VehicleSalesCard } from "@/components/vehicle/VehicleSalesCard";
@@ -60,67 +60,51 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
   const activeReservation = reservations.find((r) => r.status === "active") || null;
   const hasActiveReservation = Boolean(activeReservation);
 
-  // Create reservation dialog
-  const [createResOpen, setCreateResOpen] = useState(false);
-  const [savingRes, setSavingRes] = useState(false);
-  const [resForm, setResForm] = useState({
-    customer_id: "",
-    deposit_amount_cop: "",
-    payment_method_code: "",
-    notes: "",
-  });
-
-  // Quick customer
-  const [quickCustomerOpen, setQuickCustomerOpen] = useState(false);
-  const [quickCustomerForm, setQuickCustomerForm] = useState({ full_name: "", phone: "" });
-
-  // Cancel reservation dialog
-  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-  const [cancelingReservation, setCancelingReservation] = useState<Reservation | null>(null);
-  const [cancelReason, setCancelReason] = useState("");
-
-  // Convert reservation to sale dialog
-  const [convertDialogOpen, setConvertDialogOpen] = useState(false);
-  const [convertingReservation, setConvertingReservation] = useState<Reservation | null>(null);
-  const [convertForm, setConvertForm] = useState({
-    final_price_cop: "",
-    payment_method_code: "",
-    notes: "",
-    registerDepositAsPayment: true,
-  });
-  const [converting, setConverting] = useState(false);
-
-  // Create sale dialog
-  const [createSaleOpen, setCreateSaleOpen] = useState(false);
-  const [savingSale, setSavingSale] = useState(false);
-  const [saleForm, setSaleForm] = useState({
-    customer_id: "",
-    final_price_cop: "",
-    payment_method_code: "",
-    notes: "",
-  });
-
-  // Void sale dialog
-  const [voidDialogOpen, setVoidDialogOpen] = useState(false);
-  const [voidingSale, setVoidingSale] = useState<Sale | null>(null);
-  const [voidForm, setVoidForm] = useState({
-    void_reason: "",
-    return_stage_code: "publicado",
-    refund_amount: "",
-    refund_method: "",
-  });
-  const [voiding, setVoiding] = useState(false);
-
-  // ===== CREATE RESERVATION =====
-  const openCreateReservation = () => {
-    setResForm({
-      customer_id: "",
-      deposit_amount_cop: "",
-      payment_method_code: paymentMethods[0]?.code || "",
-      notes: "",
-    });
-    setCreateResOpen(true);
-  };
+  const {
+    createResOpen,
+    setCreateResOpen,
+    savingRes,
+    setSavingRes,
+    resForm,
+    setResForm,
+    quickCustomerOpen,
+    setQuickCustomerOpen,
+    quickCustomerForm,
+    setQuickCustomerForm,
+    cancelDialogOpen,
+    setCancelDialogOpen,
+    cancelingReservation,
+    setCancelingReservation,
+    cancelReason,
+    setCancelReason,
+    convertDialogOpen,
+    setConvertDialogOpen,
+    convertingReservation,
+    setConvertingReservation,
+    convertForm,
+    setConvertForm,
+    converting,
+    setConverting,
+    createSaleOpen,
+    setCreateSaleOpen,
+    savingSale,
+    setSavingSale,
+    saleForm,
+    setSaleForm,
+    voidDialogOpen,
+    setVoidDialogOpen,
+    voidingSale,
+    setVoidingSale,
+    voidForm,
+    setVoidForm,
+    voiding,
+    setVoiding,
+    openCreateReservation,
+    openCancelReservation,
+    openConvertDialog,
+    openCreateSale,
+    openVoidDialog,
+  } = useVehicleSalesUIState(paymentMethods[0]?.code || "");
 
   const handleCreateReservation = async () => {
     if (!profile?.org_id) return;
@@ -220,12 +204,6 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
   };
 
   // ===== CANCEL RESERVATION =====
-  const openCancelReservation = (r: Reservation) => {
-    setCancelingReservation(r);
-    setCancelReason("");
-    setCancelDialogOpen(true);
-  };
-
   const handleCancelReservation = async () => {
     if (!cancelingReservation || !profile?.id) return;
 
@@ -284,17 +262,6 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
   };
 
   // ===== CONVERT RESERVATION TO SALE =====
-  const openConvertDialog = (r: Reservation) => {
-    setConvertingReservation(r);
-    setConvertForm({
-      final_price_cop: "",
-      payment_method_code: r.payment_method_code || paymentMethods[0]?.code || "",
-      notes: "",
-      registerDepositAsPayment: true,
-    });
-    setConvertDialogOpen(true);
-  };
-
   const handleConvertToSale = async () => {
     if (!profile?.org_id || !convertingReservation) return;
 
@@ -382,16 +349,6 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
   };
 
   // ===== CREATE DIRECT SALE =====
-  const openCreateSale = () => {
-    setSaleForm({
-      customer_id: "",
-      final_price_cop: "",
-      payment_method_code: paymentMethods[0]?.code || "",
-      notes: "",
-    });
-    setCreateSaleOpen(true);
-  };
-
   const handleCreateSale = async () => {
     if (!profile?.org_id) return;
 
@@ -455,17 +412,6 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
   };
 
   // ===== VOID SALE =====
-  const openVoidDialog = (s: Sale) => {
-    setVoidingSale(s);
-    setVoidForm({
-      void_reason: "",
-      return_stage_code: "publicado",
-      refund_amount: "",
-      refund_method: paymentMethods[0]?.code || "",
-    });
-    setVoidDialogOpen(true);
-  };
-
   const handleVoidSale = async () => {
     if (!voidingSale || !profile?.org_id) return;
     if (!voidForm.void_reason.trim()) {

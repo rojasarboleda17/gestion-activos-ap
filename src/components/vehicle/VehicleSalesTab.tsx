@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { getErrorMessage } from "@/lib/errors";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -38,46 +38,12 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { formatCOP, formatDate } from "@/lib/format";
 import { Bookmark, DollarSign, Plus, X, ArrowRight, AlertTriangle, Eye } from "lucide-react";
 import { logger } from "@/lib/logger";
+import { useVehicleSalesData, type Reservation, type Sale } from "@/hooks/vehicle/useVehicleSalesData";
 
 interface Props {
   vehicleId: string;
   vehicleStageCode?: string;
   onRefresh?: () => void;
-}
-
-interface Reservation {
-  id: string;
-  status: string;
-  deposit_amount_cop: number;
-  payment_method_code: string;
-  reserved_at: string;
-  customer_id: string;
-  customers?: { full_name: string; phone: string | null };
-}
-
-interface Sale {
-  id: string;
-  status: string;
-  final_price_cop: number;
-  sale_date: string;
-  customer_id: string;
-  customers?: { full_name: string; phone: string | null };
-}
-
-interface Customer {
-  id: string;
-  full_name: string;
-  phone: string | null;
-}
-
-interface PaymentMethod {
-  code: string;
-  name: string;
-}
-
-interface VehicleStage {
-  code: string;
-  name: string;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -90,15 +56,20 @@ const STATUS_LABELS: Record<string, string> = {
 
 export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Props) {
   const { profile } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [sales, setSales] = useState<Sale[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
-  const [vehicleStages, setVehicleStages] = useState<VehicleStage[]>([]);
+  const {
+    loading,
+    reservations,
+    sales,
+    customers,
+    paymentMethods,
+    vehicleStages,
+    refetch,
+    appendCustomer,
+  } = useVehicleSalesData({ vehicleId, orgId: profile?.org_id });
 
   const isSold = vehicleStageCode === "vendido";
-  const hasActiveReservation = reservations.some((r) => r.status === "active");
+  const activeReservation = reservations.find((r) => r.status === "active") || null;
+  const hasActiveReservation = Boolean(activeReservation);
 
   // Create reservation dialog
   const [createResOpen, setCreateResOpen] = useState(false);
@@ -150,54 +121,6 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
     refund_method: "",
   });
   const [voiding, setVoiding] = useState(false);
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      logger.debug("[VehicleSalesTab] Fetching data for vehicle:", vehicleId);
-      const [resRes, salesRes, custRes, pmRes, stagesRes] = await Promise.all([
-        supabase
-          .from("reservations")
-          .select("*, customers(full_name, phone)")
-          .eq("vehicle_id", vehicleId)
-          .order("reserved_at", { ascending: false }),
-        supabase
-          .from("sales")
-          .select("*, customers(full_name, phone)")
-          .eq("vehicle_id", vehicleId)
-          .order("sale_date", { ascending: false }),
-        supabase
-          .from("customers")
-          .select("id, full_name, phone")
-          .eq("org_id", profile?.org_id)
-          .order("full_name"),
-        supabase
-          .from("payment_methods")
-          .select("code, name")
-          .eq("is_active", true),
-        supabase
-          .from("vehicle_stages")
-          .select("code, name")
-          .eq("is_terminal", false)
-          .order("sort_order"),
-      ]);
-      
-      setReservations(resRes.data || []);
-      setSales(salesRes.data || []);
-      setCustomers(custRes.data || []);
-      setPaymentMethods(pmRes.data || []);
-      setVehicleStages(stagesRes.data || []);
-    } catch (err) {
-      logger.error("[VehicleSalesTab] Error fetching data:", err);
-      toast.error("Error al cargar datos");
-    } finally {
-      setLoading(false);
-    }
-  }, [vehicleId, profile?.org_id]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
 
   // ===== CREATE RESERVATION =====
   const openCreateReservation = () => {
@@ -264,7 +187,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
 
       toast.success("Reserva creada");
       setCreateResOpen(false);
-      fetchData();
+      refetch();
       onRefresh?.();
     } catch (err: unknown) {
       logger.error("[VehicleSalesTab] Unexpected error:", err);
@@ -297,7 +220,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
         return;
       }
 
-      setCustomers((prev) => [...prev, data]);
+      appendCustomer(data);
       setResForm({ ...resForm, customer_id: data.id });
       setSaleForm({ ...saleForm, customer_id: data.id });
       setQuickCustomerOpen(false);
@@ -365,7 +288,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
       toast.success("Reserva cancelada");
       setCancelDialogOpen(false);
       setCancelingReservation(null);
-      fetchData();
+      refetch();
       onRefresh?.();
     } catch (err: unknown) {
       logger.error("[VehicleSalesTab] Unexpected error:", err);
@@ -459,7 +382,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
       toast.success("Venta registrada exitosamente");
       setConvertDialogOpen(false);
       setConvertingReservation(null);
-      fetchData();
+      refetch();
       onRefresh?.();
     } catch (err: unknown) {
       logger.error("[VehicleSalesTab] Unexpected error:", err);
@@ -533,7 +456,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
 
       toast.success("Venta registrada");
       setCreateSaleOpen(false);
-      fetchData();
+      refetch();
       onRefresh?.();
     } catch (err: unknown) {
       logger.error("[VehicleSalesTab] Unexpected error:", err);
@@ -609,7 +532,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
       toast.success("Venta anulada");
       setVoidDialogOpen(false);
       setVoidingSale(null);
-      fetchData();
+      refetch();
       onRefresh?.();
     } catch (err: unknown) {
       logger.error("[VehicleSalesTab] Unexpected error:", err);
@@ -644,6 +567,17 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
       {/* CTAs */}
       {!isSold && (
         <div className="flex flex-wrap gap-2">
+          {hasActiveReservation ? (
+            <Button onClick={() => activeReservation && openConvertDialog(activeReservation)}>
+              <ArrowRight className="h-4 w-4 mr-2" />
+              Convertir reserva activa
+            </Button>
+          ) : (
+            <Button onClick={openCreateSale}>
+              <DollarSign className="h-4 w-4 mr-2" />
+              Venta directa
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={openCreateReservation}
@@ -651,10 +585,6 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
           >
             <Plus className="h-4 w-4 mr-2" />
             Crear Reserva
-          </Button>
-          <Button onClick={openCreateSale} disabled={hasActiveReservation}>
-            <DollarSign className="h-4 w-4 mr-2" />
-            Registrar Venta
           </Button>
         </div>
       )}

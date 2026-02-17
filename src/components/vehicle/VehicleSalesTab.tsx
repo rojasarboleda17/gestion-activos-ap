@@ -40,6 +40,8 @@ import { useVehicleSalesData, type Reservation, type Sale } from "@/hooks/vehicl
 import { VehicleSalesActions } from "@/components/vehicle/VehicleSalesActions";
 import { VehicleReservationsCard } from "@/components/vehicle/VehicleReservationsCard";
 import { VehicleSalesCard } from "@/components/vehicle/VehicleSalesCard";
+import { VehicleCreateReservationDialog } from "@/components/vehicle/VehicleCreateReservationDialog";
+import { VehicleQuickCustomerDialog } from "@/components/vehicle/VehicleQuickCustomerDialog";
 
 interface Props {
   vehicleId: string;
@@ -568,96 +570,25 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
         onVoidSale={openVoidDialog}
       />
 
-      {/* CREATE RESERVATION DIALOG */}
-      <Dialog open={createResOpen} onOpenChange={setCreateResOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Nueva Reserva</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <Label>Cliente *</Label>
-                <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setQuickCustomerOpen(true)}>
-                  + Crear rápido
-                </Button>
-              </div>
-              <Select value={resForm.customer_id} onValueChange={(v) => setResForm({ ...resForm, customer_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar cliente" /></SelectTrigger>
-                <SelectContent>
-                  {customers.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.full_name} {c.phone ? `(${c.phone})` : ""}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Depósito (COP) *</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={resForm.deposit_amount_cop}
-                  onChange={(e) => setResForm({ ...resForm, deposit_amount_cop: e.target.value })}
-                  placeholder="1000000"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Método *</Label>
-                <Select value={resForm.payment_method_code} onValueChange={(v) => setResForm({ ...resForm, payment_method_code: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {paymentMethods.map((p) => (
-                      <SelectItem key={p.code} value={p.code}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Notas</Label>
-              <Textarea
-                value={resForm.notes}
-                onChange={(e) => setResForm({ ...resForm, notes: e.target.value })}
-                rows={2}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateResOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreateReservation} disabled={savingRes}>
-              {savingRes ? "Guardando..." : "Crear Reserva"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <VehicleCreateReservationDialog
+        open={createResOpen}
+        customers={customers}
+        paymentMethods={paymentMethods}
+        form={resForm}
+        saving={savingRes}
+        onOpenChange={setCreateResOpen}
+        onFormChange={setResForm}
+        onSubmit={handleCreateReservation}
+        onOpenQuickCustomer={() => setQuickCustomerOpen(true)}
+      />
 
-      {/* QUICK CUSTOMER DIALOG */}
-      <Dialog open={quickCustomerOpen} onOpenChange={setQuickCustomerOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Crear Cliente Rápido</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Nombre *</Label>
-              <Input
-                value={quickCustomerForm.full_name}
-                onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, full_name: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Teléfono</Label>
-              <Input
-                value={quickCustomerForm.phone}
-                onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, phone: e.target.value })}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setQuickCustomerOpen(false)}>Cancelar</Button>
-            <Button onClick={handleQuickCustomer}>Crear</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <VehicleQuickCustomerDialog
+        open={quickCustomerOpen}
+        form={quickCustomerForm}
+        onOpenChange={setQuickCustomerOpen}
+        onFormChange={setQuickCustomerForm}
+        onSubmit={handleQuickCustomer}
+      />
 
       {/* CANCEL RESERVATION DIALOG */}
       <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>

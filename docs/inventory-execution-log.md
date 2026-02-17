@@ -15,5 +15,9 @@
 - Outcome: split alert/CTA rendering into `VehicleSalesActions` for better maintainability and easier future RBAC gating.
 
 ### Step S2-04: Split reservations and sales cards
-- Commit: pending (current work)
-- Outcome: move reservations list and sales list rendering out of `VehicleSalesTab` into focused components to keep the tab as orchestrator.
+- Commit: `ac29d89`
+- Outcome: moved reservations list and sales list rendering out of `VehicleSalesTab` into focused components to keep the tab as orchestrator.
+
+### Step S2-05: Extract reservation and quick-customer dialogs
+- Commit: `e3b9331`
+- Outcome: moved reservation creation dialog and quick-customer dialog from `VehicleSalesTab` into dedicated components.

@@ -11,5 +11,9 @@
 - Outcome: primary action now changes between direct sale and reservation conversion based on active reservation state.
 
 ### Step S2-03: Modularize sales action header (alerts + CTAs)
+- Commit: `6e5a687`
+- Outcome: split alert/CTA rendering into `VehicleSalesActions` for better maintainability and easier future RBAC gating.
+
+### Step S2-04: Split reservations and sales cards
 - Commit: pending (current work)
-- Outcome target: split alert/CTA rendering into `VehicleSalesActions` for better maintainability and easier future RBAC gating.
+- Outcome: move reservations list and sales list rendering out of `VehicleSalesTab` into focused components to keep the tab as orchestrator.

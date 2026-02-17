@@ -33,11 +33,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/ui/loading-state";
-import { formatCOP, formatDate } from "@/lib/format";
-import { Bookmark, DollarSign, X, ArrowRight, Eye } from "lucide-react";
+import { formatCOP } from "@/lib/format";
+import { DollarSign, X, ArrowRight, Eye } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { useVehicleSalesData, type Reservation, type Sale } from "@/hooks/vehicle/useVehicleSalesData";
 import { VehicleSalesActions } from "@/components/vehicle/VehicleSalesActions";
+import { VehicleReservationsCard } from "@/components/vehicle/VehicleReservationsCard";
+import { VehicleSalesCard } from "@/components/vehicle/VehicleSalesCard";
 
 interface Props {
   vehicleId: string;
@@ -553,20 +555,16 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
         }}
       />
 
-      <VehicleReservationSection
+      <VehicleReservationsCard
         reservations={reservations}
         statusLabels={STATUS_LABELS}
-        canManage={!isSold}
-        showCreateButton={false}
-        onCreateReservation={openCreateReservation}
         onConvertReservation={openConvertDialog}
         onCancelReservation={openCancelReservation}
       />
 
-      <VehicleSaleVoidSection
+      <VehicleSalesCard
         sales={sales}
         statusLabels={STATUS_LABELS}
-        canManage={!isSold}
         onVoidSale={openVoidDialog}
       />
 

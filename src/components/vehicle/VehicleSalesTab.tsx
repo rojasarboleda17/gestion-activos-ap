@@ -11,16 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import { toast } from "sonner";
@@ -36,6 +26,8 @@ import { VehicleCreateReservationDialog } from "@/components/vehicle/VehicleCrea
 import { VehicleQuickCustomerDialog } from "@/components/vehicle/VehicleQuickCustomerDialog";
 import { VehicleConvertReservationDialog } from "@/components/vehicle/VehicleConvertReservationDialog";
 import { VehicleCreateSaleDialog } from "@/components/vehicle/VehicleCreateSaleDialog";
+import { VehicleCancelReservationDialog } from "@/components/vehicle/VehicleCancelReservationDialog";
+import { VehicleVoidSaleDialog } from "@/components/vehicle/VehicleVoidSaleDialog";
 
 interface Props {
   vehicleId: string;
@@ -584,25 +576,13 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
         onSubmit={handleQuickCustomer}
       />
 
-      {/* CANCEL RESERVATION DIALOG */}
-      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Cancelar reserva?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción cancelará la reserva y liberará el vehículo.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="py-2">
-            <Label>Motivo (opcional)</Label>
-            <Textarea value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} className="mt-2" />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Volver</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCancelReservation}>Cancelar Reserva</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <VehicleCancelReservationDialog
+        open={cancelDialogOpen}
+        reason={cancelReason}
+        onOpenChange={setCancelDialogOpen}
+        onReasonChange={setCancelReason}
+        onConfirm={handleCancelReservation}
+      />
 
       <VehicleConvertReservationDialog
         open={convertDialogOpen}
@@ -627,65 +607,17 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
         onOpenQuickCustomer={() => setQuickCustomerOpen(true)}
       />
 
-      {/* VOID SALE DIALOG */}
-      <AlertDialog open={voidDialogOpen} onOpenChange={setVoidDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Anular venta?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción anulará la venta y cambiará el estado del vehículo.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Motivo *</Label>
-              <Textarea
-                value={voidForm.void_reason}
-                onChange={(e) => setVoidForm({ ...voidForm, void_reason: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Devolver a estado</Label>
-              <Select value={voidForm.return_stage_code} onValueChange={(v) => setVoidForm({ ...voidForm, return_stage_code: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {vehicleStages.map((s) => (
-                    <SelectItem key={s.code} value={s.code}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Reembolso (opcional)</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={voidForm.refund_amount}
-                  onChange={(e) => setVoidForm({ ...voidForm, refund_amount: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Método</Label>
-                <Select value={voidForm.refund_method} onValueChange={(v) => setVoidForm({ ...voidForm, refund_method: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {paymentMethods.map((p) => (
-                      <SelectItem key={p.code} value={p.code}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleVoidSale} disabled={voiding}>
-              {voiding ? "Procesando..." : "Anular Venta"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <VehicleVoidSaleDialog
+        open={voidDialogOpen}
+        form={voidForm}
+        vehicleStages={vehicleStages}
+        paymentMethods={paymentMethods}
+        processing={voiding}
+        onOpenChange={setVoidDialogOpen}
+        onFormChange={setVoidForm}
+        onConfirm={handleVoidSale}
+      />
     </div>
+
   );
 }

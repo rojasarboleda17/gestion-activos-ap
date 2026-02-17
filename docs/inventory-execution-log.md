@@ -25,3 +25,7 @@
 ### Step S2-06: Extract convert-reservation and direct-sale dialogs
 - Commit: `cc4176f`
 - Outcome: moved reservation conversion dialog and direct sale dialog from `VehicleSalesTab` into dedicated components.
+
+### Step S2-07: Extract cancel-reservation and void-sale dialogs
+- Commit: `97cf3cb`
+- Outcome: moved reservation cancellation and sale void dialogs from `VehicleSalesTab` into dedicated components.

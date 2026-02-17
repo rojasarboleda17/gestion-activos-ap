@@ -357,7 +357,7 @@ export default function VehicleDetail() {
 
           <TabsContent value="overview" className="mt-4 space-y-4">
             <VehicleSummaryTab vehicle={vehicle} />
-            <VehicleSalesTab vehicleId={vehicle.id} />
+            <VehicleSalesTab vehicleId={vehicle.id} vehicleStageCode={vehicle.stage_code} onRefresh={fetchVehicle} />
           </TabsContent>
 
           <TabsContent value="info" className="mt-4 space-y-4">

@@ -66,7 +66,8 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
   } = useVehicleSalesData({ vehicleId, orgId: profile?.org_id });
 
   const isSold = vehicleStageCode === "vendido";
-  const hasActiveReservation = reservations.some((r) => r.status === "active");
+  const activeReservation = reservations.find((r) => r.status === "active") || null;
+  const hasActiveReservation = Boolean(activeReservation);
 
   // Create reservation dialog
   const [createResOpen, setCreateResOpen] = useState(false);
@@ -562,10 +563,17 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
       {/* CTAs */}
       {!isSold && (
         <div className="flex flex-wrap gap-2">
-          <Button onClick={openCreateSale} disabled={hasActiveReservation}>
-            <DollarSign className="h-4 w-4 mr-2" />
-            Venta directa
-          </Button>
+          {hasActiveReservation ? (
+            <Button onClick={() => activeReservation && openConvertDialog(activeReservation)}>
+              <ArrowRight className="h-4 w-4 mr-2" />
+              Convertir reserva activa
+            </Button>
+          ) : (
+            <Button onClick={openCreateSale}>
+              <DollarSign className="h-4 w-4 mr-2" />
+              Venta directa
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={openCreateReservation}

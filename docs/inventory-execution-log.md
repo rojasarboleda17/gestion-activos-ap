@@ -21,3 +21,7 @@
 ### Step S2-05: Extract reservation and quick-customer dialogs
 - Commit: `e3b9331`
 - Outcome: moved reservation creation dialog and quick-customer dialog from `VehicleSalesTab` into dedicated components.
+
+### Step S2-06: Extract convert-reservation and direct-sale dialogs
+- Commit: `cc4176f`
+- Outcome: moved reservation conversion dialog and direct sale dialog from `VehicleSalesTab` into dedicated components.

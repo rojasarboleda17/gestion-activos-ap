@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -12,13 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,6 +34,8 @@ import { VehicleReservationsCard } from "@/components/vehicle/VehicleReservation
 import { VehicleSalesCard } from "@/components/vehicle/VehicleSalesCard";
 import { VehicleCreateReservationDialog } from "@/components/vehicle/VehicleCreateReservationDialog";
 import { VehicleQuickCustomerDialog } from "@/components/vehicle/VehicleQuickCustomerDialog";
+import { VehicleConvertReservationDialog } from "@/components/vehicle/VehicleConvertReservationDialog";
+import { VehicleCreateSaleDialog } from "@/components/vehicle/VehicleCreateSaleDialog";
 
 interface Props {
   vehicleId: string;
@@ -610,134 +604,28 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* CONVERT TO SALE DIALOG */}
-      <Dialog open={convertDialogOpen} onOpenChange={setConvertDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Convertir Reserva a Venta</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            {convertingReservation && (
-              <div className="bg-muted p-3 rounded text-sm">
-                <p><strong>Cliente:</strong> {convertingReservation.customers?.full_name}</p>
-                <p><strong>Depósito:</strong> {formatCOP(convertingReservation.deposit_amount_cop)}</p>
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label>Precio Final (COP) *</Label>
-              <Input
-                type="number"
-                min="1"
-                value={convertForm.final_price_cop}
-                onChange={(e) => setConvertForm({ ...convertForm, final_price_cop: e.target.value })}
-                placeholder="35000000"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Método de Pago</Label>
-              <Select
-                value={convertForm.payment_method_code}
-                onValueChange={(v) => setConvertForm({ ...convertForm, payment_method_code: v })}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {paymentMethods.map((p) => (
-                    <SelectItem key={p.code} value={p.code}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="registerDeposit"
-                checked={convertForm.registerDepositAsPayment}
-                onCheckedChange={(checked) => setConvertForm({ ...convertForm, registerDepositAsPayment: checked === true })}
-              />
-              <label htmlFor="registerDeposit" className="text-sm">
-                Registrar depósito como pago
-              </label>
-            </div>
-            <div className="space-y-2">
-              <Label>Notas</Label>
-              <Textarea
-                value={convertForm.notes}
-                onChange={(e) => setConvertForm({ ...convertForm, notes: e.target.value })}
-                rows={2}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConvertDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleConvertToSale} disabled={converting}>
-              {converting ? "Procesando..." : "Registrar Venta"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <VehicleConvertReservationDialog
+        open={convertDialogOpen}
+        converting={converting}
+        reservation={convertingReservation}
+        paymentMethods={paymentMethods}
+        form={convertForm}
+        onOpenChange={setConvertDialogOpen}
+        onFormChange={setConvertForm}
+        onSubmit={handleConvertToSale}
+      />
 
-      {/* CREATE SALE DIALOG */}
-      <Dialog open={createSaleOpen} onOpenChange={setCreateSaleOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Registrar Venta</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <Label>Cliente *</Label>
-                <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setQuickCustomerOpen(true)}>
-                  + Crear rápido
-                </Button>
-              </div>
-              <Select value={saleForm.customer_id} onValueChange={(v) => setSaleForm({ ...saleForm, customer_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar cliente" /></SelectTrigger>
-                <SelectContent>
-                  {customers.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.full_name} {c.phone ? `(${c.phone})` : ""}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Precio Final (COP) *</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={saleForm.final_price_cop}
-                  onChange={(e) => setSaleForm({ ...saleForm, final_price_cop: e.target.value })}
-                  placeholder="35000000"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Método *</Label>
-                <Select value={saleForm.payment_method_code} onValueChange={(v) => setSaleForm({ ...saleForm, payment_method_code: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {paymentMethods.map((p) => (
-                      <SelectItem key={p.code} value={p.code}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Notas</Label>
-              <Textarea
-                value={saleForm.notes}
-                onChange={(e) => setSaleForm({ ...saleForm, notes: e.target.value })}
-                rows={2}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateSaleOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreateSale} disabled={savingSale}>
-              {savingSale ? "Guardando..." : "Registrar Venta"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <VehicleCreateSaleDialog
+        open={createSaleOpen}
+        customers={customers}
+        paymentMethods={paymentMethods}
+        form={saleForm}
+        saving={savingSale}
+        onOpenChange={setCreateSaleOpen}
+        onFormChange={setSaleForm}
+        onSubmit={handleCreateSale}
+        onOpenQuickCustomer={() => setQuickCustomerOpen(true)}
+      />
 
       {/* VOID SALE DIALOG */}
       <AlertDialog open={voidDialogOpen} onOpenChange={setVoidDialogOpen}>

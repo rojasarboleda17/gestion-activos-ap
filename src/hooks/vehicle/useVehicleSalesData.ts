@@ -27,7 +27,8 @@ export function useVehicleSalesData({ vehicleId, orgId }: UseVehicleSalesDataPar
     setLoading(true);
     try {
       logger.debug("[VehicleSalesTab] Fetching data for vehicle:", vehicleId);
-      const [resRes, salesRes, custRes, pmRes, stagesRes] = await Promise.all([
+
+      const [reservationsResponse, salesResponse, paymentMethodsResponse, vehicleStagesResponse] = await Promise.all([
         supabase
           .from("reservations")
           .select("*, customers(full_name, phone)")
@@ -39,11 +40,6 @@ export function useVehicleSalesData({ vehicleId, orgId }: UseVehicleSalesDataPar
           .eq("vehicle_id", vehicleId)
           .order("sale_date", { ascending: false }),
         supabase
-          .from("customers")
-          .select("id, full_name, phone")
-          .eq("org_id", orgId)
-          .order("full_name"),
-        supabase
           .from("payment_methods")
           .select("code, name")
           .eq("is_active", true),
@@ -54,11 +50,38 @@ export function useVehicleSalesData({ vehicleId, orgId }: UseVehicleSalesDataPar
           .order("sort_order"),
       ]);
 
-      setReservations((resRes.data || []) as Reservation[]);
-      setSales((salesRes.data || []) as Sale[]);
-      setCustomers((custRes.data || []) as Customer[]);
-      setPaymentMethods((pmRes.data || []) as PaymentMethod[]);
-      setVehicleStages((stagesRes.data || []) as VehicleStage[]);
+      const customersResponse = orgId
+        ? await supabase
+            .from("customers")
+            .select("id, full_name, phone")
+            .eq("org_id", orgId)
+            .order("full_name")
+        : { data: [], error: null };
+
+      if (
+        reservationsResponse.error ||
+        salesResponse.error ||
+        paymentMethodsResponse.error ||
+        vehicleStagesResponse.error ||
+        customersResponse.error
+      ) {
+        const error =
+          reservationsResponse.error ||
+          salesResponse.error ||
+          paymentMethodsResponse.error ||
+          vehicleStagesResponse.error ||
+          customersResponse.error;
+
+        logger.error("[VehicleSalesTab] Error fetching data:", error);
+        toast.error("Error al cargar datos");
+        return;
+      }
+
+      setReservations((reservationsResponse.data || []) as Reservation[]);
+      setSales((salesResponse.data || []) as Sale[]);
+      setCustomers((customersResponse.data || []) as Customer[]);
+      setPaymentMethods((paymentMethodsResponse.data || []) as PaymentMethod[]);
+      setVehicleStages((vehicleStagesResponse.data || []) as VehicleStage[]);
     } catch (err) {
       logger.error("[VehicleSalesTab] Error fetching data:", err);
       toast.error("Error al cargar datos");
@@ -72,7 +95,7 @@ export function useVehicleSalesData({ vehicleId, orgId }: UseVehicleSalesDataPar
   }, [refetch]);
 
   const appendCustomer = useCallback((customer: Customer) => {
-    setCustomers((prev) => [...prev, customer]);
+    setCustomers((prev) => [...prev, customer].sort((a, b) => a.full_name.localeCompare(b.full_name)));
   }, []);
 
   return {

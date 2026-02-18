@@ -45,3 +45,12 @@
 ### Step S2-11: Extract quick-customer mutation to hook
 - Commit: `7f4b47a`
 - Outcome: moved quick customer creation logic from `VehicleSalesTab` to `useVehicleCustomerMutations`.
+
+
+### Step S2-12: Centralize shared vehicle-sales domain types
+- Commit: `722c0fd`
+- Outcome: introduced `src/hooks/vehicle/types.ts` and removed duplicated type/form contracts across sales hooks to reduce drift and maintenance overhead.
+
+### Step S2-13: Harden commercial data loading and fallback behavior
+- Commit: `ad36907`
+- Outcome: strengthened `useVehicleSalesData` with explicit per-query error checks, safe customer fallback when `orgId` is unavailable, and stable alphabetical customer ordering after quick-create.

@@ -107,7 +107,6 @@ interface ItemAttachment {
 
 interface WorkItemMeta {
   execution_notes: string;
-  external_evidence_url: string;
   attachments: ItemAttachment[];
 }
 
@@ -142,26 +141,13 @@ const STATUS_CONFIG: Record<
   blocked: { label: "Bloqueado", icon: Pause, color: "text-destructive" },
 };
 
-const EVIDENCE_TAG = "[evidence_url]";
 const ITEM_META_TAG = "[work_item_meta]";
 
 const createAttachmentId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-const parseLegacyEvidenceUrl = (notes: string | null) => {
-  if (!notes) return "";
-  const line = notes
-    .split("\n")
-    .map((value) => value.trim())
-    .find((value) => value.toLowerCase().startsWith(`${EVIDENCE_TAG}:`));
-
-  if (!line) return "";
-  return line.slice(EVIDENCE_TAG.length + 1).trim();
-};
-
 const parseWorkItemMeta = (notes: string | null): WorkItemMeta => {
   const fallback: WorkItemMeta = {
     execution_notes: "",
-    external_evidence_url: parseLegacyEvidenceUrl(notes),
     attachments: [],
   };
 
@@ -181,10 +167,6 @@ const parseWorkItemMeta = (notes: string | null): WorkItemMeta => {
     const parsed = JSON.parse(rawJson) as Partial<WorkItemMeta>;
     return {
       execution_notes: typeof parsed.execution_notes === "string" ? parsed.execution_notes : "",
-      external_evidence_url:
-        typeof parsed.external_evidence_url === "string"
-          ? parsed.external_evidence_url
-          : fallback.external_evidence_url,
       attachments: Array.isArray(parsed.attachments)
         ? parsed.attachments.filter((entry): entry is ItemAttachment => (
           typeof entry?.id === "string"
@@ -206,11 +188,10 @@ const parseWorkItemMeta = (notes: string | null): WorkItemMeta => {
 const serializeWorkItemMeta = (meta: WorkItemMeta) => {
   const normalized: WorkItemMeta = {
     execution_notes: meta.execution_notes.trim(),
-    external_evidence_url: meta.external_evidence_url.trim(),
     attachments: meta.attachments,
   };
 
-  if (!normalized.execution_notes && !normalized.external_evidence_url && normalized.attachments.length === 0) {
+  if (!normalized.execution_notes && normalized.attachments.length === 0) {
     return null;
   }
 
@@ -266,7 +247,6 @@ export function WorkOrderSheet({
   const [savingCost, setSavingCost] = useState(false);
   const [evidenceForm, setEvidenceForm] = useState({
     notes: "",
-    evidence_url: "",
     attachments: [] as ItemAttachment[],
   });
 
@@ -527,7 +507,6 @@ export function WorkOrderSheet({
     setSelectedItemForEvidence(item);
     setEvidenceForm({
       notes: meta.execution_notes,
-      evidence_url: meta.external_evidence_url,
       attachments: meta.attachments,
     });
     setEvidenceDialogOpen(true);
@@ -536,16 +515,9 @@ export function WorkOrderSheet({
   const saveEvidence = async () => {
     if (!selectedItemForEvidence) return;
 
-    const evidenceUrl = evidenceForm.evidence_url.trim();
-    if (evidenceUrl && !/^https?:\/\//i.test(evidenceUrl)) {
-      toast.error("La evidencia debe ser una URL válida (http o https)");
-      return;
-    }
-
     await updateItem(selectedItemForEvidence.id, {
       notes: serializeWorkItemMeta({
         execution_notes: evidenceForm.notes,
-        external_evidence_url: evidenceUrl,
         attachments: evidenceForm.attachments,
       }),
     });
@@ -555,35 +527,41 @@ export function WorkOrderSheet({
   };
 
   const handleUploadAttachment = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !profile?.org_id || !selectedItemForEvidence || !workOrder) return;
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0 || !profile?.org_id || !selectedItemForEvidence || !workOrder) return;
 
     setAttachmentUploading(true);
     try {
       const bucket = "vehicle-internal";
-      const suffix = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const path = `${profile.org_id}/operations/work-orders/${workOrder.id}/items/${selectedItemForEvidence.id}/${Date.now()}_${suffix}`;
+      const uploadedAttachments: ItemAttachment[] = [];
 
-      const { error } = await supabase.storage.from(bucket).upload(path, file);
-      if (error) throw error;
+      for (const file of files) {
+        const suffix = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const path = `${profile.org_id}/operations/work-orders/${workOrder.id}/items/${selectedItemForEvidence.id}/${Date.now()}_${suffix}`;
 
-      const newAttachment: ItemAttachment = {
-        id: createAttachmentId(),
-        kind: attachmentKind,
-        bucket,
-        path,
-        file_name: file.name,
-        mime_type: file.type || "application/octet-stream",
-        size_bytes: file.size,
-        uploaded_at: new Date().toISOString(),
-      };
+        const { error } = await supabase.storage.from(bucket).upload(path, file);
+        if (error) throw error;
+
+        uploadedAttachments.push({
+          id: createAttachmentId(),
+          kind: attachmentKind,
+          bucket,
+          path,
+          file_name: file.name,
+          mime_type: file.type || "application/octet-stream",
+          size_bytes: file.size,
+          uploaded_at: new Date().toISOString(),
+        });
+      }
 
       setEvidenceForm((prev) => ({
         ...prev,
-        attachments: [newAttachment, ...prev.attachments],
+        attachments: [...uploadedAttachments, ...prev.attachments],
       }));
 
-      toast.success("Archivo adjunto cargado");
+      toast.success(uploadedAttachments.length === 1
+        ? "Archivo adjunto cargado"
+        : `${uploadedAttachments.length} archivos adjuntos cargados`);
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, "No se pudo subir el archivo"));
     } finally {
@@ -817,17 +795,6 @@ export function WorkOrderSheet({
                                   Costo: {formatCOP(item.accumulated_cost)}
                                 </p>
                               )}
-                              {parseWorkItemMeta(item.notes).external_evidence_url && (
-                                <a
-                                  href={parseWorkItemMeta(item.notes).external_evidence_url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-0.5"
-                                >
-                                  <Link className="h-3 w-3" />
-                                  Ver evidencia
-                                </a>
-                              )}
                               {parseWorkItemMeta(item.notes).attachments.length > 0 && (
                                 <p className="text-xs text-muted-foreground mt-0.5">
                                   Adjuntos: {parseWorkItemMeta(item.notes).attachments.length}
@@ -882,16 +849,6 @@ export function WorkOrderSheet({
                               >
                                 <DollarSign className="h-3 w-3 mr-1" />
                                 Costo
-                              </Button>
-
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7 text-xs"
-                                onClick={() => openEvidenceDialog(item)}
-                              >
-                                <Link className="h-3 w-3 mr-1" />
-                                Evidencia
                               </Button>
 
                               <Button
@@ -1079,15 +1036,6 @@ export function WorkOrderSheet({
               />
             </div>
             <div className="space-y-2">
-              <Label>URL de evidencia (opcional)</Label>
-              <Input
-                value={evidenceForm.evidence_url}
-                onChange={(e) => setEvidenceForm((prev) => ({ ...prev, evidence_url: e.target.value }))}
-                placeholder="https://..."
-              />
-            </div>
-
-            <div className="space-y-2">
               <Label>Adjuntos (fotos/comprobantes/archivos)</Label>
               <div className="flex flex-wrap items-center gap-2">
                 <Select value={attachmentKind} onValueChange={(value: AttachmentKind) => setAttachmentKind(value)}>
@@ -1102,9 +1050,10 @@ export function WorkOrderSheet({
                 </Select>
                 <Label className="inline-flex items-center gap-2 rounded-md border px-3 py-2 cursor-pointer hover:bg-muted text-sm">
                   <Upload className="h-4 w-4" />
-                  {attachmentUploading ? "Subiendo..." : "Subir archivo"}
+                  {attachmentUploading ? "Subiendo..." : "Subir archivos"}
                   <Input
                     type="file"
+                    multiple
                     className="hidden"
                     onChange={handleUploadAttachment}
                     disabled={attachmentUploading}

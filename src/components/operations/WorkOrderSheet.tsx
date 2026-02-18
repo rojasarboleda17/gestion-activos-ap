@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type ChangeEvent } from "react";
 import { getErrorMessage } from "@/lib/errors";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,12 @@ import {
   Trash2,
   DollarSign,
   Car,
+  Link,
+  Upload,
+  FileText,
+  Image as ImageIcon,
+  Receipt,
+  ExternalLink,
   type LucideIcon,
 } from "lucide-react";
 import { useAudit } from "@/hooks/use-audit";
@@ -86,6 +92,24 @@ interface WorkOrderItem {
   accumulated_cost: number;
 }
 
+type AttachmentKind = "photo" | "receipt" | "file";
+
+interface ItemAttachment {
+  id: string;
+  kind: AttachmentKind;
+  bucket: string;
+  path: string;
+  file_name: string;
+  mime_type: string;
+  size_bytes: number;
+  uploaded_at: string;
+}
+
+interface WorkItemMeta {
+  execution_notes: string;
+  attachments: ItemAttachment[];
+}
+
 interface Profile {
   id: string;
   full_name: string | null;
@@ -117,6 +141,69 @@ const STATUS_CONFIG: Record<
   blocked: { label: "Bloqueado", icon: Pause, color: "text-destructive" },
 };
 
+const ITEM_META_TAG = "[work_item_meta]";
+
+const createAttachmentId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+const parseWorkItemMeta = (notes: string | null): WorkItemMeta => {
+  const fallback: WorkItemMeta = {
+    execution_notes: "",
+    attachments: [],
+  };
+
+  if (!notes) return fallback;
+
+  const line = notes
+    .split("\n")
+    .map((value) => value.trim())
+    .find((value) => value.startsWith(`${ITEM_META_TAG}:`));
+
+  if (!line) return fallback;
+
+  const rawJson = line.slice(ITEM_META_TAG.length + 1).trim();
+  if (!rawJson) return fallback;
+
+  try {
+    const parsed = JSON.parse(rawJson) as Partial<WorkItemMeta>;
+    return {
+      execution_notes: typeof parsed.execution_notes === "string" ? parsed.execution_notes : "",
+      attachments: Array.isArray(parsed.attachments)
+        ? parsed.attachments.filter((entry): entry is ItemAttachment => (
+          typeof entry?.id === "string"
+          && typeof entry?.kind === "string"
+          && typeof entry?.bucket === "string"
+          && typeof entry?.path === "string"
+          && typeof entry?.file_name === "string"
+          && typeof entry?.mime_type === "string"
+          && typeof entry?.size_bytes === "number"
+          && typeof entry?.uploaded_at === "string"
+        ))
+        : [],
+    };
+  } catch {
+    return fallback;
+  }
+};
+
+const serializeWorkItemMeta = (meta: WorkItemMeta) => {
+  const normalized: WorkItemMeta = {
+    execution_notes: meta.execution_notes.trim(),
+    attachments: meta.attachments,
+  };
+
+  if (!normalized.execution_notes && normalized.attachments.length === 0) {
+    return null;
+  }
+
+  return `${ITEM_META_TAG}: ${JSON.stringify(normalized)}`;
+};
+
+const getAttachmentKindLabel = (kind: AttachmentKind) => {
+  if (kind === "photo") return "Foto";
+  if (kind === "receipt") return "Comprobante";
+  return "Archivo";
+};
+
 export function WorkOrderSheet({
   workOrderId,
   vehicle,
@@ -140,6 +227,10 @@ export function WorkOrderSheet({
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
   const [costDialogOpen, setCostDialogOpen] = useState(false);
   const [selectedItemForCost, setSelectedItemForCost] = useState<WorkOrderItem | null>(null);
+  const [evidenceDialogOpen, setEvidenceDialogOpen] = useState(false);
+  const [selectedItemForEvidence, setSelectedItemForEvidence] = useState<WorkOrderItem | null>(null);
+  const [attachmentUploading, setAttachmentUploading] = useState(false);
+  const [attachmentKind, setAttachmentKind] = useState<AttachmentKind>("photo");
 
   // Selection for catalog
   const [selectedOps, setSelectedOps] = useState<string[]>([]);
@@ -154,6 +245,10 @@ export function WorkOrderSheet({
     description: "",
   });
   const [savingCost, setSavingCost] = useState(false);
+  const [evidenceForm, setEvidenceForm] = useState({
+    notes: "",
+    attachments: [] as ItemAttachment[],
+  });
 
   // Saving states
   const [closing, setClosing] = useState(false);
@@ -187,19 +282,33 @@ export function WorkOrderSheet({
         const itemIds = (itemsData || []).map((i) => i.id);
         const expenseMap: Record<string, number> = {};
 
-        if (itemIds.length > 0 && scope === "vehicle" && woRes.data.vehicle_id) {
-          const { data: expData } = await supabase
-            .from("vehicle_expenses")
-            .select("work_order_item_id, amount_cop")
-            .eq("vehicle_id", woRes.data.vehicle_id)
-            .in("work_order_item_id", itemIds);
+        if (itemIds.length > 0) {
+          if (scope === "vehicle" && woRes.data.vehicle_id) {
+            const { data: expData } = await supabase
+              .from("vehicle_expenses")
+              .select("work_order_item_id, amount_cop")
+              .eq("vehicle_id", woRes.data.vehicle_id)
+              .in("work_order_item_id", itemIds);
 
-          (expData || []).forEach((e) => {
-            if (e.work_order_item_id) {
-              expenseMap[e.work_order_item_id] =
-                (expenseMap[e.work_order_item_id] || 0) + (e.amount_cop || 0);
-            }
-          });
+            (expData || []).forEach((e) => {
+              if (e.work_order_item_id) {
+                expenseMap[e.work_order_item_id] =
+                  (expenseMap[e.work_order_item_id] || 0) + (e.amount_cop || 0);
+              }
+            });
+          } else {
+            const { data: expData } = await supabase
+              .from("business_expenses")
+              .select("work_order_item_id, amount_cop")
+              .in("work_order_item_id", itemIds);
+
+            (expData || []).forEach((e) => {
+              if (e.work_order_item_id) {
+                expenseMap[e.work_order_item_id] =
+                  (expenseMap[e.work_order_item_id] || 0) + (e.amount_cop || 0);
+              }
+            });
+          }
         }
 
         setItems(
@@ -393,6 +502,106 @@ export function WorkOrderSheet({
     setCostDialogOpen(true);
   };
 
+  const openEvidenceDialog = (item: WorkOrderItem) => {
+    const meta = parseWorkItemMeta(item.notes);
+    setSelectedItemForEvidence(item);
+    setEvidenceForm({
+      notes: meta.execution_notes,
+      attachments: meta.attachments,
+    });
+    setEvidenceDialogOpen(true);
+  };
+
+  const saveEvidence = async () => {
+    if (!selectedItemForEvidence) return;
+
+    await updateItem(selectedItemForEvidence.id, {
+      notes: serializeWorkItemMeta({
+        execution_notes: evidenceForm.notes,
+        attachments: evidenceForm.attachments,
+      }),
+    });
+
+    setEvidenceDialogOpen(false);
+    setSelectedItemForEvidence(null);
+  };
+
+  const handleUploadAttachment = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0 || !profile?.org_id || !selectedItemForEvidence || !workOrder) return;
+
+    setAttachmentUploading(true);
+    try {
+      const bucket = "vehicle-internal";
+      const uploadedAttachments: ItemAttachment[] = [];
+
+      for (const file of files) {
+        const suffix = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const path = `${profile.org_id}/operations/work-orders/${workOrder.id}/items/${selectedItemForEvidence.id}/${Date.now()}_${suffix}`;
+
+        const { error } = await supabase.storage.from(bucket).upload(path, file);
+        if (error) throw error;
+
+        uploadedAttachments.push({
+          id: createAttachmentId(),
+          kind: attachmentKind,
+          bucket,
+          path,
+          file_name: file.name,
+          mime_type: file.type || "application/octet-stream",
+          size_bytes: file.size,
+          uploaded_at: new Date().toISOString(),
+        });
+      }
+
+      setEvidenceForm((prev) => ({
+        ...prev,
+        attachments: [...uploadedAttachments, ...prev.attachments],
+      }));
+
+      toast.success(uploadedAttachments.length === 1
+        ? "Archivo adjunto cargado"
+        : `${uploadedAttachments.length} archivos adjuntos cargados`);
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "No se pudo subir el archivo"));
+    } finally {
+      event.target.value = "";
+      setAttachmentUploading(false);
+    }
+  };
+
+  const removeAttachment = async (attachmentId: string) => {
+    const attachment = evidenceForm.attachments.find((entry) => entry.id === attachmentId);
+    if (!attachment) return;
+
+    try {
+      const { error } = await supabase.storage.from(attachment.bucket).remove([attachment.path]);
+      if (error) throw error;
+
+      setEvidenceForm((prev) => ({
+        ...prev,
+        attachments: prev.attachments.filter((entry) => entry.id !== attachmentId),
+      }));
+      toast.success("Adjunto eliminado");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "No se pudo eliminar el adjunto"));
+    }
+  };
+
+  const openAttachment = async (attachment: ItemAttachment) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from(attachment.bucket)
+        .createSignedUrl(attachment.path, 120);
+
+      if (error || !data?.signedUrl) throw error || new Error("No se pudo abrir el adjunto");
+
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "No se pudo abrir el adjunto"));
+    }
+  };
+
   // Save cost
   const saveCost = async () => {
     if (!selectedItemForCost || !workOrder || !profile?.org_id) return;
@@ -402,25 +611,26 @@ export function WorkOrderSheet({
       return;
     }
 
-    // Check if this is a vehicle work order
-    if (scope === "business" || !workOrder.vehicle_id) {
-      toast.error("Los costos solo se pueden registrar en órdenes de vehículo");
-      return;
-    }
-
     setSavingCost(true);
     try {
-      const { error } = await supabase.from("vehicle_expenses").insert({
+      const amount = parseInt(costForm.amount_cop, 10);
+      const payload = {
         org_id: profile.org_id,
-        vehicle_id: workOrder.vehicle_id,
         work_order_item_id: selectedItemForCost.id,
-        amount_cop: parseInt(costForm.amount_cop),
+        amount_cop: amount,
         incurred_at: costForm.incurred_at || null,
         description: costForm.description.trim() || null,
         created_by: profile.id,
-        category: "alistamiento",
-        phase_code: "alistamiento",
-      });
+        category: scope === "vehicle" ? "alistamiento" : "operacion_negocio",
+      };
+
+      const { error } = scope === "vehicle" && workOrder.vehicle_id
+        ? await supabase.from("vehicle_expenses").insert({
+          ...payload,
+          vehicle_id: workOrder.vehicle_id,
+          phase_code: "alistamiento",
+        })
+        : await supabase.from("business_expenses").insert(payload);
 
       if (error) throw error;
 
@@ -520,13 +730,13 @@ export function WorkOrderSheet({
                       <p className="text-muted-foreground">Bloq.</p>
                     </div>
                   </div>
-                  {scope === "vehicle" && (
-                    <div className="flex items-center gap-1 bg-primary/10 px-2 py-1 rounded text-sm">
-                      <DollarSign className="h-3 w-3 text-primary" />
-                      <span className="text-muted-foreground">Costo alistamiento:</span>
-                      <strong className="text-primary">{formatCOP(totalCost)}</strong>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-1 bg-primary/10 px-2 py-1 rounded text-sm">
+                    <DollarSign className="h-3 w-3 text-primary" />
+                    <span className="text-muted-foreground">
+                      {scope === "vehicle" ? "Costo alistamiento:" : "Costo operación:"}
+                    </span>
+                    <strong className="text-primary">{formatCOP(totalCost)}</strong>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -585,6 +795,11 @@ export function WorkOrderSheet({
                                   Costo: {formatCOP(item.accumulated_cost)}
                                 </p>
                               )}
+                              {parseWorkItemMeta(item.notes).attachments.length > 0 && (
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  Adjuntos: {parseWorkItemMeta(item.notes).attachments.length}
+                                </p>
+                              )}
                             </div>
                           </div>
 
@@ -626,17 +841,25 @@ export function WorkOrderSheet({
                                 </SelectContent>
                               </Select>
 
-                              {scope === "vehicle" && workOrder.vehicle_id && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 text-xs"
-                                  onClick={() => openCostDialog(item)}
-                                >
-                                  <DollarSign className="h-3 w-3 mr-1" />
-                                  Costo
-                                </Button>
-                              )}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => openCostDialog(item)}
+                              >
+                                <DollarSign className="h-3 w-3 mr-1" />
+                                Costo
+                              </Button>
+
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => openEvidenceDialog(item)}
+                              >
+                                <Link className="h-3 w-3 mr-1" />
+                                Evidencia
+                              </Button>
 
                               <Button
                                 variant="ghost"
@@ -788,6 +1011,92 @@ export function WorkOrderSheet({
             <Button onClick={saveCost} disabled={savingCost}>
               {savingCost ? "Guardando..." : "Guardar"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Evidence */}
+      <Dialog open={evidenceDialogOpen} onOpenChange={setEvidenceDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Registrar evidencia</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {selectedItemForEvidence && (
+              <p className="text-sm text-muted-foreground">
+                Ítem: <strong>{selectedItemForEvidence.title}</strong>
+              </p>
+            )}
+            <div className="space-y-2">
+              <Label>Notas de ejecución</Label>
+              <Textarea
+                value={evidenceForm.notes}
+                onChange={(e) => setEvidenceForm((prev) => ({ ...prev, notes: e.target.value }))}
+                placeholder="Describe brevemente qué se hizo..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Adjuntos (fotos/comprobantes/archivos)</Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={attachmentKind} onValueChange={(value: AttachmentKind) => setAttachmentKind(value)}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="photo">Foto</SelectItem>
+                    <SelectItem value="receipt">Comprobante</SelectItem>
+                    <SelectItem value="file">Archivo</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Label className="inline-flex items-center gap-2 rounded-md border px-3 py-2 cursor-pointer hover:bg-muted text-sm">
+                  <Upload className="h-4 w-4" />
+                  {attachmentUploading ? "Subiendo..." : "Subir archivos"}
+                  <Input
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={handleUploadAttachment}
+                    disabled={attachmentUploading}
+                  />
+                </Label>
+              </div>
+
+              {evidenceForm.attachments.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No hay adjuntos todavía.</p>
+              ) : (
+                <div className="space-y-2 max-h-44 overflow-y-auto rounded-md border p-2">
+                  {evidenceForm.attachments.map((attachment) => (
+                    <div key={attachment.id} className="flex items-center justify-between gap-2 text-sm">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium flex items-center gap-1">
+                          {attachment.kind === "photo" && <ImageIcon className="h-3.5 w-3.5" />}
+                          {attachment.kind === "receipt" && <Receipt className="h-3.5 w-3.5" />}
+                          {attachment.kind === "file" && <FileText className="h-3.5 w-3.5" />}
+                          {attachment.file_name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {getAttachmentKindLabel(attachment.kind)} · {(attachment.size_bytes / 1024).toFixed(1)} KB
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => openAttachment(attachment)}>
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeAttachment(attachment.id)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEvidenceDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={saveEvidence}>Guardar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

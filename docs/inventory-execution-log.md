@@ -33,3 +33,7 @@
 ### Step S2-08: Centralize sales dialog state/openers in hook
 - Commit: `4c57f76`
 - Outcome: moved `VehicleSalesTab` UI state and opener functions into `useVehicleSalesUIState` to keep the tab focused on action handlers.
+
+### Step S2-09: Extract direct-sale and void-sale mutations to hook
+- Commit: `e6c70cf`
+- Outcome: moved direct sale and void sale mutation logic from `VehicleSalesTab` to `useVehicleSalesMutations`.

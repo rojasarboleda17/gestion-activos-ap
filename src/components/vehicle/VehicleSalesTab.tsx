@@ -19,6 +19,7 @@ import { DollarSign, X, ArrowRight, Eye } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { useVehicleSalesData, type Reservation } from "@/hooks/vehicle/useVehicleSalesData";
 import { useVehicleSalesUIState } from "@/hooks/vehicle/useVehicleSalesUIState";
+import { useVehicleSalesMutations } from "@/hooks/vehicle/useVehicleSalesMutations";
 import { VehicleSalesActions } from "@/components/vehicle/VehicleSalesActions";
 import { VehicleReservationsCard } from "@/components/vehicle/VehicleReservationsCard";
 import { VehicleSalesCard } from "@/components/vehicle/VehicleSalesCard";
@@ -105,6 +106,14 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
     openCreateSale,
     openVoidDialog,
   } = useVehicleSalesUIState(paymentMethods[0]?.code || "");
+
+  const { createDirectSale, voidSale } = useVehicleSalesMutations({
+    vehicleId,
+    orgId: profile?.org_id,
+    userId: profile?.id,
+    refetch,
+    onRefresh,
+  });
 
   const handleCreateReservation = async () => {
     if (!profile?.org_id) return;
@@ -350,62 +359,12 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
 
   // ===== CREATE DIRECT SALE =====
   const handleCreateSale = async () => {
-    if (!profile?.org_id) return;
-
-    if (!saleForm.customer_id) {
-      toast.error("Selecciona un cliente");
-      return;
-    }
-    const finalPrice = parseInt(saleForm.final_price_cop);
-    if (!saleForm.final_price_cop || isNaN(finalPrice) || finalPrice <= 0) {
-      toast.error("El precio final debe ser mayor a 0");
-      return;
-    }
-    if (!saleForm.payment_method_code) {
-      toast.error("Selecciona un método de pago");
-      return;
-    }
-
     setSavingSale(true);
     try {
-      logger.debug("[VehicleSalesTab] Creating direct sale...");
-      const { data, error } = await supabase
-        .from("sales")
-        .insert({
-          org_id: profile.org_id,
-          vehicle_id: vehicleId,
-          customer_id: saleForm.customer_id,
-          final_price_cop: finalPrice,
-          payment_method_code: saleForm.payment_method_code,
-          status: "active",
-          created_by: profile.id,
-          notes: saleForm.notes?.trim() || null,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        logger.error("[VehicleSalesTab] Sale error:", error);
-        toast.error(`Error: ${error.message}${error.details ? ` - ${error.details}` : ""}`);
-        return;
-      }
-
-      if (!data) {
-        toast.error("Error: No se creó la venta");
-        return;
-      }
-
-      await supabase.rpc("mark_vehicle_sold", {
-        p_vehicle_id: vehicleId,
-        p_sale_id: data.id,
-      });      
+      const success = await createDirectSale(saleForm);
+      if (!success) return;
 
       setCreateSaleOpen(false);
-      refetch();
-      onRefresh?.();
-    } catch (err: unknown) {
-      logger.error("[VehicleSalesTab] Unexpected error:", err);
-      toast.error(`Error: ${getErrorMessage(err)}`);
     } finally {
       setSavingSale(false);
     }
@@ -413,63 +372,13 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
 
   // ===== VOID SALE =====
   const handleVoidSale = async () => {
-    if (!voidingSale || !profile?.org_id) return;
-    if (!voidForm.void_reason.trim()) {
-      toast.error("El motivo es requerido");
-      return;
-    }
-
     setVoiding(true);
     try {
-      logger.debug("[VehicleSalesTab] Voiding sale:", voidingSale.id);
-      const { error, data } = await supabase
-        .from("sales")
-        .update({
-          status: "voided",
-          void_reason: voidForm.void_reason.trim(),
-          voided_at: new Date().toISOString(),
-          voided_by: profile.id,
-          return_stage_code: voidForm.return_stage_code,
-        })
-        .eq("id", voidingSale.id)
-        .select();
-
-      if (error) {
-        logger.error("[VehicleSalesTab] Void error:", error);
-        toast.error(`Error: ${error.message}`);
-        return;
-      }
-
-      if (!data?.length) {
-        toast.error("Error: No se anuló la venta");
-        return;
-      }
-
-      await supabase.rpc("transition_vehicle_stage", {
-        p_vehicle_id: vehicleId,
-        p_target_stage: voidForm.return_stage_code,
-      });      
-
-      const refundAmount = parseInt(voidForm.refund_amount);
-      if (voidForm.refund_amount && !isNaN(refundAmount) && refundAmount > 0) {
-        await supabase.from("sale_payments").insert({
-          org_id: profile.org_id,
-          sale_id: voidingSale.id,
-          amount_cop: refundAmount,
-          direction: "out",
-          payment_method_code: voidForm.refund_method,
-          notes: "Reembolso por anulación",
-          created_by: profile.id,
-        });
-      }
+      const success = await voidSale(voidingSale?.id || null, voidForm);
+      if (!success) return;
 
       setVoidDialogOpen(false);
       setVoidingSale(null);
-      refetch();
-      onRefresh?.();
-    } catch (err: unknown) {
-      logger.error("[VehicleSalesTab] Unexpected error:", err);
-      toast.error(`Error: ${getErrorMessage(err)}`);
     } finally {
       setVoiding(false);
     }

@@ -5,6 +5,7 @@ import { useVehicleSalesUIState } from "@/hooks/vehicle/useVehicleSalesUIState";
 import { useVehicleSalesMutations } from "@/hooks/vehicle/useVehicleSalesMutations";
 import { useVehicleReservationMutations } from "@/hooks/vehicle/useVehicleReservationMutations";
 import { useVehicleCustomerMutations } from "@/hooks/vehicle/useVehicleCustomerMutations";
+import { useVehicleSalesActionHandlers } from "@/hooks/vehicle/useVehicleSalesActionHandlers";
 import { VehicleSalesActions } from "@/components/vehicle/VehicleSalesActions";
 import { VehicleReservationsCard } from "@/components/vehicle/VehicleReservationsCard";
 import { VehicleSalesCard } from "@/components/vehicle/VehicleSalesCard";
@@ -117,81 +118,49 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
     orgId: profile?.org_id,
   });
 
-  const handleCreateReservation = async () => {
-    setSavingRes(true);
-    try {
-      const success = await createReservation(resForm);
-      if (!success) return;
+  const {
+    handleCreateReservation,
+    handleQuickCustomer,
+    handleCancelReservation,
+    handleConvertToSale,
+    handleCreateSale,
+    handleVoidSale,
+  } = useVehicleSalesActionHandlers({
+    resForm,
+    saleForm,
+    quickCustomerForm,
+    convertForm,
+    voidForm,
+    cancelReason,
+    cancelingReservation,
+    convertingReservation,
+    voidingSale,
+    setSavingRes,
+    setCreateResOpen,
+    setQuickCustomerOpen,
+    setQuickCustomerForm,
+    setResForm,
+    setSaleForm,
+    setCancelDialogOpen,
+    setCancelingReservation,
+    setConverting,
+    setConvertDialogOpen,
+    setConvertingReservation,
+    setSavingSale,
+    setCreateSaleOpen,
+    setVoiding,
+    setVoidDialogOpen,
+    setVoidingSale,
+    createReservation,
+    createQuickCustomer,
+    appendCustomer,
+    cancelReservation,
+    convertReservationToSale,
+    createDirectSale,
+    voidSale,
+  });
 
-      setCreateResOpen(false);
-    } finally {
-      setSavingRes(false);
-    }
-  };
 
-  // Quick customer
-  const handleQuickCustomer = async () => {
-    const customer = await createQuickCustomer(quickCustomerForm);
-    if (!customer) return;
-
-    appendCustomer(customer);
-    setResForm({ ...resForm, customer_id: customer.id });
-    setSaleForm({ ...saleForm, customer_id: customer.id });
-    setQuickCustomerOpen(false);
-    setQuickCustomerForm({ full_name: "", phone: "" });
-  };
-
-  // ===== CANCEL RESERVATION =====
-  const handleCancelReservation = async () => {
-    const reservationId = cancelingReservation?.id || null;
-
-    const success = await cancelReservation(reservationId, cancelReason);
-    if (!success) return;
-
-    setCancelDialogOpen(false);
-    setCancelingReservation(null);
-  };
-
-  // ===== CONVERT RESERVATION TO SALE =====
-  const handleConvertToSale = async () => {
-    setConverting(true);
-    try {
-      const success = await convertReservationToSale(convertingReservation, convertForm);
-      if (!success) return;
-
-      setConvertDialogOpen(false);
-      setConvertingReservation(null);
-    } finally {
-      setConverting(false);
-    }
-  };
-
-  // ===== CREATE DIRECT SALE =====
-  const handleCreateSale = async () => {
-    setSavingSale(true);
-    try {
-      const success = await createDirectSale(saleForm);
-      if (!success) return;
-
-      setCreateSaleOpen(false);
-    } finally {
-      setSavingSale(false);
-    }
-  };
-
-  // ===== VOID SALE =====
-  const handleVoidSale = async () => {
-    setVoiding(true);
-    try {
-      const success = await voidSale(voidingSale?.id || null, voidForm);
-      if (!success) return;
-
-      setVoidDialogOpen(false);
-      setVoidingSale(null);
-    } finally {
-      setVoiding(false);
-    }
-  };
 
   if (loading) return <LoadingState variant="table" />;
 

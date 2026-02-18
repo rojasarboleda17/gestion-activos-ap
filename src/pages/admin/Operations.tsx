@@ -680,8 +680,7 @@ export default function AdminOperations() {
             <Card className="border-dashed border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20">
               <CardContent className="py-3">
                 <p className="text-sm text-amber-700 dark:text-amber-400">
-                  <strong>Nota:</strong> Los gastos de negocio no se pueden registrar en vehicle_expenses (requiere vehicle_id).
-                  Registra costos estimados en las notas de cada ítem.
+                  <strong>Nota:</strong> Las órdenes de negocio también permiten registrar costos por ítem y adjuntar evidencias/comprobantes desde la hoja de gestión.
                 </p>
               </CardContent>
             </Card>

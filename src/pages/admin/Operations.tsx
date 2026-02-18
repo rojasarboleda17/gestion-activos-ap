@@ -44,8 +44,6 @@ import {
   ClipboardList,
   Search,
   X,
-  Car,
-  Briefcase,
   Eye,
 } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -90,6 +88,19 @@ interface WorkOrder {
   items_blocked: number;
 }
 
+interface WorkOrderRow {
+  id: string;
+  status: string;
+  scope: string;
+  notes: string | null;
+  opened_at: string;
+  updated_at: string;
+  closed_at: string | null;
+  vehicle_id: string | null;
+  opened_by: string | null;
+  vehicles: Vehicle | null;
+}
+
 const SCOPES = [
   { value: "vehicle", label: "Vehículo" },
   { value: "business", label: "Negocio" },
@@ -113,6 +124,7 @@ const WO_STATUSES = [
 
 export default function AdminOperations() {
   const { profile } = useAuth();
+  const canManageOperations = profile?.role === "admin" || profile?.role === "operations";
 
   // Data
   const [operations, setOperations] = useState<Operation[]>([]);
@@ -121,13 +133,10 @@ export default function AdminOperations() {
   const [stages, setStages] = useState<{ code: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Filters for Vehicle Work Orders
-  const [vwoStatusFilter, setVwoStatusFilter] = useState("open");
-  const [vwoSearch, setVwoSearch] = useState("");
-
-  // Filters for Business Work Orders
-  const [bwoStatusFilter, setBwoStatusFilter] = useState("open");
-  const [bwoSearch, setBwoSearch] = useState("");
+  // Filters for Work Orders
+  const [woStatusFilter, setWoStatusFilter] = useState("open");
+  const [woSearch, setWoSearch] = useState("");
+  const [woScopeFilter, setWoScopeFilter] = useState<"vehicle" | "business">("vehicle");
 
   // Filters for Catalog
   const [catSearch, setCatSearch] = useState("");
@@ -142,15 +151,12 @@ export default function AdminOperations() {
   });
   const [opSaving, setOpSaving] = useState(false);
 
-  // Create Vehicle Work Order Dialog
-  const [createVwoDialogOpen, setCreateVwoDialogOpen] = useState(false);
+  // Create Work Order Dialog
+  const [createOrderDialogOpen, setCreateOrderDialogOpen] = useState(false);
+  const [createOrderScope, setCreateOrderScope] = useState<"vehicle" | "business">("vehicle");
   const [selectedVehicleId, setSelectedVehicleId] = useState("");
-  const [creatingVwo, setCreatingVwo] = useState(false);
-
-  // Create Business Work Order Dialog
-  const [createBwoDialogOpen, setCreateBwoDialogOpen] = useState(false);
+  const [creatingOrder, setCreatingOrder] = useState(false);
   const [bwoNotes, setBwoNotes] = useState("");
-  const [creatingBwo, setCreatingBwo] = useState(false);
 
   // Sheet for managing work order
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -198,7 +204,7 @@ export default function AdminOperations() {
         if (item.status === "blocked") itemCounts[item.work_order_id].blocked++;
       });
 
-      const enrichedWOs: WorkOrder[] = (woRes.data || []).map((wo: any) => ({
+      const enrichedWOs: WorkOrder[] = ((woRes.data || []) as WorkOrderRow[]).map((wo) => ({
         ...wo,
         vehicle: wo.vehicles ?? null,
         stage_name: wo.vehicles
@@ -223,42 +229,28 @@ export default function AdminOperations() {
     fetchData();
   }, [fetchData]);
 
-  // Filter: Vehicle Work Orders
-  const vehicleWorkOrders = useMemo(() => {
-    return workOrders.filter((wo) => wo.vehicle_id !== null);
-  }, [workOrders]);
-
-  const filteredVehicleWOs = useMemo(() => {
-    return vehicleWorkOrders.filter((wo) => {
-      if (vwoStatusFilter !== "all" && wo.status !== vwoStatusFilter) return false;
-      if (vwoSearch.trim()) {
-        const search = vwoSearch.toLowerCase();
+  const filteredWorkOrders = useMemo(() => {
+    return workOrders.filter((wo) => {
+      if (wo.scope !== woScopeFilter) return false;
+      if (woStatusFilter !== "all" && wo.status !== woStatusFilter) return false;
+      if (woSearch.trim()) {
+        const search = woSearch.toLowerCase();
+        const notes = wo.notes?.toLowerCase() || "";
         const plate = wo.vehicle?.license_plate?.toLowerCase() || "";
         const brand = wo.vehicle?.brand?.toLowerCase() || "";
         const line = wo.vehicle?.line?.toLowerCase() || "";
-        if (!plate.includes(search) && !brand.includes(search) && !line.includes(search))
+        if (
+          !notes.includes(search)
+          && !plate.includes(search)
+          && !brand.includes(search)
+          && !line.includes(search)
+        ) {
           return false;
+        }
       }
       return true;
     });
-  }, [vehicleWorkOrders, vwoStatusFilter, vwoSearch]);
-
-  // Filter: Business Work Orders
-  const businessWorkOrders = useMemo(() => {
-    return workOrders.filter((wo) => wo.vehicle_id === null);
-  }, [workOrders]);
-
-  const filteredBusinessWOs = useMemo(() => {
-    return businessWorkOrders.filter((wo) => {
-      if (bwoStatusFilter !== "all" && wo.status !== bwoStatusFilter) return false;
-      if (bwoSearch.trim()) {
-        const search = bwoSearch.toLowerCase();
-        const notes = wo.notes?.toLowerCase() || "";
-        if (!notes.includes(search)) return false;
-      }
-      return true;
-    });
-  }, [businessWorkOrders, bwoStatusFilter, bwoSearch]);
+  }, [workOrders, woScopeFilter, woStatusFilter, woSearch]);
 
   // Filtered Operations
   const filteredOperations = useMemo(() => {
@@ -351,56 +343,62 @@ export default function AdminOperations() {
     }
   };
 
-  // Create Vehicle Work Order
-  const handleCreateVehicleWO = async () => {
-    if (!profile?.org_id || !selectedVehicleId) {
+  const handleCreateWorkOrder = async () => {
+    if (!profile?.org_id) return;
+
+    if (createOrderScope === "vehicle" && !selectedVehicleId) {
       toast.error("Selecciona un vehículo");
       return;
     }
 
-    setCreatingVwo(true);
+    setCreatingOrder(true);
     try {
-      const { data: existing } = await supabase
-        .from("work_orders")
-        .select("id")
-        .eq("vehicle_id", selectedVehicleId)
-        .eq("status", "open")
-        .maybeSingle();
+      if (createOrderScope === "vehicle") {
+        const { data: existing } = await supabase
+          .from("work_orders")
+          .select("id")
+          .eq("vehicle_id", selectedVehicleId)
+          .eq("status", "open")
+          .maybeSingle();
 
-      if (existing) {
-        // Open existing work order in sheet
-        const wo = workOrders.find((w) => w.id === existing.id);
-        if (wo) {
-          setSelectedWorkOrder(wo);
-          setSheetOpen(true);
+        if (existing) {
+          const wo = workOrders.find((w) => w.id === existing.id);
+          if (wo) {
+            setSelectedWorkOrder(wo);
+            setSheetOpen(true);
+          }
+          toast.info("Este vehículo ya tiene una orden abierta");
+          setCreatingOrder(false);
+          setCreateOrderDialogOpen(false);
+          return;
         }
-        toast.info("Este vehículo ya tiene una orden abierta");
-        setCreatingVwo(false);
-        setCreateVwoDialogOpen(false);
-        return;
       }
 
       const { data, error } = await supabase
         .from("work_orders")
         .insert({
           org_id: profile.org_id,
-          vehicle_id: selectedVehicleId,
-          scope: "vehicle",
+          vehicle_id: createOrderScope === "vehicle" ? selectedVehicleId : null,
+          scope: createOrderScope,
           status: "open",
           opened_by: profile.id,
+          notes: createOrderScope === "business" ? bwoNotes.trim() || null : null,
         })
         .select("*")
         .single();
 
       if (error) throw error;
 
-      toast.success("Orden creada");
-      setCreateVwoDialogOpen(false);
+      toast.success(createOrderScope === "vehicle" ? "Orden de alistamiento creada" : "Orden de negocio creada");
+      setCreateOrderDialogOpen(false);
       setSelectedVehicleId("");
+      setBwoNotes("");
       await fetchData();
 
-      // Open the new work order in sheet
-      const vehicle = vehicles.find((v) => v.id === selectedVehicleId);
+      const vehicle = createOrderScope === "vehicle"
+        ? vehicles.find((v) => v.id === selectedVehicleId)
+        : null;
+
       setSelectedWorkOrder({
         ...data,
         vehicle: vehicle || null,
@@ -414,51 +412,7 @@ export default function AdminOperations() {
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, "Error al crear orden"));
     } finally {
-      setCreatingVwo(false);
-    }
-  };
-
-  // Create Business Work Order
-  const handleCreateBusinessWO = async () => {
-    if (!profile?.org_id) return;
-
-    setCreatingBwo(true);
-    try {
-      const { data, error } = await supabase
-        .from("work_orders")
-        .insert({
-          org_id: profile.org_id,
-          vehicle_id: null,
-          scope: "business",
-          status: "open",
-          opened_by: profile.id,
-          notes: bwoNotes.trim() || null,
-        })
-        .select("*")
-        .single();
-
-      if (error) throw error;
-
-      toast.success("Orden de negocio creada");
-      setCreateBwoDialogOpen(false);
-      setBwoNotes("");
-      await fetchData();
-
-      // Open the new work order in sheet
-      setSelectedWorkOrder({
-        ...data,
-        vehicle: null,
-        stage_name: "—",
-        items_total: 0,
-        items_done: 0,
-        items_pending: 0,
-        items_blocked: 0,
-      });
-      setSheetOpen(true);
-    } catch (err: unknown) {
-      toast.error(getErrorMessage(err, "Error al crear orden"));
-    } finally {
-      setCreatingBwo(false);
+      setCreatingOrder(false);
     }
   };
 
@@ -479,6 +433,21 @@ export default function AdminOperations() {
     );
   }
 
+  if (!canManageOperations) {
+    return (
+      <AdminLayout
+        title="Centro de Operaciones"
+        breadcrumbs={[{ label: "Inicio", href: "/admin/vehicles" }, { label: "Operaciones" }]}
+      >
+        <EmptyState
+          icon={ClipboardList}
+          title="Sin acceso"
+          description="Este módulo solo está disponible para el equipo de Operaciones y administradores."
+        />
+      </AdminLayout>
+    );
+  }
+
   const renderWOTable = (
     orders: WorkOrder[],
     isVehicle: boolean
@@ -491,7 +460,10 @@ export default function AdminOperations() {
           description={isVehicle ? "No hay órdenes de alistamiento." : "No hay órdenes de negocio."}
           action={{
             label: isVehicle ? "Crear Orden" : "Crear Orden de Negocio",
-            onClick: () => (isVehicle ? setCreateVwoDialogOpen(true) : setCreateBwoDialogOpen(true)),
+            onClick: () => {
+              setCreateOrderScope(isVehicle ? "vehicle" : "business");
+              setCreateOrderDialogOpen(true);
+            },
           }}
         />
       );
@@ -637,15 +609,11 @@ export default function AdminOperations() {
       title="Centro de Operaciones"
       breadcrumbs={[{ label: "Inicio", href: "/admin/vehicles" }, { label: "Operaciones" }]}
     >
-      <Tabs defaultValue="vehicles" className="space-y-4">
+      <Tabs defaultValue="orders" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="vehicles" className="gap-2">
-            <Car className="h-4 w-4" />
-            Alistamiento Vehículos
-          </TabsTrigger>
-          <TabsTrigger value="business" className="gap-2">
-            <Briefcase className="h-4 w-4" />
-            Operaciones Negocio
+          <TabsTrigger value="orders" className="gap-2">
+            <ClipboardList className="h-4 w-4" />
+            Órdenes
           </TabsTrigger>
           <TabsTrigger value="catalog" className="gap-2">
             <Wrench className="h-4 w-4" />
@@ -653,28 +621,40 @@ export default function AdminOperations() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Tab: Vehicle Work Orders */}
-        <TabsContent value="vehicles" className="space-y-4">
+        {/* Tab: Work Orders */}
+        <TabsContent value="orders" className="space-y-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por placa, marca..."
-                  value={vwoSearch}
-                  onChange={(e) => setVwoSearch(e.target.value)}
+                  placeholder="Buscar por placa, marca o notas..."
+                  value={woSearch}
+                  onChange={(e) => setWoSearch(e.target.value)}
                   className="pl-9 w-64"
                 />
-                {vwoSearch && (
+                {woSearch && (
                   <button
-                    onClick={() => setVwoSearch("")}
+                    onClick={() => setWoSearch("")}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
                     <X className="h-4 w-4" />
                   </button>
                 )}
               </div>
-              <Select value={vwoStatusFilter} onValueChange={setVwoStatusFilter}>
+              <Select
+                value={woScopeFilter}
+                onValueChange={(value: "vehicle" | "business") => setWoScopeFilter(value)}
+              >
+                <SelectTrigger className="w-[170px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="vehicle">Alistamiento vehículos</SelectItem>
+                  <SelectItem value="business">Operaciones negocio</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={woStatusFilter} onValueChange={setWoStatusFilter}>
                 <SelectTrigger className="w-[140px]">
                   <SelectValue />
                 </SelectTrigger>
@@ -687,64 +667,27 @@ export default function AdminOperations() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={() => setCreateVwoDialogOpen(true)}>
+            <Button onClick={() => {
+              setCreateOrderScope(woScopeFilter);
+              setCreateOrderDialogOpen(true);
+            }}>
               <Plus className="h-4 w-4 mr-2" />
               Crear Orden
             </Button>
           </div>
-          {renderWOTable(filteredVehicleWOs, true)}
-        </TabsContent>
 
-        {/* Tab: Business Work Orders */}
-        <TabsContent value="business" className="space-y-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar en notas..."
-                  value={bwoSearch}
-                  onChange={(e) => setBwoSearch(e.target.value)}
-                  className="pl-9 w-64"
-                />
-                {bwoSearch && (
-                  <button
-                    onClick={() => setBwoSearch("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-              <Select value={bwoStatusFilter} onValueChange={setBwoStatusFilter}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {WO_STATUSES.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button onClick={() => setCreateBwoDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Crear Orden Negocio
-            </Button>
-          </div>
+          {woScopeFilter === "business" && (
+            <Card className="border-dashed border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20">
+              <CardContent className="py-3">
+                <p className="text-sm text-amber-700 dark:text-amber-400">
+                  <strong>Nota:</strong> Los gastos de negocio no se pueden registrar en vehicle_expenses (requiere vehicle_id).
+                  Registra costos estimados en las notas de cada ítem.
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
-          <Card className="border-dashed border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20">
-            <CardContent className="py-3">
-              <p className="text-sm text-amber-700 dark:text-amber-400">
-                <strong>Nota:</strong> Los gastos de negocio no se pueden registrar en vehicle_expenses (requiere vehicle_id).
-                Registra costos estimados en las notas de cada ítem.
-              </p>
-            </CardContent>
-          </Card>
-
-          {renderWOTable(filteredBusinessWOs, false)}
+          {renderWOTable(filteredWorkOrders, woScopeFilter === "vehicle")}
         </TabsContent>
 
         {/* Tab: Catalog */}
@@ -916,13 +859,30 @@ export default function AdminOperations() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog: Create Vehicle Work Order */}
-      <Dialog open={createVwoDialogOpen} onOpenChange={setCreateVwoDialogOpen}>
+      {/* Dialog: Create Work Order */}
+      <Dialog open={createOrderDialogOpen} onOpenChange={setCreateOrderDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Crear Orden de Alistamiento</DialogTitle>
+            <DialogTitle>Crear Orden</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Tipo de orden *</Label>
+              <Select
+                value={createOrderScope}
+                onValueChange={(value: "vehicle" | "business") => setCreateOrderScope(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="vehicle">Alistamiento de vehículo</SelectItem>
+                  <SelectItem value="business">Operación de negocio</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {createOrderScope === "vehicle" ? (
             <div className="space-y-2">
               <Label>Seleccionar Vehículo *</Label>
               <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
@@ -938,40 +898,26 @@ export default function AdminOperations() {
                 </SelectContent>
               </Select>
             </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>Notas / Descripción</Label>
+                <Textarea
+                  value={bwoNotes}
+                  onChange={(e) => setBwoNotes(e.target.value)}
+                  placeholder="Ej: Mantenimiento oficina, compra insumos..."
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateVwoDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setCreateOrderDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleCreateVehicleWO} disabled={creatingVwo || !selectedVehicleId}>
-              {creatingVwo ? "Creando..." : "Crear y Abrir"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog: Create Business Work Order */}
-      <Dialog open={createBwoDialogOpen} onOpenChange={setCreateBwoDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Crear Orden de Negocio</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Notas / Descripción</Label>
-              <Textarea
-                value={bwoNotes}
-                onChange={(e) => setBwoNotes(e.target.value)}
-                placeholder="Ej: Mantenimiento oficina, compra insumos..."
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateBwoDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleCreateBusinessWO} disabled={creatingBwo}>
-              {creatingBwo ? "Creando..." : "Crear y Abrir"}
+            <Button
+              onClick={handleCreateWorkOrder}
+              disabled={creatingOrder || (createOrderScope === "vehicle" && !selectedVehicleId)}
+            >
+              {creatingOrder ? "Creando..." : "Crear y Abrir"}
             </Button>
           </DialogFooter>
         </DialogContent>

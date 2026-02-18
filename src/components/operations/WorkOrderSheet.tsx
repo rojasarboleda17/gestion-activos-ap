@@ -50,6 +50,7 @@ import {
   Trash2,
   DollarSign,
   Car,
+  Link,
   type LucideIcon,
 } from "lucide-react";
 import { useAudit } from "@/hooks/use-audit";
@@ -117,6 +118,36 @@ const STATUS_CONFIG: Record<
   blocked: { label: "Bloqueado", icon: Pause, color: "text-destructive" },
 };
 
+const EVIDENCE_TAG = "[evidence_url]";
+
+const extractEvidenceUrl = (notes: string | null) => {
+  if (!notes) return "";
+  const line = notes
+    .split("\n")
+    .map((value) => value.trim())
+    .find((value) => value.toLowerCase().startsWith(`${EVIDENCE_TAG}:`));
+
+  if (!line) return "";
+  return line.slice(EVIDENCE_TAG.length + 1).trim();
+};
+
+const extractWorkNotes = (notes: string | null) => {
+  if (!notes) return "";
+  return notes
+    .split("\n")
+    .filter((line) => !line.trim().toLowerCase().startsWith(`${EVIDENCE_TAG}:`))
+    .join("\n")
+    .trim();
+};
+
+const mergeWorkNotesWithEvidence = (workNotes: string, evidenceUrl: string) => {
+  const cleanNotes = workNotes.trim();
+  const cleanUrl = evidenceUrl.trim();
+  if (!cleanNotes && !cleanUrl) return null;
+  if (!cleanUrl) return cleanNotes || null;
+  return `${cleanNotes}${cleanNotes ? "\n" : ""}${EVIDENCE_TAG}: ${cleanUrl}`;
+};
+
 export function WorkOrderSheet({
   workOrderId,
   vehicle,
@@ -140,6 +171,8 @@ export function WorkOrderSheet({
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
   const [costDialogOpen, setCostDialogOpen] = useState(false);
   const [selectedItemForCost, setSelectedItemForCost] = useState<WorkOrderItem | null>(null);
+  const [evidenceDialogOpen, setEvidenceDialogOpen] = useState(false);
+  const [selectedItemForEvidence, setSelectedItemForEvidence] = useState<WorkOrderItem | null>(null);
 
   // Selection for catalog
   const [selectedOps, setSelectedOps] = useState<string[]>([]);
@@ -154,6 +187,10 @@ export function WorkOrderSheet({
     description: "",
   });
   const [savingCost, setSavingCost] = useState(false);
+  const [evidenceForm, setEvidenceForm] = useState({
+    notes: "",
+    evidence_url: "",
+  });
 
   // Saving states
   const [closing, setClosing] = useState(false);
@@ -393,6 +430,32 @@ export function WorkOrderSheet({
     setCostDialogOpen(true);
   };
 
+  const openEvidenceDialog = (item: WorkOrderItem) => {
+    setSelectedItemForEvidence(item);
+    setEvidenceForm({
+      notes: extractWorkNotes(item.notes),
+      evidence_url: extractEvidenceUrl(item.notes),
+    });
+    setEvidenceDialogOpen(true);
+  };
+
+  const saveEvidence = async () => {
+    if (!selectedItemForEvidence) return;
+
+    const evidenceUrl = evidenceForm.evidence_url.trim();
+    if (evidenceUrl && !/^https?:\/\//i.test(evidenceUrl)) {
+      toast.error("La evidencia debe ser una URL válida (http o https)");
+      return;
+    }
+
+    await updateItem(selectedItemForEvidence.id, {
+      notes: mergeWorkNotesWithEvidence(evidenceForm.notes, evidenceUrl),
+    });
+
+    setEvidenceDialogOpen(false);
+    setSelectedItemForEvidence(null);
+  };
+
   // Save cost
   const saveCost = async () => {
     if (!selectedItemForCost || !workOrder || !profile?.org_id) return;
@@ -585,6 +648,17 @@ export function WorkOrderSheet({
                                   Costo: {formatCOP(item.accumulated_cost)}
                                 </p>
                               )}
+                              {extractEvidenceUrl(item.notes) && (
+                                <a
+                                  href={extractEvidenceUrl(item.notes)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-0.5"
+                                >
+                                  <Link className="h-3 w-3" />
+                                  Ver evidencia
+                                </a>
+                              )}
                             </div>
                           </div>
 
@@ -637,6 +711,16 @@ export function WorkOrderSheet({
                                   Costo
                                 </Button>
                               )}
+
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => openEvidenceDialog(item)}
+                              >
+                                <Link className="h-3 w-3 mr-1" />
+                                Evidencia
+                              </Button>
 
                               <Button
                                 variant="ghost"
@@ -788,6 +872,44 @@ export function WorkOrderSheet({
             <Button onClick={saveCost} disabled={savingCost}>
               {savingCost ? "Guardando..." : "Guardar"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Evidence */}
+      <Dialog open={evidenceDialogOpen} onOpenChange={setEvidenceDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Registrar evidencia</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {selectedItemForEvidence && (
+              <p className="text-sm text-muted-foreground">
+                Ítem: <strong>{selectedItemForEvidence.title}</strong>
+              </p>
+            )}
+            <div className="space-y-2">
+              <Label>Notas de ejecución</Label>
+              <Textarea
+                value={evidenceForm.notes}
+                onChange={(e) => setEvidenceForm((prev) => ({ ...prev, notes: e.target.value }))}
+                placeholder="Describe brevemente qué se hizo..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>URL de evidencia (opcional)</Label>
+              <Input
+                value={evidenceForm.evidence_url}
+                onChange={(e) => setEvidenceForm((prev) => ({ ...prev, evidence_url: e.target.value }))}
+                placeholder="https://..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEvidenceDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={saveEvidence}>Guardar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -54,3 +54,12 @@
 ### Step S2-13: Harden commercial data loading and fallback behavior
 - Commit: `ad36907`
 - Outcome: strengthened `useVehicleSalesData` with explicit per-query error checks, safe customer fallback when `orgId` is unavailable, and stable alphabetical customer ordering after quick-create.
+
+
+### Step S2-14: Execute Sprint 2 exit validation
+- Commit: `N/A (documentation closure step)`
+- Outcome: validated Sprint 2 acceptance criteria with explicit evidence for 4-tab navigation, commercial flow coverage, successful build, and absence of legacy-tab references.
+
+### Step S2-15: Publish Sprint 2 exit report and unlock Sprint 3
+- Commit: `N/A (documentation closure step)`
+- Outcome: documented Sprint 2 exit gate in `docs/inventory-sprint-2-exit-report.md`, leaving Sprint 3 ready to start with baseline checks completed.

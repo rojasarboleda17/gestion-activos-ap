@@ -37,3 +37,7 @@
 ### Step S2-09: Extract direct-sale and void-sale mutations to hook
 - Commit: `e6c70cf`
 - Outcome: moved direct sale and void sale mutation logic from `VehicleSalesTab` to `useVehicleSalesMutations`.
+
+### Step S2-10: Extract reservation mutations to hook
+- Commit: `5df4af3`
+- Outcome: moved create/cancel/convert reservation mutation logic from `VehicleSalesTab` to `useVehicleReservationMutations`.

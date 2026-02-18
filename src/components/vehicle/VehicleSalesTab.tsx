@@ -1,25 +1,12 @@
 import { getErrorMessage } from "@/lib/errors";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/ui/loading-state";
-import { formatCOP } from "@/lib/format";
-import { DollarSign, X, ArrowRight, Eye } from "lucide-react";
-import { logger } from "@/lib/logger";
-import { useVehicleSalesData, type Reservation } from "@/hooks/vehicle/useVehicleSalesData";
+import { useVehicleSalesData } from "@/hooks/vehicle/useVehicleSalesData";
 import { useVehicleSalesUIState } from "@/hooks/vehicle/useVehicleSalesUIState";
 import { useVehicleSalesMutations } from "@/hooks/vehicle/useVehicleSalesMutations";
+import { useVehicleReservationMutations } from "@/hooks/vehicle/useVehicleReservationMutations";
 import { VehicleSalesActions } from "@/components/vehicle/VehicleSalesActions";
 import { VehicleReservationsCard } from "@/components/vehicle/VehicleReservationsCard";
 import { VehicleSalesCard } from "@/components/vehicle/VehicleSalesCard";
@@ -115,64 +102,26 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
     onRefresh,
   });
 
+  const {
+    createReservation,
+    cancelReservation,
+    convertReservationToSale,
+  } = useVehicleReservationMutations({
+    vehicleId,
+    orgId: profile?.org_id,
+    userId: profile?.id,
+    defaultPaymentMethodCode: paymentMethods[0]?.code || "",
+    refetch,
+    onRefresh,
+  });
+
   const handleCreateReservation = async () => {
-    if (!profile?.org_id) return;
-
-    if (!resForm.customer_id) {
-      toast.error("Selecciona un cliente");
-      return;
-    }
-    const depositAmount = parseInt(resForm.deposit_amount_cop);
-    if (!resForm.deposit_amount_cop || isNaN(depositAmount) || depositAmount <= 0) {
-      toast.error("El depósito debe ser mayor a 0");
-      return;
-    }
-    if (!resForm.payment_method_code) {
-      toast.error("Selecciona un método de pago");
-      return;
-    }
-
     setSavingRes(true);
     try {
-      logger.debug("[VehicleSalesTab] Creating reservation...");
-      const { data, error } = await supabase
-        .from("reservations")
-        .insert({
-          org_id: profile.org_id,
-          vehicle_id: vehicleId,
-          customer_id: resForm.customer_id,
-          deposit_amount_cop: depositAmount,
-          payment_method_code: resForm.payment_method_code,
-          notes: resForm.notes?.trim() || null,
-          status: "active",
-          created_by: profile.id,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        logger.error("[VehicleSalesTab] Reservation error:", error);
-        toast.error(`Error: ${error.message}${error.details ? ` - ${error.details}` : ""}`);
-        return;
-      }
-
-      if (!data) {
-        toast.error("Error: No se creó la reserva");
-        return;
-      }
-
-      // Update vehicle stage
-      await supabase.rpc("transition_vehicle_stage", {
-        p_vehicle_id: vehicleId,
-        p_target_stage: "bloqueado",
-      });      
+      const success = await createReservation(resForm);
+      if (!success) return;
 
       setCreateResOpen(false);
-      refetch();
-      onRefresh?.();
-    } catch (err: unknown) {
-      logger.error("[VehicleSalesTab] Unexpected error:", err);
-      toast.error(`Error: ${getErrorMessage(err)}`);
     } finally {
       setSavingRes(false);
     }
@@ -214,144 +163,24 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
 
   // ===== CANCEL RESERVATION =====
   const handleCancelReservation = async () => {
-    if (!cancelingReservation || !profile?.id) return;
+    const reservationId = cancelingReservation?.id || null;
 
-    try {
-      logger.debug("[VehicleSalesTab] Cancelling reservation:", cancelingReservation.id);
-      const { error, data } = await supabase
-        .from("reservations")
-        .update({
-          status: "cancelled",
-          cancel_reason: cancelReason?.trim() || null,
-          cancelled_at: new Date().toISOString(),
-          cancelled_by: profile.id,
-        })
-        .eq("id", cancelingReservation.id)
-        .select();
+    const success = await cancelReservation(reservationId, cancelReason);
+    if (!success) return;
 
-      if (error) {
-        logger.error("[VehicleSalesTab] Cancel error:", error);
-        toast.error(`Error: ${error.message}`);
-        return;
-      }
-
-      if (!data?.length) {
-        toast.error("Error: No se actualizó la reserva");
-        return;
-      }
-
-      // Check for other active reservations
-      const { data: otherActive } = await supabase
-        .from("reservations")
-        .select("id")
-        .eq("vehicle_id", vehicleId)
-        .eq("status", "active")
-        .neq("id", cancelingReservation.id);
-
-        if (!otherActive?.length) {
-          await supabase.rpc("transition_vehicle_stage", {
-            p_vehicle_id: vehicleId,
-            p_target_stage: "publicado",
-          });
-        } else {
-          await supabase.rpc("transition_vehicle_stage", {
-            p_vehicle_id: vehicleId,
-            p_target_stage: "bloqueado",
-          });
-        }        
-
-      setCancelDialogOpen(false);
-      setCancelingReservation(null);
-      refetch();
-      onRefresh?.();
-    } catch (err: unknown) {
-      logger.error("[VehicleSalesTab] Unexpected error:", err);
-      toast.error(`Error: ${getErrorMessage(err)}`);
-    }
+    setCancelDialogOpen(false);
+    setCancelingReservation(null);
   };
 
   // ===== CONVERT RESERVATION TO SALE =====
   const handleConvertToSale = async () => {
-    if (!profile?.org_id || !convertingReservation) return;
-
-    const finalPrice = parseInt(convertForm.final_price_cop);
-    if (!convertForm.final_price_cop || isNaN(finalPrice) || finalPrice <= 0) {
-      toast.error("El precio final debe ser mayor a 0");
-      return;
-    }
-    if (!convertForm.payment_method_code) {
-      toast.error("Selecciona un método de pago");
-      return;
-    }
-
     setConverting(true);
     try {
-      // Step 1: Create sale
-      logger.debug("[VehicleSalesTab] Creating sale from reservation...");
-      const { data: saleData, error: saleError } = await supabase
-        .from("sales")
-        .insert({
-          org_id: profile.org_id,
-          vehicle_id: vehicleId,
-          customer_id: convertingReservation.customer_id,
-          final_price_cop: finalPrice,
-          payment_method_code: convertForm.payment_method_code,
-          reservation_id: convertingReservation.id,
-          status: "active",
-          created_by: profile.id,
-          notes: convertForm.notes?.trim() || null,
-        })
-        .select()
-        .single();
-
-      if (saleError) {
-        logger.error("[VehicleSalesTab] Sale error:", saleError);
-        toast.error(`Error al crear venta: ${saleError.message}`);
-        return;
-      }
-
-      if (!saleData?.id) {
-        toast.error("Error: No se creó la venta");
-        return;
-      }
-
-      // Step 2: Register deposit as payment
-      if (convertForm.registerDepositAsPayment) {
-        const { error: paymentError } = await supabase.from("sale_payments").insert({
-          org_id: profile.org_id,
-          sale_id: saleData.id,
-          amount_cop: convertingReservation.deposit_amount_cop,
-          direction: "in",
-          payment_method_code: convertingReservation.payment_method_code,
-          notes: "Depósito de reserva",
-          created_by: profile.id,
-        });
-
-        if (paymentError) {
-          logger.error("[VehicleSalesTab] Payment error:", paymentError);
-          emitModuleEvent({
-            toast: { message: `Venta creada, pero falló el pago: ${paymentError.message}`, type: "warning" },
-            invalidations: ["sales"],
-          });
-        }
-      }
-
-      // Step 3: Update vehicle
-      await supabase.rpc("mark_vehicle_sold", {
-        p_vehicle_id: vehicleId,
-        p_sale_id: saleData.id,
-      });      
-
-      // Step 4: Update reservation
-      await supabase.from("reservations").update({ status: "converted" }).eq("id", convertingReservation.id);
+      const success = await convertReservationToSale(convertingReservation, convertForm);
+      if (!success) return;
 
       setConvertDialogOpen(false);
       setConvertingReservation(null);
-      refetch();
-      onRefresh?.();
-    } catch (err: unknown) {
-      logger.error("[VehicleSalesTab] Unexpected error:", err);
-      toast.error(`Error: ${getErrorMessage(err)}`);
     } finally {
       setConverting(false);
     }

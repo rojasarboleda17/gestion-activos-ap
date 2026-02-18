@@ -19,14 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { PaymentMethod, VehicleStage } from "@/hooks/vehicle/useVehicleSalesData";
-
-interface VoidForm {
-  void_reason: string;
-  return_stage_code: string;
-  refund_amount: string;
-  refund_method: string;
-}
+import type { PaymentMethod, VehicleStage, VoidForm } from "@/hooks/vehicle/types";
 
 interface Props {
   open: boolean;

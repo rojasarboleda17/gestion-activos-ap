@@ -16,14 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Customer, PaymentMethod } from "@/hooks/vehicle/useVehicleSalesData";
-
-interface SaleForm {
-  customer_id: string;
-  final_price_cop: string;
-  payment_method_code: string;
-  notes: string;
-}
+import type { Customer, PaymentMethod, SaleForm } from "@/hooks/vehicle/types";
 
 interface Props {
   open: boolean;

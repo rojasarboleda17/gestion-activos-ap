@@ -8,11 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
-interface QuickCustomerForm {
-  full_name: string;
-  phone: string;
-}
+import type { QuickCustomerForm } from "@/hooks/vehicle/types";
 
 interface Props {
   open: boolean;
@@ -51,7 +47,7 @@ export function VehicleQuickCustomerDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={onSubmit}>Crear</Button>
+          <Button onClick={onSubmit} >Crear</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

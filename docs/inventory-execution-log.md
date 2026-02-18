@@ -63,3 +63,4 @@
 ### Step S2-15: Publish Sprint 2 exit report and unlock Sprint 3
 - Commit: `N/A (documentation closure step)`
 - Outcome: documented Sprint 2 exit gate in `docs/inventory-sprint-2-exit-report.md`, leaving Sprint 3 ready to start with baseline checks completed.
+

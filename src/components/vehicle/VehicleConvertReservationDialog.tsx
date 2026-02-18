@@ -18,14 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatCOP } from "@/lib/format";
-import type { PaymentMethod, Reservation } from "@/hooks/vehicle/useVehicleSalesData";
-
-interface ConvertForm {
-  final_price_cop: string;
-  payment_method_code: string;
-  notes: string;
-  registerDepositAsPayment: boolean;
-}
+import type { ConvertForm, PaymentMethod, Reservation } from "@/hooks/vehicle/types";
 
 interface Props {
   open: boolean;

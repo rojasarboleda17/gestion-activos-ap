@@ -136,7 +136,7 @@ export default function AdminOperations() {
   // Filters for Work Orders
   const [woStatusFilter, setWoStatusFilter] = useState("open");
   const [woSearch, setWoSearch] = useState("");
-  const [woScopeFilter, setWoScopeFilter] = useState<"vehicle" | "business">("vehicle");
+  const [woScopeFilter, setWoScopeFilter] = useState<"all" | "vehicle" | "business">("all");
 
   // Filters for Catalog
   const [catSearch, setCatSearch] = useState("");
@@ -231,7 +231,7 @@ export default function AdminOperations() {
 
   const filteredWorkOrders = useMemo(() => {
     return workOrders.filter((wo) => {
-      if (wo.scope !== woScopeFilter) return false;
+      if (woScopeFilter !== "all" && wo.scope !== woScopeFilter) return false;
       if (woStatusFilter !== "all" && wo.status !== woStatusFilter) return false;
       if (woSearch.trim()) {
         const search = woSearch.toLowerCase();
@@ -448,20 +448,17 @@ export default function AdminOperations() {
     );
   }
 
-  const renderWOTable = (
-    orders: WorkOrder[],
-    isVehicle: boolean
-  ) => {
+  const renderWOTable = (orders: WorkOrder[]) => {
     if (orders.length === 0) {
       return (
         <EmptyState
           icon={ClipboardList}
           title="Sin órdenes"
-          description={isVehicle ? "No hay órdenes de alistamiento." : "No hay órdenes de negocio."}
+          description="No hay órdenes con los filtros actuales."
           action={{
-            label: isVehicle ? "Crear Orden" : "Crear Orden de Negocio",
+            label: "Crear Orden",
             onClick: () => {
-              setCreateOrderScope(isVehicle ? "vehicle" : "business");
+              setCreateOrderScope(woScopeFilter === "business" ? "business" : "vehicle");
               setCreateOrderDialogOpen(true);
             },
           }}
@@ -476,9 +473,9 @@ export default function AdminOperations() {
           <Table>
             <TableHeader>
               <TableRow>
-                {isVehicle && <TableHead>Vehículo</TableHead>}
-                {!isVehicle && <TableHead>Notas</TableHead>}
-                {isVehicle && <TableHead>Estado Vehículo</TableHead>}
+                <TableHead>Tipo</TableHead>
+                <TableHead>Detalle</TableHead>
+                <TableHead>Estado Vehículo</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Progreso</TableHead>
                 <TableHead>Pendientes</TableHead>
@@ -491,9 +488,14 @@ export default function AdminOperations() {
                 const progress = wo.items_total > 0 ? Math.round((wo.items_done / wo.items_total) * 100) : 0;
                 return (
                   <TableRow key={wo.id}>
-                    {isVehicle && (
-                      <TableCell>
-                        {wo.vehicle ? (
+                    <TableCell>
+                      <Badge variant={wo.scope === "vehicle" ? "default" : "secondary"}>
+                        {wo.scope === "vehicle" ? "Vehículo" : "Negocio"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {wo.scope === "vehicle" ? (
+                        wo.vehicle ? (
                           <div>
                             <span className="font-mono text-sm bg-secondary px-2 py-0.5 rounded">
                               {wo.vehicle.license_plate || "S/P"}
@@ -504,19 +506,16 @@ export default function AdminOperations() {
                           </div>
                         ) : (
                           <span className="text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                    )}
-                    {!isVehicle && (
-                      <TableCell className="max-w-[200px] truncate">
-                        {wo.notes || "Sin notas"}
-                      </TableCell>
-                    )}
-                    {isVehicle && (
-                      <TableCell>
-                        <Badge variant="outline">{wo.stage_name}</Badge>
-                      </TableCell>
-                    )}
+                        )
+                      ) : (
+                        <span className="text-sm text-muted-foreground">{wo.notes || "Sin notas"}</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {wo.scope === "vehicle"
+                        ? <Badge variant="outline">{wo.stage_name}</Badge>
+                        : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
                     <TableCell>
                       <Badge variant={wo.status === "open" ? "default" : "secondary"}>
                         {wo.status === "open" ? "Abierta" : "Cerrada"}
@@ -568,7 +567,7 @@ export default function AdminOperations() {
                 <CardContent className="py-4 space-y-3">
                   <div className="flex justify-between items-start">
                     <div>
-                      {isVehicle && wo.vehicle ? (
+                      {wo.scope === "vehicle" && wo.vehicle ? (
                         <>
                           <span className="font-mono text-sm bg-secondary px-2 py-0.5 rounded">
                             {wo.vehicle.license_plate || "S/P"}
@@ -592,7 +591,7 @@ export default function AdminOperations() {
                     </span>
                   </div>
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{isVehicle ? wo.stage_name : "Negocio"}</span>
+                    <span>{wo.scope === "vehicle" ? wo.stage_name : "Negocio"}</span>
                     <span>{formatDate(wo.updated_at)}</span>
                   </div>
                 </CardContent>
@@ -644,12 +643,13 @@ export default function AdminOperations() {
               </div>
               <Select
                 value={woScopeFilter}
-                onValueChange={(value: "vehicle" | "business") => setWoScopeFilter(value)}
+                onValueChange={(value: "all" | "vehicle" | "business") => setWoScopeFilter(value)}
               >
                 <SelectTrigger className="w-[170px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="all">Todas las órdenes</SelectItem>
                   <SelectItem value="vehicle">Alistamiento vehículos</SelectItem>
                   <SelectItem value="business">Operaciones negocio</SelectItem>
                 </SelectContent>
@@ -668,7 +668,7 @@ export default function AdminOperations() {
               </Select>
             </div>
             <Button onClick={() => {
-              setCreateOrderScope(woScopeFilter);
+              setCreateOrderScope(woScopeFilter === "business" ? "business" : "vehicle");
               setCreateOrderDialogOpen(true);
             }}>
               <Plus className="h-4 w-4 mr-2" />
@@ -686,7 +686,7 @@ export default function AdminOperations() {
             </Card>
           )}
 
-          {renderWOTable(filteredWorkOrders, woScopeFilter === "vehicle")}
+          {renderWOTable(filteredWorkOrders)}
         </TabsContent>
 
         {/* Tab: Catalog */}

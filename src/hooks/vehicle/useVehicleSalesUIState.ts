@@ -1,10 +1,18 @@
 import { useState } from "react";
-import type { Reservation, Sale } from "@/hooks/vehicle/useVehicleSalesData";
+import type {
+  ConvertForm,
+  QuickCustomerForm,
+  Reservation,
+  ReservationForm,
+  Sale,
+  SaleForm,
+  VoidForm,
+} from "@/hooks/vehicle/types";
 
 export function useVehicleSalesUIState(defaultPaymentMethodCode: string) {
   const [createResOpen, setCreateResOpen] = useState(false);
   const [savingRes, setSavingRes] = useState(false);
-  const [resForm, setResForm] = useState({
+  const [resForm, setResForm] = useState<ReservationForm>({
     customer_id: "",
     deposit_amount_cop: "",
     payment_method_code: "",
@@ -12,7 +20,7 @@ export function useVehicleSalesUIState(defaultPaymentMethodCode: string) {
   });
 
   const [quickCustomerOpen, setQuickCustomerOpen] = useState(false);
-  const [quickCustomerForm, setQuickCustomerForm] = useState({ full_name: "", phone: "" });
+  const [quickCustomerForm, setQuickCustomerForm] = useState<QuickCustomerForm>({ full_name: "", phone: "" });
 
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelingReservation, setCancelingReservation] = useState<Reservation | null>(null);
@@ -20,7 +28,7 @@ export function useVehicleSalesUIState(defaultPaymentMethodCode: string) {
 
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [convertingReservation, setConvertingReservation] = useState<Reservation | null>(null);
-  const [convertForm, setConvertForm] = useState({
+  const [convertForm, setConvertForm] = useState<ConvertForm>({
     final_price_cop: "",
     payment_method_code: "",
     notes: "",
@@ -30,7 +38,7 @@ export function useVehicleSalesUIState(defaultPaymentMethodCode: string) {
 
   const [createSaleOpen, setCreateSaleOpen] = useState(false);
   const [savingSale, setSavingSale] = useState(false);
-  const [saleForm, setSaleForm] = useState({
+  const [saleForm, setSaleForm] = useState<SaleForm>({
     customer_id: "",
     final_price_cop: "",
     payment_method_code: "",
@@ -39,7 +47,7 @@ export function useVehicleSalesUIState(defaultPaymentMethodCode: string) {
 
   const [voidDialogOpen, setVoidDialogOpen] = useState(false);
   const [voidingSale, setVoidingSale] = useState<Sale | null>(null);
-  const [voidForm, setVoidForm] = useState({
+  const [voidForm, setVoidForm] = useState<VoidForm>({
     void_reason: "",
     return_stage_code: "publicado",
     refund_amount: "",

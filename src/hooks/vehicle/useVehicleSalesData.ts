@@ -2,41 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { logger } from "@/lib/logger";
 import { toast } from "sonner";
-
-export interface Reservation {
-  id: string;
-  status: string;
-  deposit_amount_cop: number;
-  payment_method_code: string;
-  reserved_at: string;
-  customer_id: string;
-  customers?: { full_name: string; phone: string | null };
-}
-
-export interface Sale {
-  id: string;
-  status: string;
-  final_price_cop: number;
-  sale_date: string;
-  customer_id: string;
-  customers?: { full_name: string; phone: string | null };
-}
-
-export interface Customer {
-  id: string;
-  full_name: string;
-  phone: string | null;
-}
-
-export interface PaymentMethod {
-  code: string;
-  name: string;
-}
-
-export interface VehicleStage {
-  code: string;
-  name: string;
-}
+import type {
+  Customer,
+  PaymentMethod,
+  Reservation,
+  Sale,
+  VehicleStage,
+} from "@/hooks/vehicle/types";
 
 interface UseVehicleSalesDataParams {
   vehicleId: string;

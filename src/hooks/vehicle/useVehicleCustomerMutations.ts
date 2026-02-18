@@ -2,24 +2,14 @@ import { useCallback } from "react";
 import { getErrorMessage } from "@/lib/errors";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import type { Customer, QuickCustomerForm } from "@/hooks/vehicle/types";
 
 interface UseVehicleCustomerMutationsParams {
   orgId?: string;
 }
 
-interface QuickCustomerForm {
-  full_name: string;
-  phone: string;
-}
-
-interface CreatedCustomer {
-  id: string;
-  full_name: string;
-  phone: string | null;
-}
-
 export function useVehicleCustomerMutations({ orgId }: UseVehicleCustomerMutationsParams) {
-  const createQuickCustomer = useCallback(async (form: QuickCustomerForm): Promise<CreatedCustomer | null> => {
+  const createQuickCustomer = useCallback(async (form: QuickCustomerForm): Promise<Customer | null> => {
     if (!orgId || !form.full_name.trim()) {
       toast.error("El nombre es requerido");
       return null;
@@ -42,7 +32,7 @@ export function useVehicleCustomerMutations({ orgId }: UseVehicleCustomerMutatio
       }
 
       toast.success("Cliente creado");
-      return data as CreatedCustomer;
+      return data as Customer;
     } catch (err: unknown) {
       toast.error(`Error: ${getErrorMessage(err)}`);
       return null;

@@ -1,45 +1,15 @@
 import { useCallback } from "react";
 
-interface ReservationForm {
-  customer_id: string;
-  deposit_amount_cop: string;
-  payment_method_code: string;
-  notes: string;
-}
-
-interface QuickCustomerForm {
-  full_name: string;
-  phone: string;
-}
-
-interface ConvertForm {
-  final_price_cop: string;
-  payment_method_code: string;
-  notes: string;
-  registerDepositAsPayment: boolean;
-}
-
-interface SaleForm {
-  customer_id: string;
-  final_price_cop: string;
-  payment_method_code: string;
-  notes: string;
-}
-
-interface VoidForm {
-  void_reason: string;
-  return_stage_code: string;
-  refund_amount: string;
-  refund_method: string;
-}
-
-interface Customer {
-  id: string;
-  full_name: string;
-  phone: string | null;
-}
-
-import type { Reservation, Sale } from "@/hooks/vehicle/useVehicleSalesData";
+import type {
+  ConvertForm,
+  Customer,
+  QuickCustomerForm,
+  Reservation,
+  ReservationForm,
+  Sale,
+  SaleForm,
+  VoidForm,
+} from "@/hooks/vehicle/types";
 
 interface UseVehicleSalesActionHandlersParams {
   resForm: ReservationForm;

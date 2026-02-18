@@ -3,6 +3,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { logger } from "@/lib/logger";
+import type { SaleForm, VoidForm } from "@/hooks/vehicle/types";
 
 interface UseVehicleSalesMutationsParams {
   vehicleId: string;
@@ -12,20 +13,6 @@ interface UseVehicleSalesMutationsParams {
   onRefresh?: () => void;
 }
 
-interface DirectSaleForm {
-  customer_id: string;
-  final_price_cop: string;
-  payment_method_code: string;
-  notes: string;
-}
-
-interface VoidSaleForm {
-  void_reason: string;
-  return_stage_code: string;
-  refund_amount: string;
-  refund_method: string;
-}
-
 export function useVehicleSalesMutations({
   vehicleId,
   orgId,
@@ -33,7 +20,7 @@ export function useVehicleSalesMutations({
   refetch,
   onRefresh,
 }: UseVehicleSalesMutationsParams) {
-  const createDirectSale = useCallback(async (saleForm: DirectSaleForm) => {
+  const createDirectSale = useCallback(async (saleForm: SaleForm) => {
     if (!orgId || !userId) return false;
 
     const finalPrice = parseInt(saleForm.final_price_cop, 10);
@@ -94,7 +81,7 @@ export function useVehicleSalesMutations({
     }
   }, [orgId, onRefresh, refetch, userId, vehicleId]);
 
-  const voidSale = useCallback(async (saleId: string | null, voidForm: VoidSaleForm) => {
+  const voidSale = useCallback(async (saleId: string | null, voidForm: VoidForm) => {
     if (!saleId || !orgId || !userId) return false;
 
     if (!voidForm.void_reason.trim()) {

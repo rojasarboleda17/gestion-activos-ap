@@ -3,7 +3,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { logger } from "@/lib/logger";
-import type { Reservation } from "@/hooks/vehicle/useVehicleSalesData";
+import type { ConvertForm, Reservation, ReservationForm } from "@/hooks/vehicle/types";
 
 interface UseVehicleReservationMutationsParams {
   vehicleId: string;
@@ -14,19 +14,6 @@ interface UseVehicleReservationMutationsParams {
   onRefresh?: () => void;
 }
 
-interface ReservationForm {
-  customer_id: string;
-  deposit_amount_cop: string;
-  payment_method_code: string;
-  notes: string;
-}
-
-interface ConvertForm {
-  final_price_cop: string;
-  payment_method_code: string;
-  notes: string;
-  registerDepositAsPayment: boolean;
-}
 
 export function useVehicleReservationMutations({
   vehicleId,

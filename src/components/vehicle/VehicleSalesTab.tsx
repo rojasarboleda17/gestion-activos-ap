@@ -1,6 +1,7 @@
 import { useAuth } from "@/contexts/useAuth";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useVehicleSalesData } from "@/hooks/vehicle/useVehicleSalesData";
+import type { Reservation } from "@/hooks/vehicle/types";
 import { useVehicleSalesUIState } from "@/hooks/vehicle/useVehicleSalesUIState";
 import { useVehicleSalesMutations } from "@/hooks/vehicle/useVehicleSalesMutations";
 import { useVehicleReservationMutations } from "@/hooks/vehicle/useVehicleReservationMutations";
@@ -44,7 +45,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
   } = useVehicleSalesData({ vehicleId, orgId: profile?.org_id });
 
   const isSold = vehicleStageCode === "vendido";
-  const activeReservation = reservations.find((r) => r.status === "active") || null;
+  const activeReservation = reservations.find((r: Reservation) => r.status === "active") || null;
   const hasActiveReservation = Boolean(activeReservation);
 
   const {

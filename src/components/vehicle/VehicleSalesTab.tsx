@@ -1,12 +1,10 @@
-import { getErrorMessage } from "@/lib/errors";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
-import { toast } from "sonner";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useVehicleSalesData } from "@/hooks/vehicle/useVehicleSalesData";
 import { useVehicleSalesUIState } from "@/hooks/vehicle/useVehicleSalesUIState";
 import { useVehicleSalesMutations } from "@/hooks/vehicle/useVehicleSalesMutations";
 import { useVehicleReservationMutations } from "@/hooks/vehicle/useVehicleReservationMutations";
+import { useVehicleCustomerMutations } from "@/hooks/vehicle/useVehicleCustomerMutations";
 import { VehicleSalesActions } from "@/components/vehicle/VehicleSalesActions";
 import { VehicleReservationsCard } from "@/components/vehicle/VehicleReservationsCard";
 import { VehicleSalesCard } from "@/components/vehicle/VehicleSalesCard";
@@ -115,6 +113,10 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
     onRefresh,
   });
 
+  const { createQuickCustomer } = useVehicleCustomerMutations({
+    orgId: profile?.org_id,
+  });
+
   const handleCreateReservation = async () => {
     setSavingRes(true);
     try {
@@ -129,36 +131,14 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
 
   // Quick customer
   const handleQuickCustomer = async () => {
-    if (!profile?.org_id || !quickCustomerForm.full_name.trim()) {
-      toast.error("El nombre es requerido");
-      return;
-    }
+    const customer = await createQuickCustomer(quickCustomerForm);
+    if (!customer) return;
 
-    try {
-      const { data, error } = await supabase
-        .from("customers")
-        .insert({
-          org_id: profile.org_id,
-          full_name: quickCustomerForm.full_name.trim(),
-          phone: quickCustomerForm.phone?.trim() || null,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        toast.error(`Error: ${error.message}`);
-        return;
-      }
-
-      appendCustomer(data);
-      setResForm({ ...resForm, customer_id: data.id });
-      setSaleForm({ ...saleForm, customer_id: data.id });
-      setQuickCustomerOpen(false);
-      setQuickCustomerForm({ full_name: "", phone: "" });
-      toast.success("Cliente creado");
-    } catch (err: unknown) {
-      toast.error(`Error: ${getErrorMessage(err)}`);
-    }
+    appendCustomer(customer);
+    setResForm({ ...resForm, customer_id: customer.id });
+    setSaleForm({ ...saleForm, customer_id: customer.id });
+    setQuickCustomerOpen(false);
+    setQuickCustomerForm({ full_name: "", phone: "" });
   };
 
   // ===== CANCEL RESERVATION =====

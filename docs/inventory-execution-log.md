@@ -41,3 +41,7 @@
 ### Step S2-10: Extract reservation mutations to hook
 - Commit: `5df4af3`
 - Outcome: moved create/cancel/convert reservation mutation logic from `VehicleSalesTab` to `useVehicleReservationMutations`.
+
+### Step S2-11: Extract quick-customer mutation to hook
+- Commit: `7f4b47a`
+- Outcome: moved quick customer creation logic from `VehicleSalesTab` to `useVehicleCustomerMutations`.

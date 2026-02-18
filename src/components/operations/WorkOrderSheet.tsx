@@ -895,6 +895,16 @@ export function WorkOrderSheet({
                               </Button>
 
                               <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => openEvidenceDialog(item)}
+                              >
+                                <Link className="h-3 w-3 mr-1" />
+                                Evidencia
+                              </Button>
+
+                              <Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7 text-destructive"

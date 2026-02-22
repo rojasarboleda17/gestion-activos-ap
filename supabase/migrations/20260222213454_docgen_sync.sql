@@ -9,6 +9,7 @@ create table if not exists public.identity_document_types (
 
 alter table public.identity_document_types
   add column if not exists label text,
+  add column if not exists name text,
   add column if not exists created_at timestamptz not null default now(),
   add column if not exists updated_at timestamptz not null default now();
 
@@ -23,8 +24,13 @@ begin
   ) then
     execute $sql$
       update public.identity_document_types
-      set label = coalesce(nullif(btrim(label), ''), nullif(btrim(name), ''), upper(code))
-      where label is null or btrim(label) = ''
+      set
+        label = coalesce(nullif(btrim(label), ''), nullif(btrim(name), ''), upper(code)),
+        name = coalesce(nullif(btrim(name), ''), nullif(btrim(label), ''), upper(code))
+      where label is null
+         or btrim(label) = ''
+         or name is null
+         or btrim(name) = ''
     $sql$;
   else
     update public.identity_document_types
@@ -37,15 +43,16 @@ $$;
 alter table public.identity_document_types
   alter column label set not null;
 
-insert into public.identity_document_types (code, label)
+insert into public.identity_document_types (code, label, name)
 values
-  ('cc', 'Cédula de ciudadanía'),
-  ('ce', 'Cédula de extranjería'),
-  ('nit', 'NIT'),
-  ('pas', 'Pasaporte'),
-  ('pep', 'PEP')
+  ('cc', 'Cédula de ciudadanía', 'Cédula de ciudadanía'),
+  ('ce', 'Cédula de extranjería', 'Cédula de extranjería'),
+  ('nit', 'NIT', 'NIT'),
+  ('pas', 'Pasaporte', 'Pasaporte'),
+  ('pep', 'PEP', 'PEP')
 on conflict (code) do update
 set label = excluded.label,
+    name = excluded.name,
     updated_at = now();
 
 alter table public.customers

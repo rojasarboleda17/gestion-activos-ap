@@ -145,14 +145,14 @@ begin
 end
 $$;
 
-create or replace function public.util_transit_city(p_city text)
+create or replace function public.util_transit_city(p_transit_agency text)
 returns text
 language sql
 immutable
 as $$
   select case
-    when p_city is null or btrim(p_city) = '' then null
-    else initcap(lower(btrim(p_city)))
+    when p_transit_agency is null or btrim(p_transit_agency) = '' then null
+    else initcap(lower(btrim(p_transit_agency)))
   end;
 $$;
 

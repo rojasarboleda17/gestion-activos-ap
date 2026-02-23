@@ -1,6 +1,27 @@
 import { corsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
 
-Deno.serve((req) => {
+const TEMPLATE_RELATIVE_PATH = "templates/PAQUETE TRASPASO.pdf";
+
+async function readTemplateBytes() {
+  const candidates = [
+    new URL(`./${TEMPLATE_RELATIVE_PATH}`, import.meta.url).pathname,
+    `${Deno.cwd()}/supabase/functions/generate-sale-documents/${TEMPLATE_RELATIVE_PATH}`,
+    `${Deno.cwd()}/${TEMPLATE_RELATIVE_PATH}`,
+  ];
+
+  for (const path of candidates) {
+    try {
+      const bytes = await Deno.readFile(path);
+      return { bytes, path };
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    }
+  }
+
+  return { bytes: null, path: candidates[0], candidates };
+}
+
+Deno.serve(async (req) => {
   const preflight = handleCorsPreflight(req);
   if (preflight) return preflight;
 
@@ -14,16 +35,29 @@ Deno.serve((req) => {
     );
   }
 
+  const result = await readTemplateBytes();
+
+  if (!result.bytes) {
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        error: "Template file not found",
+        template_path: result.path,
+        template_candidates: result.candidates,
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
+  }
+
   return new Response(
     JSON.stringify({
       ok: true,
-      message:
-        "generate-sale-documents baseline listo (sin lógica de generación de PDFs).",
-      todo: [
-        "Cargar datos de venta",
-        "Completar template PAQUETE TRASPASO.pdf",
-        "Guardar/retornar archivos generados",
-      ],
+      template_bytes: result.bytes.length,
+      template_path: result.path,
+      message: "Baseline runtime probe OK.",
     }),
     {
       status: 200,

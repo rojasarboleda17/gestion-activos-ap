@@ -27,17 +27,23 @@ $migrate_closed_by$;
 -- 3) helper: rol del usuario (solo si tiene perfil activo en la org actual)
 create or replace function public.app_current_role()
 returns text
-language sql
+language plpgsql
 stable
 security definer
 set search_path = public
 as $app_current_role$
+declare
+  v_role text;
+begin
   select role
+    into v_role
   from public.profiles
   where id = auth.uid()
     and is_active = true
     and org_id = app_current_org_id();
 
+  return v_role;
+end;
 $app_current_role$;
 
 -- 4) transición de stage con reglas

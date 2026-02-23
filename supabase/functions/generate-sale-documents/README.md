@@ -1,6 +1,6 @@
 # generate-sale-documents
 
-Edge Function para generar PDFs dummy por documento solicitado, persistirlos en Storage y registrar `vehicle_files`.
+Edge Function para extraer PDFs reales desde el template embebido (`PAQUETE TRASPASO.pdf`) por documento solicitado, persistirlos en Storage y registrar `vehicle_files`.
 
 ## Ejecutar local
 
@@ -27,6 +27,21 @@ Body JSON:
 - `sale_id`: requerido, UUID válido.
 - `docs`: opcional, subset de `contrato_compraventa`, `mandato`, `traspaso`.
 - si `docs` no viene, la función usa los 3 por defecto.
+
+
+## Modo debug de coordenadas
+
+Puedes activar una grilla de calibración para cada página del PDF generado con cualquiera de estas opciones:
+
+- Query param: `POST /functions/v1/generate-sale-documents?debug=1`
+- Header: `X-Debug: 1`
+
+En debug, cada página incluye:
+- Grilla con líneas cada 50pt.
+- Etiquetas de coordenadas `x=` y `y=`.
+- Marcas en `(0,0)` y `(pageWidth,pageHeight)`.
+
+> En la siguiente fase (Tarea 5) se agregará overlay de campos de negocio (cliente/vehículo/venta).
 
 ## Importante para pruebas
 

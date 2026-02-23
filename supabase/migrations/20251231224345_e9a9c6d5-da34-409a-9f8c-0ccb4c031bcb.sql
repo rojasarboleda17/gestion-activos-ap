@@ -1,5 +1,6 @@
 -- Add INSERT policy for audit_log so frontend can write audit entries
--- Guarded to avoid failing bootstrap environments where audit_log is not yet present.
+-- IMPORTANT: bootstrap-safe version. This migration must not fail when audit_log
+-- is absent (fresh local reset / partial bootstrap scenarios).
 DO $$
 BEGIN
   IF to_regclass('public.audit_log') IS NULL THEN

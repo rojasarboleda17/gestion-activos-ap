@@ -36,43 +36,55 @@ begin
   alter table public.vehicle_files
     add column if not exists doc_type_other text;
 
-  update public.vehicle_files
+  with normalized as (
+    select
+      id,
+      case
+        when doc_type is null or btrim(doc_type) = '' then null
+        when lower(btrim(doc_type)) in ('soat') then 'soat'
+        when lower(btrim(doc_type)) in ('tecnomecanica', 'tecnomecánica', 'tecno') then 'tecnomecanica'
+        when lower(btrim(doc_type)) in ('rtm', 'revision tecnico mecanica', 'revisión técnico mecánica') then 'rtm'
+        when lower(btrim(doc_type)) in ('factura') then 'factura'
+        when lower(btrim(doc_type)) in ('traspaso') then 'traspaso'
+        when lower(btrim(doc_type)) in ('tarjeta_propiedad', 'tarjeta propiedad', 'tarjeta de propiedad') then 'tarjeta_propiedad'
+        when lower(btrim(doc_type)) in ('contrato') then 'contrato'
+        when lower(btrim(doc_type)) in ('revision', 'revisión') then 'revision'
+        when lower(btrim(doc_type)) = 'otro' then 'otro'
+        else 'otro'
+      end as mapped_doc_type,
+      case
+        when doc_type is null or btrim(doc_type) = '' then null
+        when lower(btrim(doc_type)) in (
+          'soat',
+          'tecnomecanica',
+          'tecnomecánica',
+          'tecno',
+          'rtm',
+          'revision tecnico mecanica',
+          'revisión técnico mecánica',
+          'factura',
+          'traspaso',
+          'tarjeta_propiedad',
+          'tarjeta propiedad',
+          'tarjeta de propiedad',
+          'contrato',
+          'revision',
+          'revisión'
+        ) then null
+        when lower(btrim(doc_type)) = 'otro' then nullif(btrim(doc_type_other), '')
+        else btrim(doc_type)
+      end as mapped_doc_type_other
+    from public.vehicle_files
+  )
+  update public.vehicle_files vf
   set
-    doc_type = case
-      when doc_type is null or btrim(doc_type) = '' then null
-      when lower(btrim(doc_type)) in ('soat') then 'soat'
-      when lower(btrim(doc_type)) in ('tecnomecanica', 'tecnomecánica', 'tecno') then 'tecnomecanica'
-      when lower(btrim(doc_type)) in ('rtm', 'revision tecnico mecanica', 'revisión técnico mecánica') then 'rtm'
-      when lower(btrim(doc_type)) in ('factura') then 'factura'
-      when lower(btrim(doc_type)) in ('traspaso') then 'traspaso'
-      when lower(btrim(doc_type)) in ('tarjeta_propiedad', 'tarjeta propiedad', 'tarjeta de propiedad') then 'tarjeta_propiedad'
-      when lower(btrim(doc_type)) in ('contrato') then 'contrato'
-      when lower(btrim(doc_type)) in ('revision', 'revisión') then 'revision'
-      when lower(btrim(doc_type)) = 'otro' then 'otro'
-      else 'otro'
-    end,
+    doc_type = n.mapped_doc_type,
     doc_type_other = case
-      when doc_type is null or btrim(doc_type) = '' then null
-      when lower(btrim(doc_type)) in (
-        'soat',
-        'tecnomecanica',
-        'tecnomecánica',
-        'tecno',
-        'rtm',
-        'revision tecnico mecanica',
-        'revisión técnico mecánica',
-        'factura',
-        'traspaso',
-        'tarjeta_propiedad',
-        'tarjeta propiedad',
-        'tarjeta de propiedad',
-        'contrato',
-        'revision',
-        'revisión',
-        'otro'
-      ) then null
-      else btrim(doc_type)
-    end;
+      when n.mapped_doc_type = 'otro' then coalesce(n.mapped_doc_type_other, 'otro')
+      else null
+    end
+  from normalized n
+  where n.id = vf.id;
 
   alter table public.vehicle_files
     drop constraint if exists vehicle_files_doc_type_fkey;

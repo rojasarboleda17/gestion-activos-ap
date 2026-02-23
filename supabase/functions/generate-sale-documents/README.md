@@ -1,120 +1,68 @@
 # generate-sale-documents (baseline)
 
-Edge Function baseline para docgen de venta **sin lógica de generación de PDF**.
+Edge Function baseline para docgen de venta con un probe de runtime.
 
-## Estructura
+## Qué valida esta baseline
 
-- `index.ts`: skeleton compilable con `Deno.serve`.
-- `deno.json`: configuración por función (recomendada en Supabase Edge
-  Functions).
-- `templates/PAQUETE TRASPASO.pdf`: plantilla base copiada desde la raíz del
-  repositorio.
+La función:
+- Acepta `POST`.
+- Lee el archivo `./templates/PAQUETE TRASPASO.pdf`.
+- Responde JSON con `template_bytes` (cantidad de bytes leídos).
 
-## Cómo invocar
+No implementa todavía lógica de Supabase ni rellenado de PDF.
 
-Endpoint local (Supabase CLI):
+## Opción A (recomendada): probar vía Supabase Functions
+
+1. Levanta el stack local:
+
+```bash
+supabase start
+```
+
+2. Sirve la función (sin verificar JWT para la prueba local):
+
+```bash
+supabase functions serve generate-sale-documents --no-verify-jwt
+```
+
+> `supabase functions serve` se ejecuta en foreground. Déjalo corriendo en esa terminal.
+
+3. En otra terminal, prueba el endpoint:
 
 ```bash
 curl -i -X POST 'http://127.0.0.1:54321/functions/v1/generate-sale-documents' \
-  -H 'Authorization: Bearer <JWT>' \
   -H 'Content-Type: application/json' \
-  -d '{"saleId":"<uuid>"}'
+  -d '{}'
 ```
 
-Comportamiento actual del baseline:
+Respuesta esperada: `HTTP/1.1 200` con JSON que incluye `ok: true` y `template_bytes`.
 
-- HTTP `200` para `POST`, con payload JSON informativo.
-- HTTP `405` para métodos distintos a `POST`.
-- HTTP `200` para preflight `OPTIONS`.
+## Opción B (fallback): ejecutar directo con Deno
 
-## Cómo probar local (sin deploy)
+Si en tu entorno `supabase functions serve` exige `supabase start` y no puedes levantarlo por puertos o Docker, puedes validar el runtime directo:
 
-1. Servir la función:
-
-   ```bash
-   supabase functions serve generate-sale-documents --no-verify-jwt
-   ```
-
-2. Invocar con `curl`:
-
-   ```bash
-   curl -i -X POST 'http://127.0.0.1:54321/functions/v1/generate-sale-documents' \
-      -H 'Content-Type: application/json' \
-      -d '{"sale_id":"00000000-0000-0000-0000-000000000000"}'
-   ```
-
-> Nota: este baseline no genera ni modifica PDFs todavía.
-
-## Troubleshooting local
-
-Si `supabase start` falla con un error como:
-
-```
-Bind for 0.0.0.0:54322 failed: port is already allocated
+```bash
+cd supabase/functions/generate-sale-documents
+deno run --allow-net --allow-read --allow-env index.ts
 ```
 
-puedes resolverlo con alguna de estas opciones:
+En otra terminal:
 
-1. Detener el proyecto local que ya está usando puertos de Supabase:
+```bash
+curl -i -X POST 'http://127.0.0.1:8000' \
+  -H 'Content-Type: application/json' \
+  -d '{}'
+```
 
-   ```bash
-   supabase stop --project-id <project-id>
-   ```
+## Nota sobre JWT
 
-2. Cambiar el puerto de base de datos en `supabase/config.toml` (sección `[db]`)
-   para evitar el conflicto y volver a ejecutar `supabase start`.
+En `supabase/config.toml`, la función puede mantenerse con `verify_jwt=true`.
+En ese modo también se puede invocar usando JWT-based keys (`anon` o `service_role`).
 
-3. Verificar qué proceso ocupa el puerto antes de reiniciar:
+## Troubleshooting rápido
 
-   ```bash
-   lsof -i :54322
-   ```
-
-> `supabase functions serve generate-sale-documents` requiere que
-> `supabase start` esté ejecutándose correctamente.
-
-## ¿Qué hago ahora? (paso a paso)
-
-Si estás en el mismo caso del error de puerto, ejecuta esto en orden:
-
-1. Identifica si ya hay un proyecto de Supabase corriendo y detenlo:
-
-   ```bash
-   supabase stop --project-id <project-id>
-   ```
-
-2. Verifica si el puerto `54322` sigue ocupado:
-
-   ```bash
-   lsof -i :54322
-   ```
-
-3. Intenta levantar el stack otra vez:
-
-   ```bash
-   supabase start
-   ```
-
-4. Si vuelve a fallar por el mismo puerto, cambia el puerto de DB en
-   `supabase/config.toml` (`[db]`) y repite `supabase start`.
-
-5. Cuando `supabase start` quede arriba, recién ahí sirve la función:
-
-   ```bash
-   supabase functions serve generate-sale-documents
-   ```
-
-6. Prueba el endpoint:
-
-   ```bash
-   curl -i -X POST 'http://127.0.0.1:54321/functions/v1/generate-sale-documents' \
-     -H 'Authorization: Bearer <JWT>' \
-     -H 'Content-Type: application/json' \
-     -d '{"saleId":"00000000-0000-0000-0000-000000000000"}'
-   ```
-
-## Alcance de este baseline
-
-- No implementa generación, edición ni firma de PDFs.
-- No realiza deploy automático ni incluye pasos de despliegue.
-- Solo valida wiring inicial para una Edge Function compilable.
+- **404 en `/functions/v1/generate-sale-documents`**:
+  - Verifica que `supabase functions serve generate-sale-documents --no-verify-jwt` siga corriendo.
+  - Ejecuta el `curl` en otra terminal (no en la misma donde está `serve`).
+- **405 Method Not Allowed**:
+  - La función solo acepta `POST`.

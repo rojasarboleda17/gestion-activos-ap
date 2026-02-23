@@ -1,12 +1,5 @@
--- 1) vendido como bandera
-alter table public.vehicles
-  add column if not exists sold_at timestamptz,
-  add column if not exists sold_by uuid references public.profiles(id),
-  add column if not exists sold_sale_id uuid references public.sales(id);
-
--- 2) trazabilidad al cerrar órdenes
-alter table public.work_orders
-  add column if not exists closed_by uuid references public.profiles(id);
+-- Nota: `public.vehicles.sold_*` y `public.work_orders.closed_by` ya existen en el schema base.
+-- Se omiten ALTER TABLE redundantes en esta migración para evitar dependencia de orden de bootstrap.
 
 -- 3) helper: rol del usuario (solo si tiene perfil activo en la org actual)
 create or replace function public.app_current_role()

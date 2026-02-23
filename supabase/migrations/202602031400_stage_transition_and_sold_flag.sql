@@ -8,13 +8,14 @@ language sql
 stable
 security definer
 set search_path = public
-as $$
+as $app_current_role$
   select role
   from public.profiles
   where id = auth.uid()
     and is_active = true
     and org_id = app_current_org_id();
-$$;
+
+$app_current_role$;
 
 -- 4) transición de stage con reglas
 create or replace function public.transition_vehicle_stage(
@@ -24,7 +25,7 @@ create or replace function public.transition_vehicle_stage(
 language plpgsql
 security definer
 set search_path = public
-as $$
+as $transition_vehicle_stage$
 declare
   v_role text;
   v_is_archived boolean;
@@ -128,7 +129,7 @@ begin
   values (app_current_org_id(), auth.uid(), 'vehicle', p_vehicle_id, 'stage_changed',
           jsonb_build_object('from',v_current_stage,'to',p_target_stage));
 end;
-$$;
+$transition_vehicle_stage$;
 
 -- 5) marcar vendido + auto-archivar
 create or replace function public.mark_vehicle_sold(
@@ -138,7 +139,7 @@ create or replace function public.mark_vehicle_sold(
 language plpgsql
 security definer
 set search_path = public
-as $$
+as $mark_vehicle_sold$
 declare
   v_role text;
 begin
@@ -163,7 +164,7 @@ begin
   values (app_current_org_id(), auth.uid(), 'vehicle', p_vehicle_id, 'vehicle_mark_sold',
           jsonb_build_object('sale_id',p_sale_id,'auto_archived',true));
 end;
-$$;
+$mark_vehicle_sold$;
 
 -- permisos
 revoke all on function public.app_current_role() from public;

@@ -1,12 +1,28 @@
--- 1) vendido como bandera
-alter table public.vehicles
-  add column if not exists sold_at timestamptz,
-  add column if not exists sold_by uuid references public.profiles(id),
-  add column if not exists sold_sale_id uuid references public.sales(id);
+-- 1) vendido como bandera (bootstrap-safe)
+do $migrate_sold_columns$
+begin
+  if to_regclass('public.vehicles') is null then
+    raise notice 'Skipping sold_* columns: public.vehicles does not exist yet';
+  else
+    alter table public.vehicles
+      add column if not exists sold_at timestamptz,
+      add column if not exists sold_by uuid references public.profiles(id),
+      add column if not exists sold_sale_id uuid references public.sales(id);
+  end if;
+end
+$migrate_sold_columns$;
 
--- 2) trazabilidad al cerrar órdenes
-alter table public.work_orders
-  add column if not exists closed_by uuid references public.profiles(id);
+-- 2) trazabilidad al cerrar órdenes (bootstrap-safe)
+do $migrate_closed_by$
+begin
+  if to_regclass('public.work_orders') is null then
+    raise notice 'Skipping closed_by column: public.work_orders does not exist yet';
+  else
+    alter table public.work_orders
+      add column if not exists closed_by uuid references public.profiles(id);
+  end if;
+end
+$migrate_closed_by$;
 
 -- 3) helper: rol del usuario (solo si tiene perfil activo en la org actual)
 create or replace function public.app_current_role()
@@ -15,13 +31,14 @@ language sql
 stable
 security definer
 set search_path = public
-as $$
+as $app_current_role$
   select role
   from public.profiles
   where id = auth.uid()
     and is_active = true
     and org_id = app_current_org_id();
-$$;
+
+$app_current_role$;
 
 -- 4) transición de stage con reglas
 create or replace function public.transition_vehicle_stage(
@@ -31,7 +48,7 @@ create or replace function public.transition_vehicle_stage(
 language plpgsql
 security definer
 set search_path = public
-as $$
+as $transition_vehicle_stage$
 declare
   v_role text;
   v_is_archived boolean;
@@ -135,7 +152,7 @@ begin
   values (app_current_org_id(), auth.uid(), 'vehicle', p_vehicle_id, 'stage_changed',
           jsonb_build_object('from',v_current_stage,'to',p_target_stage));
 end;
-$$;
+$transition_vehicle_stage$;
 
 -- 5) marcar vendido + auto-archivar
 create or replace function public.mark_vehicle_sold(
@@ -145,7 +162,7 @@ create or replace function public.mark_vehicle_sold(
 language plpgsql
 security definer
 set search_path = public
-as $$
+as $mark_vehicle_sold$
 declare
   v_role text;
 begin
@@ -170,7 +187,7 @@ begin
   values (app_current_org_id(), auth.uid(), 'vehicle', p_vehicle_id, 'vehicle_mark_sold',
           jsonb_build_object('sale_id',p_sale_id,'auto_archived',true));
 end;
-$$;
+$mark_vehicle_sold$;
 
 -- permisos
 revoke all on function public.app_current_role() from public;

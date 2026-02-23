@@ -66,3 +66,8 @@ En ese modo también se puede invocar usando JWT-based keys (`anon` o `service_r
   - Ejecuta el `curl` en otra terminal (no en la misma donde está `serve`).
 - **405 Method Not Allowed**:
   - La función solo acepta `POST`.
+
+
+- **500 Template file not found**:
+  - El probe intenta rutas alternativas en runtime local (`import.meta.url` y rutas desde `Deno.cwd()`).
+  - Si persiste, verifica que exista `supabase/functions/generate-sale-documents/templates/PAQUETE TRASPASO.pdf` en tu repo local.

@@ -1,13 +1,31 @@
+import { PDFDocument } from "pdf-lib";
+
 import { corsHeaders } from "../_shared/cors.ts";
+import { supabaseAdmin } from "../_shared/supabaseAdmin.ts";
 import { supabaseClient } from "../_shared/supabaseClient.ts";
 
 type AllowedDoc = "contrato_compraventa" | "mandato" | "traspaso";
+
+type SaleDocumentsPayload = {
+  sale?: { org_id?: string | null } | null;
+  vehicle?: { id?: string | null; org_id?: string | null } | null;
+  eligibility?: { can_generate?: boolean; reasons?: unknown } | null;
+};
+
+type GeneratedFile = {
+  doc_type: AllowedDoc;
+  file_name: string;
+  storage_bucket: string;
+  storage_path: string;
+  signed_url: string;
+};
 
 const ALLOWED_DOCS: AllowedDoc[] = [
   "contrato_compraventa",
   "mandato",
   "traspaso",
 ];
+const STORAGE_BUCKET = "vehicle-internal";
 const UUID_V4_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -96,6 +114,81 @@ function parseDocs(input: unknown):
   }
 
   return { docs: docs as AllowedDoc[] };
+}
+
+function extractPayloadData(payload: unknown):
+  | { orgId: string; vehicleId: string; eligibility: { can_generate?: boolean; reasons?: unknown } | null }
+  | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const typedPayload = payload as SaleDocumentsPayload;
+  const orgId = typedPayload.sale?.org_id ?? typedPayload.vehicle?.org_id ?? null;
+  const vehicleId = typedPayload.vehicle?.id ?? null;
+
+  if (typeof orgId !== "string" || typeof vehicleId !== "string") {
+    return null;
+  }
+
+  return {
+    orgId,
+    vehicleId,
+    eligibility: typedPayload.eligibility ?? null,
+  };
+}
+
+async function createDummyPdf(docType: AllowedDoc, saleId: string): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create();
+  const page = pdf.addPage([595, 842]);
+
+  page.drawText(`DUMMY ${docType} - sale_id: ${saleId}`, {
+    x: 50,
+    y: 780,
+    size: 14,
+  });
+
+  return await pdf.save();
+}
+
+async function uploadPdfWithConflictHandling(params: {
+  orgId: string;
+  vehicleId: string;
+  saleId: string;
+  docType: AllowedDoc;
+  pdfBytes: Uint8Array;
+}): Promise<{ fileName: string; storagePath: string }> {
+  const maxAttempts = 5;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const baseTimestamp = Date.now() + attempt;
+    const suffix = attempt === 0 ? "" : `_${crypto.randomUUID().slice(0, 8)}`;
+    const fileName = `${baseTimestamp}_${params.docType}${suffix}.pdf`;
+    const storagePath = `${params.orgId}/vehicle/${params.vehicleId}/sales/${params.saleId}/documents/${fileName}`;
+
+    const { error } = await supabaseAdmin.storage
+      .from(STORAGE_BUCKET)
+      .upload(storagePath, params.pdfBytes, {
+        contentType: "application/pdf",
+        upsert: false,
+      });
+
+    if (!error) {
+      return { fileName, storagePath };
+    }
+
+    const conflict =
+      error.message?.toLowerCase().includes("already") ||
+      error.message?.includes("409") ||
+      (error as { statusCode?: string | number }).statusCode === "409" ||
+      (error as { statusCode?: string | number }).statusCode === 409;
+
+    if (!conflict) {
+      throw new Error(`Storage upload failed: ${error.message}`);
+    }
+  }
+
+  throw new Error("Storage upload failed after retrying file name conflicts");
 }
 
 Deno.serve(async (req) => {
@@ -201,13 +294,20 @@ Deno.serve(async (req) => {
     return jsonResponse(
       requestId,
       500,
-      { error: "RPC_ERROR", message: "Failed to load sale documents payload" },
+      {
+        error: "RPC_ERROR",
+        message: "Failed to load sale documents payload",
+        request_id: requestId,
+      },
       saleId,
       userData.user.id,
     );
   }
 
-  if (!payload || (typeof payload === "object" && payload?.error === "SALE_NOT_FOUND")) {
+  if (
+    !payload ||
+    (typeof payload === "object" && payload !== null && payload?.error === "SALE_NOT_FOUND")
+  ) {
     return jsonResponse(
       requestId,
       404,
@@ -217,22 +317,107 @@ Deno.serve(async (req) => {
     );
   }
 
-  const eligibility =
-    typeof payload === "object" && payload !== null && "eligibility" in payload
-      ? (payload.eligibility as { can_generate?: boolean; reasons?: unknown })
-      : null;
+  const payloadData = extractPayloadData(payload);
+  if (!payloadData) {
+    return jsonResponse(
+      requestId,
+      500,
+      {
+        error: "INVALID_PAYLOAD",
+        message: "Payload missing org_id or vehicle.id",
+        request_id: requestId,
+      },
+      saleId,
+      userData.user.id,
+    );
+  }
 
-  if (eligibility?.can_generate === false) {
+  if (payloadData.eligibility?.can_generate !== true) {
     return jsonResponse(
       requestId,
       409,
       {
         error: "NOT_ELIGIBLE",
-        reasons: Array.isArray(eligibility.reasons) ? eligibility.reasons : [],
+        reasons: Array.isArray(payloadData.eligibility?.reasons)
+          ? payloadData.eligibility?.reasons
+          : [],
       },
       saleId,
       userData.user.id,
     );
+  }
+
+  const files: GeneratedFile[] = [];
+
+  for (const docType of parsedDocs.docs) {
+    try {
+      const pdfBytes = await createDummyPdf(docType, saleId);
+      const { fileName, storagePath } = await uploadPdfWithConflictHandling({
+        orgId: payloadData.orgId,
+        vehicleId: payloadData.vehicleId,
+        saleId,
+        docType,
+        pdfBytes,
+      });
+
+      const { error: insertError } = await supabaseAdmin.from("vehicle_files").insert({
+        org_id: payloadData.orgId,
+        vehicle_id: payloadData.vehicleId,
+        sale_id: saleId,
+        file_kind: "document",
+        doc_type: docType,
+        visibility: "operations",
+        storage_bucket: STORAGE_BUCKET,
+        storage_path: storagePath,
+        file_name: fileName,
+        mime_type: "application/pdf",
+        uploaded_by: userData.user.id,
+        doc_type_other: null,
+      });
+
+      if (insertError) {
+        await supabaseAdmin.storage.from(STORAGE_BUCKET).remove([storagePath]);
+        throw new Error(`vehicle_files insert failed: ${insertError.message}`);
+      }
+
+      const { data: signedData, error: signedError } = await supabaseAdmin.storage
+        .from(STORAGE_BUCKET)
+        .createSignedUrl(storagePath, 60);
+
+      if (signedError || !signedData?.signedUrl) {
+        throw new Error(`signed URL failed: ${signedError?.message ?? "unknown error"}`);
+      }
+
+      files.push({
+        doc_type: docType,
+        file_name: fileName,
+        storage_bucket: STORAGE_BUCKET,
+        storage_path: storagePath,
+        signed_url: signedData.signedUrl,
+      });
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          request_id: requestId,
+          sale_id: saleId,
+          user_id: userData.user.id,
+          doc_type: docType,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+
+      return jsonResponse(
+        requestId,
+        500,
+        {
+          error: "DOCUMENT_GENERATION_FAILED",
+          message: "Failed to generate and persist one or more documents",
+          request_id: requestId,
+        },
+        saleId,
+        userData.user.id,
+      );
+    }
   }
 
   return jsonResponse(
@@ -241,8 +426,7 @@ Deno.serve(async (req) => {
     {
       sale_id: saleId,
       docs: parsedDocs.docs,
-      user_id: userData.user.id,
-      payload,
+      files,
     },
     saleId,
     userData.user.id,

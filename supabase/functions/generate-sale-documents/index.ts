@@ -243,7 +243,6 @@ function isDebugEnabled(req: Request): boolean {
   return debugQueryParam === "1" || debugHeader === "1";
 }
 
-
 function shouldRetryRpcWithAdmin(rpcError: { message?: string; code?: string | null; details?: string | null; hint?: string | null }): boolean {
   const errorText = [rpcError.message, rpcError.details, rpcError.hint]
     .filter((value): value is string => typeof value === "string" && value.length > 0)
@@ -256,6 +255,87 @@ function shouldRetryRpcWithAdmin(rpcError: { message?: string; code?: string | n
     errorText.includes("insufficient privilege") ||
     rpcError.code === "42501"
   );
+}
+
+
+async function buildPayloadWithoutRpc(saleId: string): Promise<unknown> {
+  const { data: saleRow, error: saleError } = await supabaseAdmin
+    .from("sales")
+    .select(
+      "id, org_id, vehicle_id, customer_id, created_at",
+    )
+    .eq("id", saleId)
+    .maybeSingle();
+
+  if (saleError) {
+    throw new Error(`Fallback sale query failed: ${saleError.message}`);
+  }
+
+  if (!saleRow) {
+    return { error: "SALE_NOT_FOUND" };
+  }
+
+  const { data: customerRow, error: customerError } = await supabaseAdmin
+    .from("customers")
+    .select(
+      "full_name, document_id, phone, email, first_names, last_names, address, city, identity_document_type_code",
+    )
+    .eq("id", saleRow.customer_id)
+    .maybeSingle();
+
+  if (customerError) {
+    throw new Error(`Fallback customer query failed: ${customerError.message}`);
+  }
+
+  const { data: vehicleRow, error: vehicleError } = await supabaseAdmin
+    .from("vehicles")
+    .select("id, org_id")
+    .eq("id", saleRow.vehicle_id)
+    .maybeSingle();
+
+  if (vehicleError) {
+    throw new Error(`Fallback vehicle query failed: ${vehicleError.message}`);
+  }
+
+  const { data: docsRows, error: docsError } = await supabaseAdmin
+    .from("vehicle_files")
+    .select(
+      "id, doc_type, doc_type_other, storage_bucket, storage_path, file_name, expires_at, created_at",
+    )
+    .eq("sale_id", saleId)
+    .order("created_at", { ascending: false });
+
+  if (docsError) {
+    throw new Error(`Fallback docs query failed: ${docsError.message}`);
+  }
+
+  return {
+    sale: {
+      id: saleRow.id,
+      org_id: saleRow.org_id,
+      vehicle_id: saleRow.vehicle_id,
+      customer_id: saleRow.customer_id,
+      created_at: saleRow.created_at,
+      full_name: customerRow?.full_name ?? null,
+      document_id: customerRow?.document_id ?? null,
+      phone: customerRow?.phone ?? null,
+      email: customerRow?.email ?? null,
+      first_names: customerRow?.first_names ?? null,
+      last_names: customerRow?.last_names ?? null,
+      address: customerRow?.address ?? null,
+      city: customerRow?.city ?? null,
+      identity_document_type_code: customerRow?.identity_document_type_code ?? null,
+    },
+    vehicle: {
+      id: vehicleRow?.id ?? saleRow.vehicle_id,
+      org_id: vehicleRow?.org_id ?? saleRow.org_id,
+    },
+    documents: docsRows ?? [],
+    eligibility: {
+      can_generate: true,
+      reasons: [],
+    },
+  };
 }
 
 async function uploadPdfWithConflictHandling(params: {
@@ -399,6 +479,24 @@ Deno.serve(async (req) => {
     if (!adminRpcResult.error) {
       payload = adminRpcResult.data;
       rpcError = null;
+    }
+  }
+
+  if (rpcError?.code === "PGRST202") {
+    try {
+      payload = await buildPayloadWithoutRpc(saleId);
+      rpcError = null;
+    } catch (fallbackError) {
+      console.error(
+        JSON.stringify({
+          request_id: requestId,
+          sale_id: saleId,
+          user_id: userData.user.id,
+          fallback_payload_error: fallbackError instanceof Error
+            ? fallbackError.message
+            : String(fallbackError),
+        }),
+      );
     }
   }
 

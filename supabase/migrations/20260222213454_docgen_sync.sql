@@ -55,54 +55,60 @@ set label = excluded.label,
     name = excluded.name,
     updated_at = now();
 
-alter table public.customers
-  add column if not exists first_names text,
-  add column if not exists last_names text,
-  add column if not exists address text,
-  add column if not exists city text,
-  add column if not exists identity_document_type_code text;
-
 do $$
 begin
-  if not exists (
-    select 1
-    from pg_constraint
-    where conname = 'customers_identity_document_type_code_fkey'
-      and conrelid = 'public.customers'::regclass
-  ) then
+  if to_regclass('public.customers') is null then
+    raise notice 'Skipping docgen_sync customers changes: public.customers does not exist yet';
+  else
     alter table public.customers
-      add constraint customers_identity_document_type_code_fkey
-      foreign key (identity_document_type_code)
-      references public.identity_document_types (code)
-      on update cascade
-      on delete restrict;
+      add column if not exists first_names text,
+      add column if not exists last_names text,
+      add column if not exists address text,
+      add column if not exists city text,
+      add column if not exists identity_document_type_code text;
+
+    if not exists (
+      select 1
+      from pg_constraint
+      where conname = 'customers_identity_document_type_code_fkey'
+        and conrelid = 'public.customers'::regclass
+    ) then
+      alter table public.customers
+        add constraint customers_identity_document_type_code_fkey
+        foreign key (identity_document_type_code)
+        references public.identity_document_types (code)
+        on update cascade
+        on delete restrict;
+    end if;
   end if;
-end
-$$;
 
-alter table public.vehicle_files
-  add column if not exists sale_id uuid;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_constraint
-    where conname = 'vehicle_files_sale_id_fkey'
-      and conrelid = 'public.vehicle_files'::regclass
-  ) then
+  if to_regclass('public.vehicle_files') is null then
+    raise notice 'Skipping docgen_sync vehicle_files changes: public.vehicle_files does not exist yet';
+  else
     alter table public.vehicle_files
-      add constraint vehicle_files_sale_id_fkey
-      foreign key (sale_id)
-      references public.sales (id)
-      on update cascade
-      on delete set null;
+      add column if not exists sale_id uuid;
+
+    if to_regclass('public.sales') is null then
+      raise notice 'Skipping vehicle_files_sale_id_fkey: public.sales does not exist yet';
+    elsif not exists (
+      select 1
+      from pg_constraint
+      where conname = 'vehicle_files_sale_id_fkey'
+        and conrelid = 'public.vehicle_files'::regclass
+    ) then
+      alter table public.vehicle_files
+        add constraint vehicle_files_sale_id_fkey
+        foreign key (sale_id)
+        references public.sales (id)
+        on update cascade
+        on delete set null;
+    end if;
+
+    create index if not exists idx_vehicle_files_sale_id
+      on public.vehicle_files (sale_id);
   end if;
 end
 $$;
-
-create index if not exists idx_vehicle_files_sale_id
-  on public.vehicle_files (sale_id);
 
 create or replace function public.util_split_full_name(p_full_name text)
 returns table (
@@ -156,61 +162,73 @@ as $$
   end;
 $$;
 
-create or replace function public.rpc_get_sale_documents_payload(p_sale_id uuid)
-returns jsonb
-language sql
-stable
-as $$
-  with sale_data as (
-    select
-      s.id,
-      s.vehicle_id,
-      s.customer_id,
-      s.created_at,
-      c.full_name,
-      c.document_id,
-      c.phone,
-      c.email,
-      c.first_names,
-      c.last_names,
-      c.address,
-      public.util_transit_city(c.city) as city,
-      c.identity_document_type_code
-    from public.sales s
-    left join public.customers c on c.id = s.customer_id
-    where s.id = p_sale_id
-  ),
-  docs as (
-    select coalesce(
-      jsonb_agg(
-        jsonb_build_object(
-          'id', vf.id,
-          'doc_type', vf.doc_type,
-          'doc_type_other', vf.doc_type_other,
-          'storage_bucket', vf.storage_bucket,
-          'storage_path', vf.storage_path,
-          'file_name', vf.file_name,
-          'expires_at', vf.expires_at,
-          'created_at', vf.created_at
+do $$
+begin
+  if to_regclass('public.sales') is null
+     or to_regclass('public.customers') is null
+     or to_regclass('public.vehicle_files') is null then
+    raise notice 'Skipping rpc_get_sale_documents_payload creation: required tables do not exist yet';
+  else
+    execute $sql$
+      create or replace function public.rpc_get_sale_documents_payload(p_sale_id uuid)
+      returns jsonb
+      language sql
+      stable
+      as $fn$
+        with sale_data as (
+          select
+            s.id,
+            s.vehicle_id,
+            s.customer_id,
+            s.created_at,
+            c.full_name,
+            c.document_id,
+            c.phone,
+            c.email,
+            c.first_names,
+            c.last_names,
+            c.address,
+            public.util_transit_city(c.city) as city,
+            c.identity_document_type_code
+          from public.sales s
+          left join public.customers c on c.id = s.customer_id
+          where s.id = p_sale_id
+        ),
+        docs as (
+          select coalesce(
+            jsonb_agg(
+              jsonb_build_object(
+                'id', vf.id,
+                'doc_type', vf.doc_type,
+                'doc_type_other', vf.doc_type_other,
+                'storage_bucket', vf.storage_bucket,
+                'storage_path', vf.storage_path,
+                'file_name', vf.file_name,
+                'expires_at', vf.expires_at,
+                'created_at', vf.created_at
+              )
+              order by vf.created_at desc
+            ),
+            '[]'::jsonb
+          ) as value
+          from public.vehicle_files vf
+          where vf.sale_id = p_sale_id
         )
-        order by vf.created_at desc
-      ),
-      '[]'::jsonb
-    ) as value
-    from public.vehicle_files vf
-    where vf.sale_id = p_sale_id
-  )
-  select coalesce(
-    (
-      select jsonb_build_object(
-        'sale', to_jsonb(sd),
-        'documents', docs.value
-      )
-      from sale_data sd
-      cross join docs
-    ),
-    jsonb_build_object('sale', null, 'documents', '[]'::jsonb)
-  );
+        select coalesce(
+          (
+            select jsonb_build_object(
+              'sale', to_jsonb(sd),
+              'documents', docs.value
+            )
+            from sale_data sd
+            cross join docs
+          ),
+          jsonb_build_object('sale', null, 'documents', '[]'::jsonb)
+        );
+      $fn$;
+    $sql$;
+  end if;
+end
 $$;
 
 insert into public.document_types (code, label)

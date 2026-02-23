@@ -23,6 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 supabase/functions/**/templates/*.pdf
+!supabase/functions/generate-sale-documents/templates/PAQUETE\ TRASPASO.pdf
 
 # Supabase CLI temp
 supabase/.temp/

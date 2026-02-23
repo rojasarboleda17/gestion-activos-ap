@@ -35,7 +35,7 @@ curl -i -X POST 'http://127.0.0.1:54321/functions/v1/generate-sale-documents' \
   -d '{}'
 ```
 
-Respuesta esperada: `HTTP/1.1 200` con JSON que incluye `ok: true` y `template_bytes`.
+Respuesta esperada: `HTTP/1.1 200` con JSON que incluye `ok: true`, `template_bytes` y `template_path`.
 
 ## Opción B (fallback): ejecutar directo con Deno
 

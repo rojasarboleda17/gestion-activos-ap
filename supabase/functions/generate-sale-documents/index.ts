@@ -4,7 +4,7 @@ const TEMPLATE_RELATIVE_PATH = "templates/PAQUETE TRASPASO.pdf";
 
 async function readTemplateBytes() {
   const candidates = [
-    new URL(`./${TEMPLATE_RELATIVE_PATH}`, import.meta.url).pathname,
+    decodeURIComponent(new URL(`./${TEMPLATE_RELATIVE_PATH}`, import.meta.url).pathname),
     `${Deno.cwd()}/supabase/functions/generate-sale-documents/${TEMPLATE_RELATIVE_PATH}`,
     `${Deno.cwd()}/${TEMPLATE_RELATIVE_PATH}`,
   ];

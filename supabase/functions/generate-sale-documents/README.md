@@ -1,16 +1,16 @@
 # generate-sale-documents (baseline)
 
-Edge Function baseline para documentación de venta **sin lógica de generación de PDF**.
+Edge Function baseline para docgen de venta **sin lógica de generación de PDF**.
 
 ## Estructura
 
 - `index.ts`: skeleton compilable con `Deno.serve`.
 - `deno.json`: configuración por función (imports + strict mode).
-- `templates/`: directorio para plantilla local `PAQUETE TRASPASO.pdf` (no versionada).
+- `templates/PAQUETE TRASPASO.pdf`: plantilla base copiada desde la raíz del repositorio.
 
-## Invocación
+## Cómo invocar
 
-Endpoint esperado en local (Supabase CLI):
+Endpoint local (Supabase CLI):
 
 ```bash
 curl -i -X POST 'http://127.0.0.1:54321/functions/v1/generate-sale-documents' \
@@ -19,25 +19,15 @@ curl -i -X POST 'http://127.0.0.1:54321/functions/v1/generate-sale-documents' \
   -d '{"saleId":"<uuid>"}'
 ```
 
-Respuesta actual (baseline):
+Comportamiento actual del baseline:
 
-- HTTP `200` para `POST` con payload JSON de estado.
+- HTTP `200` para `POST`, con payload JSON informativo.
 - HTTP `405` para métodos distintos a `POST`.
+- HTTP `200` para preflight `OPTIONS`.
 
+## Cómo probar local (sin deploy)
 
-## Plantilla PDF local
-
-Para pruebas locales, copia manualmente la plantilla al directorio `templates/`:
-
-```bash
-cp "PAQUETE TRASPASO.pdf" "supabase/functions/generate-sale-documents/templates/PAQUETE TRASPASO.pdf"
-```
-
-> En este baseline no se versionan binarios dentro de `supabase/functions/**` para evitar rechazos en flujos de extracción/diff.
-
-## Prueba local (sin deploy)
-
-1. Levantar Supabase local:
+1. Levantar stack local de Supabase:
 
    ```bash
    supabase start
@@ -46,13 +36,14 @@ cp "PAQUETE TRASPASO.pdf" "supabase/functions/generate-sale-documents/templates/
 2. Servir la función:
 
    ```bash
-   supabase functions serve generate-sale-documents --no-verify-jwt
+   supabase functions serve generate-sale-documents
    ```
 
-3. Probar con `curl`:
+3. Invocar con `curl`:
 
    ```bash
    curl -i -X POST 'http://127.0.0.1:54321/functions/v1/generate-sale-documents' \
+     -H 'Authorization: Bearer <JWT>' \
      -H 'Content-Type: application/json' \
      -d '{"saleId":"00000000-0000-0000-0000-000000000000"}'
    ```

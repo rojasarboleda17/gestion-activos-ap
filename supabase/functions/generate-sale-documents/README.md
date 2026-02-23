@@ -24,7 +24,7 @@ Body JSON:
 }
 ```
 
-- `sale_id`: requerido, UUID v4.
+- `sale_id`: requerido, UUID válido.
 - `docs`: opcional, subset de `contrato_compraventa`, `mandato`, `traspaso`.
 - si `docs` no viene, la función usa los 3 por defecto.
 

@@ -26,8 +26,8 @@ const ALLOWED_DOCS: AllowedDoc[] = [
   "traspaso",
 ];
 const STORAGE_BUCKET = "vehicle-internal";
-const UUID_V4_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function logRequest(params: {
   requestId: string;
@@ -246,13 +246,13 @@ Deno.serve(async (req) => {
   }
 
   const saleId = body.sale_id;
-  if (typeof saleId !== "string" || !UUID_V4_REGEX.test(saleId)) {
+  if (typeof saleId !== "string" || !UUID_REGEX.test(saleId)) {
     return jsonResponse(
       requestId,
       400,
       {
         error: "INVALID_BODY",
-        detail: { field: "sale_id", message: "sale_id must be a UUID v4" },
+        detail: { field: "sale_id", message: "sale_id must be a UUID" },
       },
       typeof saleId === "string" ? saleId : undefined,
       userData.user.id,
@@ -360,24 +360,28 @@ Deno.serve(async (req) => {
         pdfBytes,
       });
 
-      const { error: insertError } = await supabaseAdmin.from("vehicle_files").insert({
-        org_id: payloadData.orgId,
-        vehicle_id: payloadData.vehicleId,
-        sale_id: saleId,
-        file_kind: "document",
-        doc_type: docType,
-        visibility: "operations",
-        storage_bucket: STORAGE_BUCKET,
-        storage_path: storagePath,
-        file_name: fileName,
-        mime_type: "application/pdf",
-        uploaded_by: userData.user.id,
-        doc_type_other: null,
-      });
+      const { data: insertedFile, error: insertError } = await supabaseAdmin
+        .from("vehicle_files")
+        .insert({
+          org_id: payloadData.orgId,
+          vehicle_id: payloadData.vehicleId,
+          sale_id: saleId,
+          file_kind: "document",
+          doc_type: docType,
+          visibility: "operations",
+          storage_bucket: STORAGE_BUCKET,
+          storage_path: storagePath,
+          file_name: fileName,
+          mime_type: "application/pdf",
+          uploaded_by: userData.user.id,
+          doc_type_other: null,
+        })
+        .select("id")
+        .single();
 
-      if (insertError) {
+      if (insertError || !insertedFile?.id) {
         await supabaseAdmin.storage.from(STORAGE_BUCKET).remove([storagePath]);
-        throw new Error(`vehicle_files insert failed: ${insertError.message}`);
+        throw new Error(`vehicle_files insert failed: ${insertError?.message ?? "missing inserted id"}`);
       }
 
       const { data: signedData, error: signedError } = await supabaseAdmin.storage
@@ -385,6 +389,8 @@ Deno.serve(async (req) => {
         .createSignedUrl(storagePath, 60);
 
       if (signedError || !signedData?.signedUrl) {
+        await supabaseAdmin.from("vehicle_files").delete().eq("id", insertedFile.id);
+        await supabaseAdmin.storage.from(STORAGE_BUCKET).remove([storagePath]);
         throw new Error(`signed URL failed: ${signedError?.message ?? "unknown error"}`);
       }
 

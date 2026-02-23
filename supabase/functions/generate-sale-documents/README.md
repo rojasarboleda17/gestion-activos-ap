@@ -1,6 +1,6 @@
 # generate-sale-documents
 
-Edge Function para obtener el contrato de payload de documentos de venta (sin generar PDFs todavía).
+Edge Function para generar PDFs dummy por documento solicitado, persistirlos en Storage y registrar `vehicle_files`.
 
 ## Ejecutar local
 
@@ -132,3 +132,23 @@ curl -i -X POST 'http://127.0.0.1:54321/functions/v1/generate-sale-documents' \
   -H 'Content-Type: application/json' \
   -d '{"sale_id":"9fd4f7de-d8f4-4ec7-92db-0329ca63fdf0","docs":["contrato_compraventa","mandato"]}'
 ```
+
+Respuesta 200 (ejemplo):
+
+```json
+{
+  "sale_id": "9fd4f7de-d8f4-4ec7-92db-0329ca63fdf0",
+  "docs": ["contrato_compraventa", "mandato"],
+  "files": [
+    {
+      "doc_type": "contrato_compraventa",
+      "file_name": "1700000000000_contrato_compraventa.pdf",
+      "storage_bucket": "vehicle-internal",
+      "storage_path": "<org_id>/vehicle/<vehicle_id>/sales/9fd4f7de-d8f4-4ec7-92db-0329ca63fdf0/documents/1700000000000_contrato_compraventa.pdf",
+      "signed_url": "https://..."
+    }
+  ]
+}
+```
+
+> Nota: en Tarea 4 se reemplazará la generación dummy por templates reales (incluyendo `PAQUETE TRASPASO.pdf`).

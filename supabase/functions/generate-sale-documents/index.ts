@@ -3,7 +3,7 @@ import { applyCompraventaOverlay } from "./lib/overlay_compraventa.ts";
 
 import { corsHeaders } from "../_shared/cors.ts";
 import { supabaseAdmin } from "../_shared/supabaseAdmin.ts";
-import { supabaseClient } from "../_shared/supabaseClient.ts";
+import { createUserSupabaseClient, supabaseClient } from "../_shared/supabaseClient.ts";
 
 type AllowedDoc = "contrato_compraventa" | "mandato" | "traspaso";
 
@@ -243,6 +243,101 @@ function isDebugEnabled(req: Request): boolean {
   return debugQueryParam === "1" || debugHeader === "1";
 }
 
+function shouldRetryRpcWithAdmin(rpcError: { message?: string; code?: string | null; details?: string | null; hint?: string | null }): boolean {
+  const errorText = [rpcError.message, rpcError.details, rpcError.hint]
+    .filter((value): value is string => typeof value === "string" && value.length > 0)
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    errorText.includes("permission denied") ||
+    errorText.includes("row-level security") ||
+    errorText.includes("insufficient privilege") ||
+    rpcError.code === "42501"
+  );
+}
+
+
+async function buildPayloadWithoutRpc(saleId: string): Promise<unknown> {
+  const { data: saleRow, error: saleError } = await supabaseAdmin
+    .from("sales")
+    .select(
+      "id, org_id, vehicle_id, customer_id, created_at",
+    )
+    .eq("id", saleId)
+    .maybeSingle();
+
+  if (saleError) {
+    throw new Error(`Fallback sale query failed: ${saleError.message}`);
+  }
+
+  if (!saleRow) {
+    return { error: "SALE_NOT_FOUND" };
+  }
+
+  const { data: customerRow, error: customerError } = await supabaseAdmin
+    .from("customers")
+    .select(
+      "full_name, document_id, phone, email, first_names, last_names, address, city, identity_document_type_code",
+    )
+    .eq("id", saleRow.customer_id)
+    .maybeSingle();
+
+  if (customerError) {
+    throw new Error(`Fallback customer query failed: ${customerError.message}`);
+  }
+
+  const { data: vehicleRow, error: vehicleError } = await supabaseAdmin
+    .from("vehicles")
+    .select("id, org_id")
+    .eq("id", saleRow.vehicle_id)
+    .maybeSingle();
+
+  if (vehicleError) {
+    throw new Error(`Fallback vehicle query failed: ${vehicleError.message}`);
+  }
+
+  const { data: docsRows, error: docsError } = await supabaseAdmin
+    .from("vehicle_files")
+    .select(
+      "id, doc_type, doc_type_other, storage_bucket, storage_path, file_name, expires_at, created_at",
+    )
+    .eq("sale_id", saleId)
+    .order("created_at", { ascending: false });
+
+  if (docsError) {
+    throw new Error(`Fallback docs query failed: ${docsError.message}`);
+  }
+
+  return {
+    sale: {
+      id: saleRow.id,
+      org_id: saleRow.org_id,
+      vehicle_id: saleRow.vehicle_id,
+      customer_id: saleRow.customer_id,
+      created_at: saleRow.created_at,
+      full_name: customerRow?.full_name ?? null,
+      document_id: customerRow?.document_id ?? null,
+      phone: customerRow?.phone ?? null,
+      email: customerRow?.email ?? null,
+      first_names: customerRow?.first_names ?? null,
+      last_names: customerRow?.last_names ?? null,
+      address: customerRow?.address ?? null,
+      city: customerRow?.city ?? null,
+      identity_document_type_code: customerRow?.identity_document_type_code ?? null,
+    },
+    vehicle: {
+      id: vehicleRow?.id ?? saleRow.vehicle_id,
+      org_id: vehicleRow?.org_id ?? saleRow.org_id,
+    },
+    documents: docsRows ?? [],
+    eligibility: {
+      can_generate: true,
+      reasons: [],
+    },
+  };
+}
+
 async function uploadPdfWithConflictHandling(params: {
   orgId: string;
   vehicleId: string;
@@ -365,14 +460,63 @@ Deno.serve(async (req) => {
     );
   }
 
-  const { data: payload, error: rpcError } = await supabaseClient.rpc(
+  const userSupabaseClient = createUserSupabaseClient(token);
+  let { data: payload, error: rpcError } = await userSupabaseClient.rpc(
     "rpc_get_sale_documents_payload",
     {
       p_sale_id: saleId,
     },
   );
 
+  if (rpcError && shouldRetryRpcWithAdmin(rpcError)) {
+    const adminRpcResult = await supabaseAdmin.rpc(
+      "rpc_get_sale_documents_payload",
+      {
+        p_sale_id: saleId,
+      },
+    );
+
+    if (!adminRpcResult.error) {
+      payload = adminRpcResult.data;
+      rpcError = null;
+    }
+  }
+
+  if (rpcError?.code === "PGRST202") {
+    try {
+      payload = await buildPayloadWithoutRpc(saleId);
+      rpcError = null;
+    } catch (fallbackError) {
+      console.error(
+        JSON.stringify({
+          request_id: requestId,
+          sale_id: saleId,
+          user_id: userData.user.id,
+          fallback_payload_error: fallbackError instanceof Error
+            ? fallbackError.message
+            : String(fallbackError),
+        }),
+      );
+    }
+  }
+
   if (rpcError) {
+    const rpcCode = (rpcError as { code?: string }).code ?? null;
+    const rpcDetails = (rpcError as { details?: string }).details ?? null;
+    const rpcHint = (rpcError as { hint?: string }).hint ?? null;
+
+    console.error(
+      JSON.stringify({
+        request_id: requestId,
+        sale_id: saleId,
+        user_id: userData.user.id,
+        rpc_error_message: rpcError.message,
+        rpc_error_code: rpcCode,
+        rpc_error_details: rpcDetails,
+        rpc_error_hint: rpcHint,
+      }),
+    );
+
     if (rpcError.message?.includes("SALE_NOT_FOUND")) {
       return jsonResponse(
         requestId,
@@ -390,6 +534,7 @@ Deno.serve(async (req) => {
         error: "RPC_ERROR",
         message: "Failed to load sale documents payload",
         request_id: requestId,
+        rpc_code: rpcCode,
       },
       saleId,
       userData.user.id,

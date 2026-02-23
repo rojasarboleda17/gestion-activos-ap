@@ -30,6 +30,29 @@ type CompraventaField =
   | "price_number"
   | "payment_method_name";
 
+export const WRITTEN_FIELDS: CompraventaField[] = [
+  "city",
+  "date",
+  "buyer_full_name",
+  "buyer_document",
+  "buyer_phone",
+  "buyer_address",
+  "vehicle_class",
+  "vehicle_engine",
+  "vehicle_brand",
+  "vehicle_line",
+  "vehicle_model",
+  "vehicle_plate",
+  "vehicle_vin",
+  "vehicle_color",
+  "vehicle_service",
+  "vehicle_capacity",
+  "vehicle_displacement",
+  "price_text",
+  "price_number",
+  "payment_method_name",
+];
+
 export const FIELD_MAP: Record<CompraventaField, FieldPosition> = {
   city: { page: 0, x: 126, y: 671, size: 10 },
   date: { page: 0, x: 326, y: 671, size: 10 },
@@ -54,7 +77,7 @@ export const FIELD_MAP: Record<CompraventaField, FieldPosition> = {
 };
 
 // Calibración de coordenadas:
-// 1) Generar PDF con ?debug=1 o header X-Debug: 1 para ver grilla cada 50pt y etiquetas x/y.
+// 1) Generar PDF con ?debug=1 o header X-Debug: 1 para ver grilla (Tarea 4) cada 50pt y etiquetas x/y.
 // 2) Ubicar el marcador rojo del campo y mover (x,y) en FIELD_MAP hasta alinearlo con el input del template.
 // 3) Repetir hasta que texto y marcador coincidan con el renglón objetivo.
 
@@ -116,6 +139,23 @@ function buildCompraventaFields(payload: unknown): Record<CompraventaField, stri
     ["sale", "date"],
     ["sale", "created_at"],
     ["sale", "document_date"],
+    ["date"],
+  ]);
+
+  const buyerDocument = firstText(payload, [
+    ["sale", "buyer", "document_id"],
+    ["sale", "buyer", "document"],
+    ["sale", "document_id"],
+    ["buyer", "document_id"],
+    ["buyer", "document"],
+  ]);
+
+  const priceNumberRaw = firstText(payload, [
+    ["sale", "price_number"],
+    ["sale", "price"],
+    ["sale", "total_price"],
+    ["sale", "final_price_cop"],
+    ["final_price_cop"],
   ]);
 
   return {
@@ -123,31 +163,42 @@ function buildCompraventaFields(payload: unknown): Record<CompraventaField, stri
       ["sale", "city"],
       ["sale", "buyer", "city"],
       ["buyer", "city"],
+      ["city"],
     ]),
     date: toDateText(createdAt),
     buyer_full_name: buyerFullName,
-    buyer_document: firstText(payload, [
-      ["sale", "buyer", "document_id"],
-      ["sale", "document_id"],
-      ["buyer", "document_id"],
-    ]),
+    buyer_document: buyerDocument,
     buyer_phone: firstText(payload, [
       ["sale", "buyer", "phone"],
       ["sale", "phone"],
       ["buyer", "phone"],
+      ["phone"],
     ]),
     buyer_address: firstText(payload, [
       ["sale", "buyer", "address"],
       ["sale", "address"],
       ["buyer", "address"],
+      ["address"],
     ]),
-    vehicle_class: firstText(payload, [["vehicle", "class"], ["sale", "vehicle", "class"]]),
+    vehicle_class: firstText(payload, [
+      ["vehicle", "class"],
+      ["vehicle", "vehicle_class"],
+      ["sale", "vehicle", "class"],
+      ["sale", "vehicle", "vehicle_class"],
+    ]),
     vehicle_engine: firstText(payload, [
       ["vehicle", "motor"],
       ["vehicle", "engine"],
+      ["vehicle", "engine_number"],
       ["sale", "vehicle", "motor"],
+      ["sale", "vehicle", "engine"],
     ]),
-    vehicle_brand: firstText(payload, [["vehicle", "brand"], ["sale", "vehicle", "brand"]]),
+    vehicle_brand: firstText(payload, [
+      ["vehicle", "brand"],
+      ["vehicle", "make"],
+      ["sale", "vehicle", "brand"],
+      ["sale", "vehicle", "make"],
+    ]),
     vehicle_line: firstText(payload, [["vehicle", "line"], ["sale", "vehicle", "line"]]),
     vehicle_model: firstText(payload, [["vehicle", "model"], ["sale", "vehicle", "model"]]),
     vehicle_plate: firstText(payload, [["vehicle", "plate"], ["sale", "vehicle", "plate"]]),
@@ -161,25 +212,27 @@ function buildCompraventaFields(payload: unknown): Record<CompraventaField, stri
     vehicle_service: firstText(payload, [["vehicle", "service"], ["sale", "vehicle", "service"]]),
     vehicle_capacity: firstText(payload, [
       ["vehicle", "capacity"],
+      ["vehicle", "passenger_capacity"],
       ["sale", "vehicle", "capacity"],
     ]),
     vehicle_displacement: firstText(payload, [
       ["vehicle", "cilindraje"],
       ["vehicle", "displacement"],
+      ["vehicle", "cylinder_capacity"],
       ["sale", "vehicle", "cilindraje"],
+      ["sale", "vehicle", "displacement"],
     ]),
     price_text: firstText(payload, [
       ["sale", "price_text"],
       ["sale", "price_letters"],
       ["sale", "total_price_text"],
+      ["sale", "final_price_text"],
+      ["price_text"],
     ]),
-    price_number: firstText(payload, [
-      ["sale", "price_number"],
-      ["sale", "price"],
-      ["sale", "total_price"],
-    ]),
+    price_number: priceNumberRaw,
     payment_method_name: firstText(payload, [
       ["sale", "payment_method_name"],
+      ["sale", "payment_method", "name"],
       ["payment_method_name"],
     ]),
   };
@@ -212,7 +265,8 @@ export function applyCompraventaOverlay(
   const pages = pdfDoc.getPages();
   const values = buildCompraventaFields(payload);
 
-  for (const [field, position] of Object.entries(FIELD_MAP) as [CompraventaField, FieldPosition][]) {
+  for (const field of WRITTEN_FIELDS) {
+    const position = FIELD_MAP[field];
     const page = pages[position.page];
     if (!page) {
       continue;

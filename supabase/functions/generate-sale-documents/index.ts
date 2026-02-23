@@ -1,4 +1,4 @@
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, PDFPage, rgb } from "pdf-lib";
 
 import { corsHeaders } from "../_shared/cors.ts";
 import { supabaseAdmin } from "../_shared/supabaseAdmin.ts";
@@ -18,6 +18,8 @@ type GeneratedFile = {
   storage_bucket: string;
   storage_path: string;
   signed_url: string;
+  page_count?: number;
+  debug?: boolean;
 };
 
 const ALLOWED_DOCS: AllowedDoc[] = [
@@ -138,17 +140,98 @@ function extractPayloadData(payload: unknown):
   };
 }
 
-async function createDummyPdf(docType: AllowedDoc, saleId: string): Promise<Uint8Array> {
-  const pdf = await PDFDocument.create();
-  const page = pdf.addPage([595, 842]);
+const DOC_TYPE_PAGE_INDICES: Record<AllowedDoc, number[]> = {
+  contrato_compraventa: [0, 1],
+  traspaso: [2],
+  mandato: [4],
+};
 
-  page.drawText(`DUMMY ${docType} - sale_id: ${saleId}`, {
-    x: 50,
-    y: 780,
-    size: 14,
+const DEBUG_GRID_STEP = 50;
+
+function drawDebugGrid(page: PDFPage) {
+  const { width, height } = page.getSize();
+
+  for (let x = 0; x <= width; x += DEBUG_GRID_STEP) {
+    page.drawLine({
+      start: { x, y: 0 },
+      end: { x, y: height },
+      thickness: 0.5,
+      color: rgb(0.7, 0.7, 0.7),
+      opacity: 0.7,
+    });
+
+    page.drawText(`x=${x}`, {
+      x: Math.min(x + 2, width - 35),
+      y: 5,
+      size: 7,
+      color: rgb(0.35, 0.35, 0.35),
+    });
+  }
+
+  for (let y = 0; y <= height; y += DEBUG_GRID_STEP) {
+    page.drawLine({
+      start: { x: 0, y },
+      end: { x: width, y },
+      thickness: 0.5,
+      color: rgb(0.7, 0.7, 0.7),
+      opacity: 0.7,
+    });
+
+    page.drawText(`y=${y}`, {
+      x: 2,
+      y: Math.min(y + 2, height - 10),
+      size: 7,
+      color: rgb(0.35, 0.35, 0.35),
+    });
+  }
+
+  page.drawCircle({ x: 0, y: 0, size: 4, color: rgb(1, 0, 0), opacity: 0.8 });
+  page.drawText("(0,0)", { x: 8, y: 8, size: 8, color: rgb(1, 0, 0) });
+
+  page.drawCircle({
+    x: width,
+    y: height,
+    size: 4,
+    color: rgb(0, 0, 1),
+    opacity: 0.8,
   });
+  page.drawText(`(${Math.round(width)},${Math.round(height)})`, {
+    x: Math.max(width - 85, 3),
+    y: Math.max(height - 14, 3),
+    size: 8,
+    color: rgb(0, 0, 1),
+  });
+}
 
-  return await pdf.save();
+async function buildTemplatePdf(docType: AllowedDoc, debug: boolean): Promise<Uint8Array> {
+  const selectedPageIndices = DOC_TYPE_PAGE_INDICES[docType];
+  if (!selectedPageIndices) {
+    throw new Error(`Unsupported doc_type '${docType}' for template extraction`);
+  }
+
+  const url = new URL("./templates/PAQUETE TRASPASO.pdf", import.meta.url);
+  const templateBytes = await Deno.readFile(url);
+  const templatePdf = await PDFDocument.load(templateBytes);
+  const outPdf = await PDFDocument.create();
+
+  const copiedPages = await outPdf.copyPages(templatePdf, selectedPageIndices);
+  for (const page of copiedPages) {
+    outPdf.addPage(page);
+  }
+
+  if (debug) {
+    for (const page of outPdf.getPages()) {
+      drawDebugGrid(page);
+    }
+  }
+
+  return await outPdf.save();
+}
+
+function isDebugEnabled(req: Request): boolean {
+  const debugQueryParam = new URL(req.url).searchParams.get("debug");
+  const debugHeader = req.headers.get("X-Debug");
+  return debugQueryParam === "1" || debugHeader === "1";
 }
 
 async function uploadPdfWithConflictHandling(params: {
@@ -347,11 +430,13 @@ Deno.serve(async (req) => {
     );
   }
 
+  const debug = isDebugEnabled(req);
   const files: GeneratedFile[] = [];
 
   for (const docType of parsedDocs.docs) {
     try {
-      const pdfBytes = await createDummyPdf(docType, saleId);
+      const pdfBytes = await buildTemplatePdf(docType, debug);
+      const generatedPdf = await PDFDocument.load(pdfBytes);
       const { fileName, storagePath } = await uploadPdfWithConflictHandling({
         orgId: payloadData.orgId,
         vehicleId: payloadData.vehicleId,
@@ -400,6 +485,8 @@ Deno.serve(async (req) => {
         storage_bucket: STORAGE_BUCKET,
         storage_path: storagePath,
         signed_url: signedData.signedUrl,
+        page_count: generatedPdf.getPageCount(),
+        debug,
       });
     } catch (error) {
       console.error(

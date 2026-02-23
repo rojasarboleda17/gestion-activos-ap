@@ -1,5 +1,28 @@
--- Nota: `public.vehicles.sold_*` y `public.work_orders.closed_by` ya existen en el schema base.
--- Se omiten ALTER TABLE redundantes en esta migración para evitar dependencia de orden de bootstrap.
+-- 1) vendido como bandera (bootstrap-safe)
+do $migrate_sold_columns$
+begin
+  if to_regclass('public.vehicles') is null then
+    raise notice 'Skipping sold_* columns: public.vehicles does not exist yet';
+  else
+    alter table public.vehicles
+      add column if not exists sold_at timestamptz,
+      add column if not exists sold_by uuid references public.profiles(id),
+      add column if not exists sold_sale_id uuid references public.sales(id);
+  end if;
+end
+$migrate_sold_columns$;
+
+-- 2) trazabilidad al cerrar órdenes (bootstrap-safe)
+do $migrate_closed_by$
+begin
+  if to_regclass('public.work_orders') is null then
+    raise notice 'Skipping closed_by column: public.work_orders does not exist yet';
+  else
+    alter table public.work_orders
+      add column if not exists closed_by uuid references public.profiles(id);
+  end if;
+end
+$migrate_closed_by$;
 
 -- 3) helper: rol del usuario (solo si tiene perfil activo en la org actual)
 create or replace function public.app_current_role()

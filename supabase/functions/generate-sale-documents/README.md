@@ -5,7 +5,7 @@ Edge Function baseline para docgen de venta **sin lógica de generación de PDF*
 ## Estructura
 
 - `index.ts`: skeleton compilable con `Deno.serve`.
-- `deno.json`: configuración por función (imports + strict mode).
+- `deno.json`: configuración por función (recomendada en Supabase Edge Functions).
 - `templates/PAQUETE TRASPASO.pdf`: plantilla base copiada desde la raíz del repositorio.
 
 ## Cómo invocar

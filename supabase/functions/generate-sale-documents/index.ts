@@ -1,4 +1,5 @@
 import { PDFDocument, PDFPage, rgb } from "pdf-lib";
+import { applyCompraventaOverlay } from "./lib/overlay_compraventa.ts";
 
 import { corsHeaders } from "../_shared/cors.ts";
 import { supabaseAdmin } from "../_shared/supabaseAdmin.ts";
@@ -203,7 +204,11 @@ function drawDebugGrid(page: PDFPage) {
   });
 }
 
-async function buildTemplatePdf(docType: AllowedDoc, debug: boolean): Promise<Uint8Array> {
+async function buildTemplatePdf(
+  docType: AllowedDoc,
+  payload: unknown,
+  debug: boolean,
+): Promise<Uint8Array> {
   const selectedPageIndices = DOC_TYPE_PAGE_INDICES[docType];
   if (!selectedPageIndices) {
     throw new Error(`Unsupported doc_type '${docType}' for template extraction`);
@@ -223,6 +228,10 @@ async function buildTemplatePdf(docType: AllowedDoc, debug: boolean): Promise<Ui
     for (const page of outPdf.getPages()) {
       drawDebugGrid(page);
     }
+  }
+
+  if (docType === "contrato_compraventa") {
+    applyCompraventaOverlay(outPdf, payload, debug);
   }
 
   return await outPdf.save();
@@ -435,7 +444,7 @@ Deno.serve(async (req) => {
 
   for (const docType of parsedDocs.docs) {
     try {
-      const pdfBytes = await buildTemplatePdf(docType, debug);
+      const pdfBytes = await buildTemplatePdf(docType, payload, debug);
       const generatedPdf = await PDFDocument.load(pdfBytes);
       const { fileName, storagePath } = await uploadPdfWithConflictHandling({
         orgId: payloadData.orgId,

@@ -3,7 +3,7 @@ import { applyCompraventaOverlay } from "./lib/overlay_compraventa.ts";
 
 import { corsHeaders } from "../_shared/cors.ts";
 import { supabaseAdmin } from "../_shared/supabaseAdmin.ts";
-import { supabaseClient } from "../_shared/supabaseClient.ts";
+import { createUserSupabaseClient, supabaseClient } from "../_shared/supabaseClient.ts";
 
 type AllowedDoc = "contrato_compraventa" | "mandato" | "traspaso";
 
@@ -365,7 +365,8 @@ Deno.serve(async (req) => {
     );
   }
 
-  const { data: payload, error: rpcError } = await supabaseClient.rpc(
+  const userSupabaseClient = createUserSupabaseClient(token);
+  const { data: payload, error: rpcError } = await userSupabaseClient.rpc(
     "rpc_get_sale_documents_payload",
     {
       p_sale_id: saleId,
@@ -373,6 +374,18 @@ Deno.serve(async (req) => {
   );
 
   if (rpcError) {
+    console.error(
+      JSON.stringify({
+        request_id: requestId,
+        sale_id: saleId,
+        user_id: userData.user.id,
+        rpc_error_message: rpcError.message,
+        rpc_error_code: (rpcError as { code?: string }).code ?? null,
+        rpc_error_details: (rpcError as { details?: string }).details ?? null,
+        rpc_error_hint: (rpcError as { hint?: string }).hint ?? null,
+      }),
+    );
+
     if (rpcError.message?.includes("SALE_NOT_FOUND")) {
       return jsonResponse(
         requestId,

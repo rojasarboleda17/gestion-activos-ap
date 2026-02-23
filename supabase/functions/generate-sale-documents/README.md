@@ -27,25 +27,19 @@ Comportamiento actual del baseline:
 
 ## Cómo probar local (sin deploy)
 
-1. Levantar stack local de Supabase:
+
+1. Servir la función:
 
    ```bash
-   supabase start
+   supabase functions serve generate-sale-documents --no-verify-jwt
    ```
 
-2. Servir la función:
-
-   ```bash
-   supabase functions serve generate-sale-documents
-   ```
-
-3. Invocar con `curl`:
+2. Invocar con `curl`:
 
    ```bash
    curl -i -X POST 'http://127.0.0.1:54321/functions/v1/generate-sale-documents' \
-     -H 'Authorization: Bearer <JWT>' \
-     -H 'Content-Type: application/json' \
-     -d '{"saleId":"00000000-0000-0000-0000-000000000000"}'
+      -H 'Content-Type: application/json' \
+      -d '{"sale_id":"00000000-0000-0000-0000-000000000000"}'
    ```
 
 > Nota: este baseline no genera ni modifica PDFs todavía.

@@ -1,73 +1,134 @@
-# generate-sale-documents (baseline)
+# generate-sale-documents
 
-Edge Function baseline para docgen de venta con un probe de runtime.
+Edge Function para obtener el contrato de payload de documentos de venta (sin generar PDFs todavía).
 
-## Qué valida esta baseline
-
-La función:
-- Acepta `POST`.
-- Lee el archivo `./templates/PAQUETE TRASPASO.pdf`.
-- Responde JSON con `template_bytes` (cantidad de bytes leídos).
-
-No implementa todavía lógica de Supabase ni rellenado de PDF.
-
-## Opción A (recomendada): probar vía Supabase Functions
-
-1. Levanta el stack local:
+## Ejecutar local
 
 ```bash
 supabase start
-```
-
-2. Sirve la función (sin verificar JWT para la prueba local):
-
-```bash
 supabase functions serve generate-sale-documents --no-verify-jwt
 ```
 
-> `supabase functions serve` se ejecuta en foreground. Déjalo corriendo en esa terminal.
+> En deploy, la función corre con `verify_jwt=true`.
 
-3. En otra terminal, prueba el endpoint:
+## Request
+
+`POST /functions/v1/generate-sale-documents`
+
+Body JSON:
+
+```json
+{
+  "sale_id": "9fd4f7de-d8f4-4ec7-92db-0329ca63fdf0",
+  "docs": ["contrato_compraventa", "mandato", "traspaso"]
+}
+```
+
+- `sale_id`: requerido, UUID v4.
+- `docs`: opcional, subset de `contrato_compraventa`, `mandato`, `traspaso`.
+- si `docs` no viene, la función usa los 3 por defecto.
+
+## Importante para pruebas
+
+La función **siempre valida JWT** dentro del código (`Authorization: Bearer <JWT>`), aunque la sirvas con `--no-verify-jwt`.
+
+- `--no-verify-jwt` desactiva la verificación en el gateway de Supabase Functions.
+- Pero esta función hace `supabase.auth.getUser(token)` y si el token es placeholder (`<JWT_VALIDO>`) devolverá `401`.
+
+## Obtener JWT válido (local)
+
+Necesitas un token real de `access_token` para que pasen los casos `400/409/200`.
+
+1) Crea usuario (si no existe):
+
+```bash
+curl -s 'http://127.0.0.1:54321/auth/v1/signup' \
+  -H 'apikey: <SUPABASE_ANON_KEY>' \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"docgen_test@example.com","password":"Test123456!"}'
+```
+
+2) Inicia sesión y extrae `access_token`:
+
+```bash
+curl -s 'http://127.0.0.1:54321/auth/v1/token?grant_type=password' \
+  -H 'apikey: <SUPABASE_ANON_KEY>' \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"docgen_test@example.com","password":"Test123456!"}'
+```
+
+En la respuesta JSON toma `access_token`.
+
+## Consulta SQL sencilla para obtener `sale_id` de pruebas
+
+En **Supabase Studio → SQL Editor**, ejecuta esta consulta para ver ventas y su elegibilidad según la RPC:
+
+```sql
+with payloads as (
+  select
+    s.id as sale_id,
+    s.created_at,
+    public.rpc_get_sale_documents_payload(s.id) as payload
+  from public.sales s
+)
+select
+  sale_id,
+  (payload -> 'eligibility' ->> 'can_generate')::boolean as can_generate,
+  payload -> 'eligibility' -> 'reasons' as reasons,
+  created_at
+from payloads
+order by created_at desc
+limit 20;
+```
+
+Interpretación rápida:
+- `can_generate = true` → caso candidato para **200**.
+- `can_generate = false` → caso candidato para **409**.
+- `can_generate = null` → la RPC no está retornando `eligibility` para ese registro; en ese caso no podrás validar **409** hasta que esa regla exista en el payload.
+
+## Ejemplos curl
+
+### OPTIONS (preflight)
+
+```bash
+curl -i -X OPTIONS 'http://127.0.0.1:54321/functions/v1/generate-sale-documents' \
+  -H 'Origin: http://localhost:3000' \
+  -H 'Access-Control-Request-Method: POST'
+```
+
+Nota: detrás de Kong puede verse `200` (gateway) en lugar de `204` (handler), ambos válidos como preflight exitoso si vienen headers CORS.
+
+### 401 (sin auth)
 
 ```bash
 curl -i -X POST 'http://127.0.0.1:54321/functions/v1/generate-sale-documents' \
   -H 'Content-Type: application/json' \
-  -d '{}'
+  -d '{"sale_id":"9fd4f7de-d8f4-4ec7-92db-0329ca63fdf0"}'
 ```
 
-Respuesta esperada: `HTTP/1.1 200` con JSON que incluye `ok: true`, `template_bytes` y `template_path` (si no encuentra el PDF en filesystem local, usa fallback embebido).
-
-## Opción B (fallback): ejecutar directo con Deno
-
-Si en tu entorno `supabase functions serve` exige `supabase start` y no puedes levantarlo por puertos o Docker, puedes validar el runtime directo:
+### 400 (sale_id inválido, con JWT real)
 
 ```bash
-cd supabase/functions/generate-sale-documents
-deno run --allow-net --allow-read --allow-env index.ts
-```
-
-En otra terminal:
-
-```bash
-curl -i -X POST 'http://127.0.0.1:8000' \
+curl -i -X POST 'http://127.0.0.1:54321/functions/v1/generate-sale-documents' \
+  -H 'Authorization: Bearer <ACCESS_TOKEN_REAL>' \
   -H 'Content-Type: application/json' \
-  -d '{}'
+  -d '{"sale_id":"123"}'
 ```
 
-## Nota sobre JWT
+### 409 (sale no elegible / no activa)
 
-En `supabase/config.toml`, la función puede mantenerse con `verify_jwt=true`.
-En ese modo también se puede invocar usando JWT-based keys (`anon` o `service_role`).
+```bash
+curl -i -X POST 'http://127.0.0.1:54321/functions/v1/generate-sale-documents' \
+  -H 'Authorization: Bearer <ACCESS_TOKEN_REAL>' \
+  -H 'Content-Type: application/json' \
+  -d '{"sale_id":"9fd4f7de-d8f4-4ec7-92db-0329ca63fdf0"}'
+```
 
-## Troubleshooting rápido
+### 200 (ok)
 
-- **404 en `/functions/v1/generate-sale-documents`**:
-  - Verifica que `supabase functions serve generate-sale-documents --no-verify-jwt` siga corriendo.
-  - Ejecuta el `curl` en otra terminal (no en la misma donde está `serve`).
-- **405 Method Not Allowed**:
-  - La función solo acepta `POST`.
-
-
-- **template_path con `embedded:...`**:
-  - Significa que el probe no encontró el PDF en filesystem del runtime local y usó fallback embebido para destrabar la validación baseline.
-  - Si quieres validar lectura directa de archivo, confirma que exista `supabase/functions/generate-sale-documents/templates/PAQUETE TRASPASO.pdf` en tu repo local.
+```bash
+curl -i -X POST 'http://127.0.0.1:54321/functions/v1/generate-sale-documents' \
+  -H 'Authorization: Bearer <ACCESS_TOKEN_REAL>' \
+  -H 'Content-Type: application/json' \
+  -d '{"sale_id":"9fd4f7de-d8f4-4ec7-92db-0329ca63fdf0","docs":["contrato_compraventa","mandato"]}'
+```

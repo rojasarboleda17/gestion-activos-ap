@@ -1,6 +1,6 @@
 import { corsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
 
-Deno.serve((req) => {
+Deno.serve(async (req) => {
   const preflight = handleCorsPreflight(req);
   if (preflight) return preflight;
 
@@ -14,16 +14,14 @@ Deno.serve((req) => {
     );
   }
 
+  const templateUrl = new URL("./templates/PAQUETE TRASPASO.pdf", import.meta.url);
+  const templateBytes = await Deno.readFile(templateUrl);
+
   return new Response(
     JSON.stringify({
       ok: true,
-      message:
-        "generate-sale-documents baseline listo (sin lógica de generación de PDFs).",
-      todo: [
-        "Cargar datos de venta",
-        "Completar template PAQUETE TRASPASO.pdf",
-        "Guardar/retornar archivos generados",
-      ],
+      template_bytes: templateBytes.length,
+      message: "Baseline runtime probe OK.",
     }),
     {
       status: 200,

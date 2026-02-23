@@ -76,6 +76,46 @@ puedes resolverlo con alguna de estas opciones:
 
 > `supabase functions serve generate-sale-documents` requiere que `supabase start` esté ejecutándose correctamente.
 
+
+## ¿Qué hago ahora? (paso a paso)
+
+Si estás en el mismo caso del error de puerto, ejecuta esto en orden:
+
+1. Identifica si ya hay un proyecto de Supabase corriendo y detenlo:
+
+   ```bash
+   supabase stop --project-id <project-id>
+   ```
+
+2. Verifica si el puerto `54322` sigue ocupado:
+
+   ```bash
+   lsof -i :54322
+   ```
+
+3. Intenta levantar el stack otra vez:
+
+   ```bash
+   supabase start
+   ```
+
+4. Si vuelve a fallar por el mismo puerto, cambia el puerto de DB en `supabase/config.toml` (`[db]`) y repite `supabase start`.
+
+5. Cuando `supabase start` quede arriba, recién ahí sirve la función:
+
+   ```bash
+   supabase functions serve generate-sale-documents
+   ```
+
+6. Prueba el endpoint:
+
+   ```bash
+   curl -i -X POST 'http://127.0.0.1:54321/functions/v1/generate-sale-documents' \
+     -H 'Authorization: Bearer <JWT>' \
+     -H 'Content-Type: application/json' \
+     -d '{"saleId":"00000000-0000-0000-0000-000000000000"}'
+   ```
+
 ## Alcance de este baseline
 
 - No implementa generación, edición ni firma de PDFs.

@@ -17,3 +17,17 @@ export const supabaseClient = createClient(supabaseUrl, anonKey, {
     autoRefreshToken: false,
   },
 });
+
+export function createUserSupabaseClient(jwt: string) {
+  return createClient(supabaseUrl, anonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+      },
+    },
+  });
+}

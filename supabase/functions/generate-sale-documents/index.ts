@@ -1,6 +1,6 @@
 import { corsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
 
-Deno.serve(async (req) => {
+Deno.serve((req) => {
   const preflight = handleCorsPreflight(req);
   if (preflight) return preflight;
 

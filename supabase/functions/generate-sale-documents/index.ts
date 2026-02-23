@@ -243,6 +243,21 @@ function isDebugEnabled(req: Request): boolean {
   return debugQueryParam === "1" || debugHeader === "1";
 }
 
+
+function shouldRetryRpcWithAdmin(rpcError: { message?: string; code?: string | null; details?: string | null; hint?: string | null }): boolean {
+  const errorText = [rpcError.message, rpcError.details, rpcError.hint]
+    .filter((value): value is string => typeof value === "string" && value.length > 0)
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    errorText.includes("permission denied") ||
+    errorText.includes("row-level security") ||
+    errorText.includes("insufficient privilege") ||
+    rpcError.code === "42501"
+  );
+}
+
 async function uploadPdfWithConflictHandling(params: {
   orgId: string;
   vehicleId: string;
@@ -366,23 +381,41 @@ Deno.serve(async (req) => {
   }
 
   const userSupabaseClient = createUserSupabaseClient(token);
-  const { data: payload, error: rpcError } = await userSupabaseClient.rpc(
+  let { data: payload, error: rpcError } = await userSupabaseClient.rpc(
     "rpc_get_sale_documents_payload",
     {
       p_sale_id: saleId,
     },
   );
 
+  if (rpcError && shouldRetryRpcWithAdmin(rpcError)) {
+    const adminRpcResult = await supabaseAdmin.rpc(
+      "rpc_get_sale_documents_payload",
+      {
+        p_sale_id: saleId,
+      },
+    );
+
+    if (!adminRpcResult.error) {
+      payload = adminRpcResult.data;
+      rpcError = null;
+    }
+  }
+
   if (rpcError) {
+    const rpcCode = (rpcError as { code?: string }).code ?? null;
+    const rpcDetails = (rpcError as { details?: string }).details ?? null;
+    const rpcHint = (rpcError as { hint?: string }).hint ?? null;
+
     console.error(
       JSON.stringify({
         request_id: requestId,
         sale_id: saleId,
         user_id: userData.user.id,
         rpc_error_message: rpcError.message,
-        rpc_error_code: (rpcError as { code?: string }).code ?? null,
-        rpc_error_details: (rpcError as { details?: string }).details ?? null,
-        rpc_error_hint: (rpcError as { hint?: string }).hint ?? null,
+        rpc_error_code: rpcCode,
+        rpc_error_details: rpcDetails,
+        rpc_error_hint: rpcHint,
       }),
     );
 
@@ -403,6 +436,7 @@ Deno.serve(async (req) => {
         error: "RPC_ERROR",
         message: "Failed to load sale documents payload",
         request_id: requestId,
+        rpc_code: rpcCode,
       },
       saleId,
       userData.user.id,

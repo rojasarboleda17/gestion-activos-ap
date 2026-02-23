@@ -5,8 +5,10 @@ Edge Function baseline para docgen de venta **sin lógica de generación de PDF*
 ## Estructura
 
 - `index.ts`: skeleton compilable con `Deno.serve`.
-- `deno.json`: configuración por función (recomendada en Supabase Edge Functions).
-- `templates/PAQUETE TRASPASO.pdf`: plantilla base copiada desde la raíz del repositorio.
+- `deno.json`: configuración por función (recomendada en Supabase Edge
+  Functions).
+- `templates/PAQUETE TRASPASO.pdf`: plantilla base copiada desde la raíz del
+  repositorio.
 
 ## Cómo invocar
 
@@ -26,7 +28,6 @@ Comportamiento actual del baseline:
 - HTTP `200` para preflight `OPTIONS`.
 
 ## Cómo probar local (sin deploy)
-
 
 1. Servir la función:
 
@@ -60,7 +61,8 @@ puedes resolverlo con alguna de estas opciones:
    supabase stop --project-id <project-id>
    ```
 
-2. Cambiar el puerto de base de datos en `supabase/config.toml` (sección `[db]`) para evitar el conflicto y volver a ejecutar `supabase start`.
+2. Cambiar el puerto de base de datos en `supabase/config.toml` (sección `[db]`)
+   para evitar el conflicto y volver a ejecutar `supabase start`.
 
 3. Verificar qué proceso ocupa el puerto antes de reiniciar:
 
@@ -68,8 +70,8 @@ puedes resolverlo con alguna de estas opciones:
    lsof -i :54322
    ```
 
-> `supabase functions serve generate-sale-documents` requiere que `supabase start` esté ejecutándose correctamente.
-
+> `supabase functions serve generate-sale-documents` requiere que
+> `supabase start` esté ejecutándose correctamente.
 
 ## ¿Qué hago ahora? (paso a paso)
 
@@ -93,7 +95,8 @@ Si estás en el mismo caso del error de puerto, ejecuta esto en orden:
    supabase start
    ```
 
-4. Si vuelve a fallar por el mismo puerto, cambia el puerto de DB en `supabase/config.toml` (`[db]`) y repite `supabase start`.
+4. Si vuelve a fallar por el mismo puerto, cambia el puerto de DB en
+   `supabase/config.toml` (`[db]`) y repite `supabase start`.
 
 5. Cuando `supabase start` quede arriba, recién ahí sirve la función:
 

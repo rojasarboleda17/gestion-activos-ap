@@ -35,7 +35,7 @@ curl -i -X POST 'http://127.0.0.1:54321/functions/v1/generate-sale-documents' \
   -d '{}'
 ```
 
-Respuesta esperada: `HTTP/1.1 200` con JSON que incluye `ok: true`, `template_bytes` y `template_path`.
+Respuesta esperada: `HTTP/1.1 200` con JSON que incluye `ok: true`, `template_bytes` y `template_path` (si no encuentra el PDF en filesystem local, usa fallback embebido).
 
 ## Opción B (fallback): ejecutar directo con Deno
 
@@ -68,6 +68,6 @@ En ese modo también se puede invocar usando JWT-based keys (`anon` o `service_r
   - La función solo acepta `POST`.
 
 
-- **500 Template file not found**:
-  - El probe intenta rutas alternativas en runtime local (`import.meta.url` y rutas desde `Deno.cwd()`).
-  - Si persiste, verifica que exista `supabase/functions/generate-sale-documents/templates/PAQUETE TRASPASO.pdf` en tu repo local.
+- **template_path con `embedded:...`**:
+  - Significa que el probe no encontró el PDF en filesystem del runtime local y usó fallback embebido para destrabar la validación baseline.
+  - Si quieres validar lectura directa de archivo, confirma que exista `supabase/functions/generate-sale-documents/templates/PAQUETE TRASPASO.pdf` en tu repo local.

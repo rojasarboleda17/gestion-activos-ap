@@ -31,6 +31,24 @@ export const customerSchema = z.object({
     .max(50, { message: "El documento debe tener máximo 50 caracteres" })
     .nullable()
     .or(z.literal("")),
+  id_type_code: z
+    .string()
+    .trim()
+    .max(20, { message: "El tipo de documento debe tener máximo 20 caracteres" })
+    .nullable()
+    .or(z.literal("")),
+  address: z
+    .string()
+    .trim()
+    .max(255, { message: "La dirección debe tener máximo 255 caracteres" })
+    .nullable()
+    .or(z.literal("")),
+  city: z
+    .string()
+    .trim()
+    .max(100, { message: "La ciudad debe tener máximo 100 caracteres" })
+    .nullable()
+    .or(z.literal("")),
 });
 
 export type CustomerFormData = z.infer<typeof customerSchema>;
@@ -44,7 +62,10 @@ export function validateCustomerData(data: {
   email: string;
   phone: string;
   document_id: string;
-}): { success: true; data: { full_name: string; email: string | null; phone: string | null; document_id: string | null }; error?: never } | { success: false; error: string; data?: never } {
+  id_type_code: string;
+  address: string;
+  city: string;
+}): { success: true; data: { full_name: string; email: string | null; phone: string | null; document_id: string | null; id_type_code: string | null; address: string | null; city: string | null }; error?: never } | { success: false; error: string; data?: never } {
   try {
     const validated = customerSchema.parse(data);
     return {
@@ -54,6 +75,9 @@ export function validateCustomerData(data: {
         email: validated.email && validated.email.trim() !== "" ? validated.email : null,
         phone: validated.phone && validated.phone.trim() !== "" ? validated.phone : null,
         document_id: validated.document_id && validated.document_id.trim() !== "" ? validated.document_id : null,
+        id_type_code: validated.id_type_code && validated.id_type_code.trim() !== "" ? validated.id_type_code : null,
+        address: validated.address && validated.address.trim() !== "" ? validated.address : null,
+        city: validated.city && validated.city.trim() !== "" ? validated.city : null,
       },
     };
   } catch (err) {

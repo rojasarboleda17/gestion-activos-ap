@@ -1,19 +1,7 @@
 -- Atomic reservation->sale conversion to avoid partial states across modules.
--- Bootstrap-safe: create RPC only when dependent tables exist.
 
 begin;
 
-DO $convert_reservation_to_sale_bootstrap_safe$
-BEGIN
-  IF to_regclass('public.reservations') IS NULL
-     OR to_regclass('public.sales') IS NULL
-     OR to_regclass('public.sale_payments') IS NULL
-     OR to_regclass('public.vehicles') IS NULL THEN
-    RAISE NOTICE 'Skipping convert_reservation_to_sale RPC: required tables do not exist yet';
-    RETURN;
-  END IF;
-
-  EXECUTE $fn$
 create or replace function public.convert_reservation_to_sale(
   p_reservation_id uuid,
   p_final_price_cop numeric,
@@ -144,11 +132,8 @@ begin
   return v_sale_id;
 end;
 $$;
-$fn$;
 
-  EXECUTE 'revoke all on function public.convert_reservation_to_sale(uuid, numeric, text, text, boolean) from public';
-  EXECUTE 'grant execute on function public.convert_reservation_to_sale(uuid, numeric, text, text, boolean) to authenticated';
-END
-$convert_reservation_to_sale_bootstrap_safe$;
+revoke all on function public.convert_reservation_to_sale(uuid, numeric, text, text, boolean) from public;
+grant execute on function public.convert_reservation_to_sale(uuid, numeric, text, text, boolean) to authenticated;
 
 commit;

@@ -105,7 +105,14 @@ export function useVehicleSalesActionHandlers({
     setResForm({ ...resForm, customer_id: customer.id });
     setSaleForm({ ...saleForm, customer_id: customer.id });
     setQuickCustomerOpen(false);
-    setQuickCustomerForm({ full_name: "", phone: "" });
+    setQuickCustomerForm({
+      full_name: "",
+      phone: "",
+      document_id: "",
+      id_type_code: "",
+      address: "",
+      city: "",
+    });
   }, [appendCustomer, createQuickCustomer, quickCustomerForm, resForm, saleForm, setQuickCustomerForm, setQuickCustomerOpen, setResForm, setSaleForm]);
 
   const handleCancelReservation = useCallback(async () => {

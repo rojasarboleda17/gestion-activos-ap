@@ -20,7 +20,14 @@ export function useVehicleSalesUIState(defaultPaymentMethodCode: string) {
   });
 
   const [quickCustomerOpen, setQuickCustomerOpen] = useState(false);
-  const [quickCustomerForm, setQuickCustomerForm] = useState<QuickCustomerForm>({ full_name: "", phone: "" });
+  const [quickCustomerForm, setQuickCustomerForm] = useState<QuickCustomerForm>({
+    full_name: "",
+    phone: "",
+    document_id: "",
+    id_type_code: "",
+    address: "",
+    city: "",
+  });
 
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelingReservation, setCancelingReservation] = useState<Reservation | null>(null);

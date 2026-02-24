@@ -40,6 +40,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
     customers,
     paymentMethods,
     vehicleStages,
+    identityDocumentTypes,
     refetch,
     appendCustomer,
   } = useVehicleSalesData({ vehicleId, orgId: profile?.org_id });
@@ -208,6 +209,7 @@ export function VehicleSalesTab({ vehicleId, vehicleStageCode, onRefresh }: Prop
         onOpenChange={setQuickCustomerOpen}
         onFormChange={setQuickCustomerForm}
         onSubmit={handleQuickCustomer}
+        identityDocumentTypes={identityDocumentTypes}
       />
 
       <VehicleCancelReservationDialog

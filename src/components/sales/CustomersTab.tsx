@@ -412,13 +412,34 @@ export function CustomersTab() {
                 placeholder="Juan Pérez"
               />
             </div>
-            <div className="space-y-2">
-              <Label>Documento (Cédula/NIT)</Label>
-              <Input
-                value={form.document_id}
-                onChange={(e) => setForm({ ...form, document_id: e.target.value })}
-                placeholder="1234567890"
-              />
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Tipo de documento</Label>
+                <Select
+                  value={form.id_type_code || "none"}
+                  onValueChange={(value) => setForm({ ...form, id_type_code: value === "none" ? "" : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sin tipo</SelectItem>
+                    {identityDocumentTypes.map((docType) => (
+                      <SelectItem key={docType.code} value={docType.code}>
+                        {docType.code} - {docType.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label>Documento</Label>
+                <Input
+                  value={form.document_id}
+                  onChange={(e) => setForm({ ...form, document_id: e.target.value })}
+                  placeholder="1234567890"
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Tipo de documento</Label>

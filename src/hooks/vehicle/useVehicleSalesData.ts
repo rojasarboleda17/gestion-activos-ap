@@ -53,7 +53,7 @@ export function useVehicleSalesData({ vehicleId, orgId }: UseVehicleSalesDataPar
       const customersResponse = orgId
         ? await supabase
             .from("customers")
-            .select("id, full_name, phone")
+            .select("id, full_name, phone, document_id, id_type_code, address, city")
             .eq("org_id", orgId)
             .order("full_name")
         : { data: [], error: null };

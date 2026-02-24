@@ -21,6 +21,10 @@ export interface Customer {
   id: string;
   full_name: string;
   phone: string | null;
+  document_id: string | null;
+  id_type_code: string | null;
+  address: string | null;
+  city: string | null;
 }
 
 export interface PaymentMethod {
@@ -43,6 +47,10 @@ export interface ReservationForm {
 export interface QuickCustomerForm {
   full_name: string;
   phone: string;
+  document_id: string;
+  id_type_code: string;
+  address: string;
+  city: string;
 }
 
 export interface ConvertForm {

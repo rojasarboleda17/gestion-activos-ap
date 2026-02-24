@@ -34,6 +34,13 @@ import { formatCOP, formatDate } from "@/lib/format";
 import { validateCustomerData } from "@/lib/validations";
 import { Users2, Plus, Pencil, Search, Eye, Bookmark, DollarSign } from "lucide-react";
 import { logger } from "@/lib/logger";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Customer {
   id: string;
@@ -41,6 +48,9 @@ interface Customer {
   email: string | null;
   phone: string | null;
   document_id: string | null;
+  id_type_code: string | null;
+  address: string | null;
+  city: string | null;
 }
 
 interface ReservationHistoryItem {
@@ -65,6 +75,11 @@ interface SaleHistoryItem {
   } | null;
 }
 
+interface IdentityDocumentType {
+  code: string;
+  name: string;
+}
+
 interface CustomerHistory {
   reservations: ReservationHistoryItem[];
   sales: SaleHistoryItem[];
@@ -78,6 +93,7 @@ export function CustomersTab() {
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [search, setSearch] = useState("");
+  const [identityDocumentTypes, setIdentityDocumentTypes] = useState<IdentityDocumentType[]>([]);
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -88,6 +104,9 @@ export function CustomersTab() {
     email: "",
     phone: "",
     document_id: "",
+    id_type_code: "",
+    address: "",
+    city: "",
   });
 
   // Detail sheet state
@@ -122,6 +141,24 @@ export function CustomersTab() {
     fetchCustomers();
   }, [fetchCustomers]);
 
+  const fetchIdentityDocumentTypes = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("identity_document_types")
+        .select("code, name")
+        .order("name");
+
+      if (error) throw error;
+      setIdentityDocumentTypes(data || []);
+    } catch (err) {
+      logger.error("Error fetching identity document types:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchIdentityDocumentTypes();
+  }, [fetchIdentityDocumentTypes]);
+
   const checkDuplicate = async (phone: string, document_id: string, excludeId?: string) => {
     if (!profile?.org_id) return null;
     
@@ -150,7 +187,7 @@ export function CustomersTab() {
 
   const openCreate = () => {
     setEditingCustomer(null);
-    setForm({ full_name: "", email: "", phone: "", document_id: "" });
+    setForm({ full_name: "", email: "", phone: "", document_id: "", id_type_code: "", address: "", city: "" });
     setDuplicateWarning(null);
     setDialogOpen(true);
   };
@@ -162,6 +199,9 @@ export function CustomersTab() {
       email: customer.email || "",
       phone: customer.phone || "",
       document_id: customer.document_id || "",
+      id_type_code: customer.id_type_code || "",
+      address: customer.address || "",
+      city: customer.city || "",
     });
     setDuplicateWarning(null);
     setDialogOpen(true);
@@ -372,13 +412,34 @@ export function CustomersTab() {
                 placeholder="Juan Pérez"
               />
             </div>
-            <div className="space-y-2">
-              <Label>Documento (Cédula/NIT)</Label>
-              <Input
-                value={form.document_id}
-                onChange={(e) => setForm({ ...form, document_id: e.target.value })}
-                placeholder="1234567890"
-              />
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Tipo de documento</Label>
+                <Select
+                  value={form.id_type_code || "none"}
+                  onValueChange={(value) => setForm({ ...form, id_type_code: value === "none" ? "" : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sin tipo</SelectItem>
+                    {identityDocumentTypes.map((docType) => (
+                      <SelectItem key={docType.code} value={docType.code}>
+                        {docType.code} - {docType.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label>Documento</Label>
+                <Input
+                  value={form.document_id}
+                  onChange={(e) => setForm({ ...form, document_id: e.target.value })}
+                  placeholder="1234567890"
+                />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -398,6 +459,22 @@ export function CustomersTab() {
                   placeholder="email@ejemplo.com"
                 />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Dirección</Label>
+              <Input
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+                placeholder="Calle 123 #45-67"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Ciudad</Label>
+              <Input
+                value={form.city}
+                onChange={(e) => setForm({ ...form, city: e.target.value })}
+                placeholder="Bogotá"
+              />
             </div>
 
             {duplicateWarning && (
@@ -456,12 +533,24 @@ export function CustomersTab() {
                     <span>{selectedCustomer.document_id || "—"}</span>
                   </div>
                   <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Tipo de documento</span>
+                    <span>{selectedCustomer.id_type_code || "—"}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Teléfono</span>
                     <span>{selectedCustomer.phone || "—"}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Email</span>
                     <span>{selectedCustomer.email || "—"}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Dirección</span>
+                    <span>{selectedCustomer.address || "—"}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Ciudad</span>
+                    <span>{selectedCustomer.city || "—"}</span>
                   </div>
                 </CardContent>
               </Card>

@@ -84,6 +84,9 @@ interface Reservation {
     full_name: string;
     phone: string | null;
     document_id: string | null;
+    id_type_code: string | null;
+    address: string | null;
+    city: string | null;
   };
   vehicle?: {
     license_plate: string | null;
@@ -109,6 +112,14 @@ interface Customer {
   full_name: string;
   phone: string | null;
   document_id: string | null;
+  id_type_code: string | null;
+  address: string | null;
+  city: string | null;
+}
+
+interface IdentityDocumentType {
+  code: string;
+  name: string;
 }
 
 interface PaymentMethod {
@@ -217,6 +228,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [identityDocumentTypes, setIdentityDocumentTypes] = useState<IdentityDocumentType[]>([]);
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -233,7 +245,14 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
   });
 
   const [quickCustomerOpen, setQuickCustomerOpen] = useState(false);
-  const [quickCustomerForm, setQuickCustomerForm] = useState({ full_name: "", phone: "", document_id: "" });
+  const [quickCustomerForm, setQuickCustomerForm] = useState({
+    full_name: "",
+    phone: "",
+    document_id: "",
+    id_type_code: "",
+    address: "",
+    city: "",
+  });
   const [quickCustomerSaving, setQuickCustomerSaving] = useState(false);
 
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -262,12 +281,12 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
     setLoading(true);
 
     try {
-      const [resRes, vehRes, custRes, pmRes] = await Promise.all([
+      const [resRes, vehRes, custRes, pmRes, idTypesRes] = await Promise.all([
         supabase
           .from("reservations")
           .select(`
             *,
-            customer:customers(full_name, phone, document_id),
+            customer:customers(full_name, phone, document_id, id_type_code, address, city),
             vehicle:inventory_vehicle_overview(license_plate, brand, line, model_year, listed_price_cop)
           `)
           .eq("org_id", profile.org_id)
@@ -281,13 +300,17 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
           .order("brand"),
         supabase
           .from("customers")
-          .select("id, full_name, phone, document_id")
+          .select("id, full_name, phone, document_id, id_type_code, address, city")
           .eq("org_id", profile.org_id)
           .order("full_name"),
         supabase
           .from("payment_methods")
           .select("code, name")
           .eq("is_active", true),
+        supabase
+          .from("identity_document_types")
+          .select("code, name")
+          .order("name"),
       ]);
 
       if (resRes.error) {
@@ -298,6 +321,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
       setVehicles((vehRes.data || []) as Vehicle[]);
       setCustomers((custRes.data || []) as Customer[]);
       setPaymentMethods((pmRes.data || []) as PaymentMethod[]);
+      setIdentityDocumentTypes((idTypesRes.data || []) as IdentityDocumentType[]);
     } catch (err) {
       logger.error("[Reservations] Unexpected error fetching data:", err);
       toast.error("Error al cargar datos");
@@ -332,7 +356,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
         .from("reservations")
         .select(`
           *,
-          customer:customers(full_name, phone, document_id),
+          customer:customers(full_name, phone, document_id, id_type_code, address, city),
           vehicle:inventory_vehicle_overview(license_plate, brand, line, model_year, listed_price_cop)
         `)
         .eq("id", reservation.id)
@@ -436,8 +460,11 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
           full_name: quickCustomerForm.full_name.trim(),
           phone: quickCustomerForm.phone?.trim() || null,
           document_id: quickCustomerForm.document_id?.trim() || null,
+          id_type_code: quickCustomerForm.id_type_code?.trim() || null,
+          address: quickCustomerForm.address?.trim() || null,
+          city: quickCustomerForm.city?.trim() || null,
         })
-        .select("id, full_name, phone, document_id")
+        .select("id, full_name, phone, document_id, id_type_code, address, city")
         .single();
 
       if (error || !data) {
@@ -448,7 +475,14 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
       setCustomers((prev) => [...prev, data]);
       setForm((prev) => ({ ...prev, customer_id: data.id }));
       setQuickCustomerOpen(false);
-      setQuickCustomerForm({ full_name: "", phone: "", document_id: "" });
+      setQuickCustomerForm({
+        full_name: "",
+        phone: "",
+        document_id: "",
+        id_type_code: "",
+        address: "",
+        city: "",
+      });
       toast.success("Cliente creado");
     } catch (err) {
       toast.error(`Error inesperado: ${getErrorMessage(err, "Error desconocido")}`);
@@ -1034,7 +1068,10 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
           <div className="space-y-4 py-2">
             <div className="space-y-2"><Label>Nombre *</Label><Input value={quickCustomerForm.full_name} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, full_name: e.target.value })} /></div>
             <div className="space-y-2"><Label>Documento</Label><Input value={quickCustomerForm.document_id} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, document_id: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Tipo de documento</Label><Select value={quickCustomerForm.id_type_code || "none"} onValueChange={(value) => setQuickCustomerForm({ ...quickCustomerForm, id_type_code: value === "none" ? "" : value })}><SelectTrigger><SelectValue placeholder="Seleccionar tipo" /></SelectTrigger><SelectContent><SelectItem value="none">Sin tipo</SelectItem>{identityDocumentTypes.map((docType) => (<SelectItem key={docType.code} value={docType.code}>{docType.code} - {docType.name}</SelectItem>))}</SelectContent></Select></div>
             <div className="space-y-2"><Label>Teléfono</Label><Input value={quickCustomerForm.phone} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, phone: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Dirección</Label><Input value={quickCustomerForm.address} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, address: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Ciudad</Label><Input value={quickCustomerForm.city} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, city: e.target.value })} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setQuickCustomerOpen(false)}>Cancelar</Button>
@@ -1055,8 +1092,10 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex justify-between"><span className="text-muted-foreground">Nombre</span><span>{selectedReservation.customer?.full_name || "N/D"}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Documento</span><span>{selectedReservation.customer?.document_id || "N/D"}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Tipo de documento</span><span>{selectedReservation.customer?.id_type_code || "N/D"}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Teléfono</span><span>{selectedReservation.customer?.phone || "N/D"}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Dirección</span><span>N/D</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Dirección</span><span>{selectedReservation.customer?.address || "N/D"}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Ciudad</span><span>{selectedReservation.customer?.city || "N/D"}</span></div>
                 </CardContent>
               </Card>
 

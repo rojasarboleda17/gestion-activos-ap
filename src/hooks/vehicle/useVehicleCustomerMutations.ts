@@ -22,8 +22,12 @@ export function useVehicleCustomerMutations({ orgId }: UseVehicleCustomerMutatio
           org_id: orgId,
           full_name: form.full_name.trim(),
           phone: form.phone?.trim() || null,
+          document_id: form.document_id?.trim() || null,
+          id_type_code: form.id_type_code?.trim() || null,
+          address: form.address?.trim() || null,
+          city: form.city?.trim() || null,
         })
-        .select("id, full_name, phone")
+        .select("id, full_name, phone, document_id, id_type_code, address, city")
         .single();
 
       if (error) {

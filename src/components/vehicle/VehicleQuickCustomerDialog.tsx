@@ -38,10 +38,39 @@ export function VehicleQuickCustomerDialog({
             />
           </div>
           <div className="space-y-2">
+            <Label>Documento</Label>
+            <Input
+              value={form.document_id}
+              onChange={(e) => onFormChange({ ...form, document_id: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Tipo de documento</Label>
+            <Input
+              value={form.id_type_code}
+              onChange={(e) => onFormChange({ ...form, id_type_code: e.target.value })}
+              placeholder="CC, NIT, CE..."
+            />
+          </div>
+          <div className="space-y-2">
             <Label>Teléfono</Label>
             <Input
               value={form.phone}
               onChange={(e) => onFormChange({ ...form, phone: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Dirección</Label>
+            <Input
+              value={form.address}
+              onChange={(e) => onFormChange({ ...form, address: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Ciudad</Label>
+            <Input
+              value={form.city}
+              onChange={(e) => onFormChange({ ...form, city: e.target.value })}
             />
           </div>
         </div>

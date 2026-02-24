@@ -101,6 +101,10 @@ interface Customer {
   id: string;
   full_name: string;
   phone: string | null;
+  document_id: string | null;
+  id_type_code: string | null;
+  address: string | null;
+  city: string | null;
 }
 
 interface Props {
@@ -146,6 +150,17 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
     notes: "",
   });
 
+  const [quickCustomerOpen, setQuickCustomerOpen] = useState(false);
+  const [quickCustomerSaving, setQuickCustomerSaving] = useState(false);
+  const [quickCustomerForm, setQuickCustomerForm] = useState({
+    full_name: "",
+    phone: "",
+    document_id: "",
+    id_type_code: "",
+    address: "",
+    city: "",
+  });
+
   // Void dialog
   const [voidDialogOpen, setVoidDialogOpen] = useState(false);
   const [voidForm, setVoidForm] = useState({
@@ -186,7 +201,7 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
           .order("brand"),
         supabase
           .from("customers")
-          .select("id, full_name, phone")
+          .select("id, full_name, phone, document_id, id_type_code, address, city")
           .eq("org_id", profile.org_id)
           .order("full_name"),
       ]);
@@ -357,6 +372,53 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
       toast.error(`Error inesperado: ${getErrorMessage(err, "Error desconocido")}`);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleQuickCreateCustomer = async () => {
+    if (!profile?.org_id) return;
+    if (!quickCustomerForm.full_name.trim()) {
+      toast.error("El nombre es requerido");
+      return;
+    }
+
+    setQuickCustomerSaving(true);
+    try {
+      const { data, error } = await supabase
+        .from("customers")
+        .insert({
+          org_id: profile.org_id,
+          full_name: quickCustomerForm.full_name.trim(),
+          phone: quickCustomerForm.phone?.trim() || null,
+          document_id: quickCustomerForm.document_id?.trim() || null,
+          id_type_code: quickCustomerForm.id_type_code?.trim() || null,
+          address: quickCustomerForm.address?.trim() || null,
+          city: quickCustomerForm.city?.trim() || null,
+        })
+        .select("id, full_name, phone, document_id, id_type_code, address, city")
+        .single();
+
+      if (error || !data) {
+        toast.error(`Error al crear cliente: ${error?.message || "sin respuesta"}`);
+        return;
+      }
+
+      setCustomers((prev) => [...prev, data]);
+      setCreateForm((prev) => ({ ...prev, customer_id: data.id }));
+      setQuickCustomerOpen(false);
+      setQuickCustomerForm({
+        full_name: "",
+        phone: "",
+        document_id: "",
+        id_type_code: "",
+        address: "",
+        city: "",
+      });
+      toast.success("Cliente creado");
+    } catch (err) {
+      toast.error(`Error inesperado: ${getErrorMessage(err, "Error desconocido")}`);
+    } finally {
+      setQuickCustomerSaving(false);
     }
   };
 
@@ -653,7 +715,10 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
             ) : null}
 
             <div className="space-y-2">
-              <Label>Cliente *</Label>
+              <div className="flex items-center justify-between">
+                <Label>Cliente *</Label>
+                <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setQuickCustomerOpen(true)}>+ Crear rápido</Button>
+              </div>
               <Select
                 value={createForm.customer_id}
                 onValueChange={(v) => setCreateForm({ ...createForm, customer_id: v })}
@@ -724,6 +789,24 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
       </Dialog>
 
       {/* Detail Sheet */}
+      <Dialog open={quickCustomerOpen} onOpenChange={setQuickCustomerOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Crear Cliente Rápido</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2"><Label>Nombre *</Label><Input value={quickCustomerForm.full_name} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, full_name: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Documento</Label><Input value={quickCustomerForm.document_id} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, document_id: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Tipo de documento</Label><Input value={quickCustomerForm.id_type_code} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, id_type_code: e.target.value })} placeholder="CC, NIT, CE..." /></div>
+            <div className="space-y-2"><Label>Teléfono</Label><Input value={quickCustomerForm.phone} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, phone: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Dirección</Label><Input value={quickCustomerForm.address} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, address: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Ciudad</Label><Input value={quickCustomerForm.city} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, city: e.target.value })} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setQuickCustomerOpen(false)}>Cancelar</Button>
+            <Button onClick={handleQuickCreateCustomer} disabled={quickCustomerSaving}>{quickCustomerSaving ? "Creando..." : "Crear"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader>

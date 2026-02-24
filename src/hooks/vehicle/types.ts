@@ -27,6 +27,11 @@ export interface Customer {
   city: string | null;
 }
 
+export interface IdentityDocumentType {
+  code: string;
+  name: string;
+}
+
 export interface PaymentMethod {
   code: string;
   name: string;

@@ -34,6 +34,13 @@ import { formatCOP, formatDate } from "@/lib/format";
 import { validateCustomerData } from "@/lib/validations";
 import { Users2, Plus, Pencil, Search, Eye, Bookmark, DollarSign } from "lucide-react";
 import { logger } from "@/lib/logger";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Customer {
   id: string;
@@ -68,6 +75,11 @@ interface SaleHistoryItem {
   } | null;
 }
 
+interface IdentityDocumentType {
+  code: string;
+  name: string;
+}
+
 interface CustomerHistory {
   reservations: ReservationHistoryItem[];
   sales: SaleHistoryItem[];
@@ -81,6 +93,7 @@ export function CustomersTab() {
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [search, setSearch] = useState("");
+  const [identityDocumentTypes, setIdentityDocumentTypes] = useState<IdentityDocumentType[]>([]);
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -127,6 +140,24 @@ export function CustomersTab() {
   useEffect(() => {
     fetchCustomers();
   }, [fetchCustomers]);
+
+  const fetchIdentityDocumentTypes = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("identity_document_types")
+        .select("code, name")
+        .order("name");
+
+      if (error) throw error;
+      setIdentityDocumentTypes(data || []);
+    } catch (err) {
+      logger.error("Error fetching identity document types:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchIdentityDocumentTypes();
+  }, [fetchIdentityDocumentTypes]);
 
   const checkDuplicate = async (phone: string, document_id: string, excludeId?: string) => {
     if (!profile?.org_id) return null;
@@ -391,11 +422,22 @@ export function CustomersTab() {
             </div>
             <div className="space-y-2">
               <Label>Tipo de documento</Label>
-              <Input
-                value={form.id_type_code}
-                onChange={(e) => setForm({ ...form, id_type_code: e.target.value })}
-                placeholder="CC, NIT, CE..."
-              />
+              <Select
+                value={form.id_type_code || "none"}
+                onValueChange={(value) => setForm({ ...form, id_type_code: value === "none" ? "" : value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin tipo</SelectItem>
+                  {identityDocumentTypes.map((docType) => (
+                    <SelectItem key={docType.code} value={docType.code}>
+                      {docType.code} - {docType.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

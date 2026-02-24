@@ -107,6 +107,11 @@ interface Customer {
   city: string | null;
 }
 
+interface IdentityDocumentType {
+  code: string;
+  name: string;
+}
+
 interface Props {
   onRefresh?: () => void;
   preselectedVehicleId?: string;
@@ -128,6 +133,7 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
   const [vehicleStages, setVehicleStages] = useState<VehicleStage[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [identityDocumentTypes, setIdentityDocumentTypes] = useState<IdentityDocumentType[]>([]);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState("all");
@@ -177,7 +183,7 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
 
     try {
       logger.debug("[Sales] Fetching data...");
-      const [salesRes, pmRes, stagesRes, vehiclesRes, customersRes] = await Promise.all([
+      const [salesRes, pmRes, stagesRes, vehiclesRes, customersRes, idTypesRes] = await Promise.all([
         supabase
           .from("sales")
           .select("*")
@@ -204,6 +210,10 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
           .select("id, full_name, phone, document_id, id_type_code, address, city")
           .eq("org_id", profile.org_id)
           .order("full_name"),
+        supabase
+          .from("identity_document_types")
+          .select("code, name")
+          .order("name"),
       ]);
 
       if (salesRes.error) {
@@ -237,6 +247,7 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
       setVehicleStages((stagesRes.data || []) as VehicleStage[]);
       setVehicles((vehiclesRes.data || []) as Vehicle[]);
       setCustomers((customersRes.data || []) as Customer[]);
+      setIdentityDocumentTypes((idTypesRes.data || []) as IdentityDocumentType[]);
       logger.debug("[Sales] Data loaded successfully");
     } catch (err) {
       logger.error("[Sales] Unexpected error:", err);
@@ -795,7 +806,7 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
           <div className="space-y-4 py-2">
             <div className="space-y-2"><Label>Nombre *</Label><Input value={quickCustomerForm.full_name} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, full_name: e.target.value })} /></div>
             <div className="space-y-2"><Label>Documento</Label><Input value={quickCustomerForm.document_id} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, document_id: e.target.value })} /></div>
-            <div className="space-y-2"><Label>Tipo de documento</Label><Input value={quickCustomerForm.id_type_code} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, id_type_code: e.target.value })} placeholder="CC, NIT, CE..." /></div>
+            <div className="space-y-2"><Label>Tipo de documento</Label><Select value={quickCustomerForm.id_type_code || "none"} onValueChange={(value) => setQuickCustomerForm({ ...quickCustomerForm, id_type_code: value === "none" ? "" : value })}><SelectTrigger><SelectValue placeholder="Seleccionar tipo" /></SelectTrigger><SelectContent><SelectItem value="none">Sin tipo</SelectItem>{identityDocumentTypes.map((docType) => (<SelectItem key={docType.code} value={docType.code}>{docType.code} - {docType.name}</SelectItem>))}</SelectContent></Select></div>
             <div className="space-y-2"><Label>Teléfono</Label><Input value={quickCustomerForm.phone} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, phone: e.target.value })} /></div>
             <div className="space-y-2"><Label>Dirección</Label><Input value={quickCustomerForm.address} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, address: e.target.value })} /></div>
             <div className="space-y-2"><Label>Ciudad</Label><Input value={quickCustomerForm.city} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, city: e.target.value })} /></div>

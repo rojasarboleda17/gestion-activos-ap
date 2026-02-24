@@ -8,7 +8,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { QuickCustomerForm } from "@/hooks/vehicle/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { IdentityDocumentType, QuickCustomerForm } from "@/hooks/vehicle/types";
 
 interface Props {
   open: boolean;
@@ -16,6 +23,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   onFormChange: (form: QuickCustomerForm) => void;
   onSubmit: () => void;
+  identityDocumentTypes: IdentityDocumentType[];
 }
 
 export function VehicleQuickCustomerDialog({
@@ -24,6 +32,7 @@ export function VehicleQuickCustomerDialog({
   onOpenChange,
   onFormChange,
   onSubmit,
+  identityDocumentTypes,
 }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -46,11 +55,22 @@ export function VehicleQuickCustomerDialog({
           </div>
           <div className="space-y-2">
             <Label>Tipo de documento</Label>
-            <Input
-              value={form.id_type_code}
-              onChange={(e) => onFormChange({ ...form, id_type_code: e.target.value })}
-              placeholder="CC, NIT, CE..."
-            />
+            <Select
+              value={form.id_type_code || "none"}
+              onValueChange={(value) => onFormChange({ ...form, id_type_code: value === "none" ? "" : value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sin tipo</SelectItem>
+                {identityDocumentTypes.map((docType) => (
+                  <SelectItem key={docType.code} value={docType.code}>
+                    {docType.code} - {docType.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label>Teléfono</Label>

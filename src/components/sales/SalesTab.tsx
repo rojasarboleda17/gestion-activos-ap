@@ -805,11 +805,18 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
           <DialogHeader><DialogTitle>Crear Cliente Rápido</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2"><Label>Nombre *</Label><Input value={quickCustomerForm.full_name} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, full_name: e.target.value })} /></div>
-            <div className="space-y-2"><Label>Documento</Label><Input value={quickCustomerForm.document_id} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, document_id: e.target.value })} /></div>
-            <div className="space-y-2"><Label>Tipo de documento</Label><Select value={quickCustomerForm.id_type_code || "none"} onValueChange={(value) => setQuickCustomerForm({ ...quickCustomerForm, id_type_code: value === "none" ? "" : value })}><SelectTrigger><SelectValue placeholder="Seleccionar tipo" /></SelectTrigger><SelectContent><SelectItem value="none">Sin tipo</SelectItem>{identityDocumentTypes.map((docType) => (<SelectItem key={docType.code} value={docType.code}>{docType.code} - {docType.name}</SelectItem>))}</SelectContent></Select></div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Tipo de documento</Label>
+                <Select value={quickCustomerForm.id_type_code || "none"} onValueChange={(value) => setQuickCustomerForm({ ...quickCustomerForm, id_type_code: value === "none" ? "" : value })}><SelectTrigger><SelectValue placeholder="Seleccionar tipo" /></SelectTrigger><SelectContent><SelectItem value="none">Sin tipo</SelectItem>{identityDocumentTypes.map((docType) => (<SelectItem key={docType.code} value={docType.code}>{docType.code} - {docType.name}</SelectItem>))}</SelectContent></Select>
+              </div>
+              <div className="space-y-2 md:col-span-2"><Label>Documento</Label><Input value={quickCustomerForm.document_id} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, document_id: e.target.value })} /></div>
+            </div>
             <div className="space-y-2"><Label>Teléfono</Label><Input value={quickCustomerForm.phone} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, phone: e.target.value })} /></div>
-            <div className="space-y-2"><Label>Dirección</Label><Input value={quickCustomerForm.address} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, address: e.target.value })} /></div>
-            <div className="space-y-2"><Label>Ciudad</Label><Input value={quickCustomerForm.city} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, city: e.target.value })} /></div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2 md:col-span-2"><Label>Dirección</Label><Input value={quickCustomerForm.address} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, address: e.target.value })} /></div>
+              <div className="space-y-2"><Label>Ciudad</Label><Input value={quickCustomerForm.city} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, city: e.target.value })} /></div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setQuickCustomerOpen(false)}>Cancelar</Button>

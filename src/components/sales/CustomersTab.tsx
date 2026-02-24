@@ -412,7 +412,7 @@ export function CustomersTab() {
                 placeholder="Juan Pérez"
               />
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Tipo de documento</Label>
                 <Select
@@ -432,7 +432,7 @@ export function CustomersTab() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2 col-span-2">
+              <div className="space-y-2 md:col-span-2">
                 <Label>Documento</Label>
                 <Input
                   value={form.document_id}
@@ -440,25 +440,6 @@ export function CustomersTab() {
                   placeholder="1234567890"
                 />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Tipo de documento</Label>
-              <Select
-                value={form.id_type_code || "none"}
-                onValueChange={(value) => setForm({ ...form, id_type_code: value === "none" ? "" : value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sin tipo</SelectItem>
-                  {identityDocumentTypes.map((docType) => (
-                    <SelectItem key={docType.code} value={docType.code}>
-                      {docType.code} - {docType.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -479,21 +460,23 @@ export function CustomersTab() {
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Dirección</Label>
-              <Input
-                value={form.address}
-                onChange={(e) => setForm({ ...form, address: e.target.value })}
-                placeholder="Calle 123 #45-67"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Ciudad</Label>
-              <Input
-                value={form.city}
-                onChange={(e) => setForm({ ...form, city: e.target.value })}
-                placeholder="Bogotá"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2 md:col-span-2">
+                <Label>Dirección</Label>
+                <Input
+                  value={form.address}
+                  onChange={(e) => setForm({ ...form, address: e.target.value })}
+                  placeholder="Calle 123 #45-67"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Ciudad</Label>
+                <Input
+                  value={form.city}
+                  onChange={(e) => setForm({ ...form, city: e.target.value })}
+                  placeholder="Bogotá"
+                />
+              </div>
             </div>
 
             {duplicateWarning && (

@@ -32,6 +32,11 @@ interface FunctionErrorLike {
   context?: Response;
 }
 
+type InvokeResponse<T> = {
+  data: T | null;
+  error: unknown;
+};
+
 const isFunctionErrorLike = (error: unknown): error is FunctionErrorLike => {
   if (!error || typeof error !== "object") {
     return false;
@@ -81,6 +86,37 @@ const parseFunctionErrorMessage = async (error: unknown, fallback: string): Prom
   return message;
 };
 
+const resolveAccessToken = async (supabase: SupabaseClient): Promise<string | null> => {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (session?.access_token) {
+    return session.access_token;
+  }
+
+  const { data: refreshed } = await supabase.auth.refreshSession();
+  return refreshed.session?.access_token ?? null;
+};
+
+const invokeWithAuth = async <TResponse>(
+  supabase: SupabaseClient,
+  fnName: string,
+  body: Record<string, unknown>,
+): Promise<InvokeResponse<TResponse>> => {
+  const accessToken = await resolveAccessToken(supabase);
+
+  const headers: Record<string, string> = {};
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
+  return supabase.functions.invoke(fnName, {
+    body,
+    headers,
+  }) as Promise<InvokeResponse<TResponse>>;
+};
+
 export async function findLatestContractDoc(supabase: SupabaseClient, saleId: string): Promise<DealDocumentContract | null> {
   const { data, error } = await supabase
     .from("deal_documents")
@@ -100,8 +136,8 @@ export async function findLatestContractDoc(supabase: SupabaseClient, saleId: st
 }
 
 export async function enqueueContract(supabase: SupabaseClient, saleId: string): Promise<EnqueueContractResponse> {
-  const { data, error } = await supabase.functions.invoke("enqueue-contract", {
-    body: { sale_id: saleId },
+  const { data, error } = await invokeWithAuth<EnqueueContractResponse>(supabase, "enqueue-contract", {
+    sale_id: saleId,
   });
 
   if (error) {
@@ -123,8 +159,8 @@ export async function getContractSignedUrl(
   supabase: SupabaseClient,
   dealDocumentId: string,
 ): Promise<GetContractSignedUrlResponse> {
-  const { data, error } = await supabase.functions.invoke("get-contract-url2", {
-    body: { deal_document_id: dealDocumentId },
+  const { data, error } = await invokeWithAuth<SignedUrlSuccess>(supabase, "get-contract-url2", {
+    deal_document_id: dealDocumentId,
   });
 
   if (error) {

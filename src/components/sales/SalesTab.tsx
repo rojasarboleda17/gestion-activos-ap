@@ -51,6 +51,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { formatCOP, formatDate } from "@/lib/format";
 import { ShoppingCart, Search, Eye, XCircle, DollarSign, CreditCard, Plus } from "lucide-react";
 import { logger } from "@/lib/logger";
+import { ContractPanel } from "@/components/sales/ContractPanel";
 
 interface Sale {
   id: string;
@@ -922,6 +923,8 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
                   )}
                 </CardContent>
               </Card>
+
+              <ContractPanel saleId={selectedSale.id} supabase={supabase} />
 
               {/* Payments */}
               <Card>

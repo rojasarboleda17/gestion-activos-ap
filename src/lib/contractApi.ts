@@ -99,21 +99,41 @@ const resolveAccessToken = async (supabase: SupabaseClient): Promise<string | nu
   return refreshed.session?.access_token ?? null;
 };
 
+const isUnauthorizedError = (error: unknown) => {
+  if (!isFunctionErrorLike(error)) {
+    return false;
+  }
+
+  if (error.context?.status === 401) {
+    return true;
+  }
+
+  return error.message.toLowerCase().includes("unauthorized");
+};
+
 const invokeWithAuth = async <TResponse>(
   supabase: SupabaseClient,
   fnName: string,
   body: Record<string, unknown>,
 ): Promise<InvokeResponse<TResponse>> => {
-  const accessToken = await resolveAccessToken(supabase);
+  const firstTry = await supabase.functions.invoke(fnName, {
+    body,
+  }) as InvokeResponse<TResponse>;
 
-  const headers: Record<string, string> = {};
-  if (accessToken) {
-    headers.Authorization = `Bearer ${accessToken}`;
+  if (!firstTry.error || !isUnauthorizedError(firstTry.error)) {
+    return firstTry;
+  }
+
+  const accessToken = await resolveAccessToken(supabase);
+  if (!accessToken) {
+    return firstTry;
   }
 
   return supabase.functions.invoke(fnName, {
     body,
-    headers,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
   }) as Promise<InvokeResponse<TResponse>>;
 };
 

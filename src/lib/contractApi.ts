@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 type ContractGenerationStatus = "pending" | "processing" | "done" | "error" | "idle" | "missing";
 
@@ -36,6 +36,12 @@ type InvokeResponse<T> = {
   data: T | null;
   error: unknown;
 };
+
+const SUPABASE_URL =
+  import.meta.env.VITE_SUPABASE_URL ?? "https://vyhfmkxqyoltjnjcfohu.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ??
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5aGZta3hxeW9sdGpuamNmb2h1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxNTc2NzIsImV4cCI6MjA4MjczMzY3Mn0.HvDi_nKBMFMqv7DJL5BSQRZ954DJrM-xNQeGVZ-xxTM";
 
 const isFunctionErrorLike = (error: unknown): error is FunctionErrorLike => {
   if (!error || typeof error !== "object") {
@@ -129,11 +135,21 @@ const invokeWithAuth = async <TResponse>(
     return firstTry;
   }
 
-  return supabase.functions.invoke(fnName, {
-    body,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
+  const authClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    auth: {
+      storage: localStorage,
+      persistSession: true,
+      autoRefreshToken: true,
     },
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  });
+
+  return authClient.functions.invoke(fnName, {
+    body,
   }) as Promise<InvokeResponse<TResponse>>;
 };
 

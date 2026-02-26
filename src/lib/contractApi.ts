@@ -32,14 +32,6 @@ interface FunctionErrorLike {
   context?: Response;
 }
 
-const getErrorMessage = (error: unknown, fallback: string) => {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-
-  return fallback;
-};
-
 const isFunctionErrorLike = (error: unknown): error is FunctionErrorLike => {
   if (!error || typeof error !== "object") {
     return false;
@@ -47,6 +39,46 @@ const isFunctionErrorLike = (error: unknown): error is FunctionErrorLike => {
 
   const maybeError = error as Partial<FunctionErrorLike>;
   return typeof maybeError.message === "string";
+};
+
+const parseFunctionErrorMessage = async (error: unknown, fallback: string): Promise<string> => {
+  if (!isFunctionErrorLike(error)) {
+    return fallback;
+  }
+
+  if (error.message === "Failed to fetch") {
+    return fallback;
+  }
+
+  const response = error.context;
+  if (!response) {
+    return error.message || fallback;
+  }
+
+  const payload = await response.clone().json().catch(async () => {
+    const textBody = await response.clone().text().catch(() => "");
+    return { message: textBody };
+  });
+
+  const message =
+    (typeof payload?.message === "string" && payload.message) ||
+    (typeof payload?.error === "string" && payload.error) ||
+    (error.message && error.message !== "Edge Function returned a non-2xx status code" ? error.message : "") ||
+    fallback;
+
+  if (response.status === 401) {
+    return "No autorizado. Inicia sesión nuevamente.";
+  }
+
+  if (response.status === 400) {
+    return `Solicitud inválida: ${message}`;
+  }
+
+  if (response.status >= 500) {
+    return `Error del servidor: ${message}`;
+  }
+
+  return message;
 };
 
 export async function findLatestContractDoc(supabase: SupabaseClient, saleId: string): Promise<DealDocumentContract | null> {
@@ -77,7 +109,7 @@ export async function enqueueContract(supabase: SupabaseClient, saleId: string):
       throw new Error("No se pudo conectar para generar el archivo. Verifica tu conexión e inténtalo nuevamente.");
     }
 
-    throw new Error(getErrorMessage(error, "Error al generar el archivo"));
+    throw new Error(await parseFunctionErrorMessage(error, "Error al generar el archivo"));
   }
 
   if (!data?.deal_document_id) {
@@ -112,7 +144,7 @@ export async function getContractSignedUrl(
       throw new Error("No se pudo conectar para obtener la vista previa del contrato. Verifica tu conexión e inténtalo nuevamente.");
     }
 
-    throw new Error(getErrorMessage(error, "No se pudo obtener la URL del contrato"));
+    throw new Error(await parseFunctionErrorMessage(error, "No se pudo obtener la URL del contrato"));
   }
 
   if (!data?.url) {

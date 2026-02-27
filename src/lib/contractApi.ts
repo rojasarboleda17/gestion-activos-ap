@@ -105,6 +105,18 @@ const resolveAccessToken = async (supabase: SupabaseClient): Promise<string | nu
   return refreshed.session?.access_token ?? null;
 };
 
+const buildFunctionHeaders = (accessToken: string | null): Record<string, string> => {
+  const headers: Record<string, string> = {
+    apikey: SUPABASE_PUBLISHABLE_KEY,
+  };
+
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
+  return headers;
+};
+
 const isUnauthorizedError = (error: unknown) => {
   if (!isFunctionErrorLike(error)) {
     return false;
@@ -122,34 +134,35 @@ const invokeWithAuth = async <TResponse>(
   fnName: string,
   body: Record<string, unknown>,
 ): Promise<InvokeResponse<TResponse>> => {
+  const firstToken = await resolveAccessToken(supabase);
+
   const firstTry = await supabase.functions.invoke(fnName, {
     body,
+    headers: buildFunctionHeaders(firstToken),
   }) as InvokeResponse<TResponse>;
 
   if (!firstTry.error || !isUnauthorizedError(firstTry.error)) {
     return firstTry;
   }
 
-  const accessToken = await resolveAccessToken(supabase);
-  if (!accessToken) {
+  const { data: refreshed } = await supabase.auth.refreshSession();
+  const refreshedToken = refreshed.session?.access_token ?? null;
+
+  if (!refreshedToken) {
     return firstTry;
   }
 
-  const authClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  const retryClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     auth: {
       storage: localStorage,
       persistSession: true,
       autoRefreshToken: true,
     },
-    global: {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    },
   });
 
-  return authClient.functions.invoke(fnName, {
+  return retryClient.functions.invoke(fnName, {
     body,
+    headers: buildFunctionHeaders(refreshedToken),
   }) as Promise<InvokeResponse<TResponse>>;
 };
 

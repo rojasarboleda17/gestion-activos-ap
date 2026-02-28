@@ -24,7 +24,9 @@ interface Props {
   onFormChange: (form: QuickCustomerForm) => void;
   onSubmit: () => void;
   identityDocumentTypes: IdentityDocumentType[];
+  submitting?: boolean;
 }
+
 
 export function VehicleQuickCustomerDialog({
   open,
@@ -33,6 +35,7 @@ export function VehicleQuickCustomerDialog({
   onFormChange,
   onSubmit,
   identityDocumentTypes,
+  submitting = false,
 }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -75,32 +78,6 @@ export function VehicleQuickCustomerDialog({
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Documento</Label>
-            <Input
-              value={form.document_id}
-              onChange={(e) => onFormChange({ ...form, document_id: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Tipo de documento</Label>
-            <Select
-              value={form.id_type_code || "none"}
-              onValueChange={(value) => onFormChange({ ...form, id_type_code: value === "none" ? "" : value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Sin tipo</SelectItem>
-                {identityDocumentTypes.map((docType) => (
-                  <SelectItem key={docType.code} value={docType.code}>
-                    {docType.code} - {docType.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
             <Label>Teléfono</Label>
             <Input
               value={form.phone}
@@ -126,7 +103,7 @@ export function VehicleQuickCustomerDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={onSubmit} >Crear</Button>
+          <Button onClick={onSubmit} disabled={submitting}>{submitting ? "Creando..." : "Crear"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

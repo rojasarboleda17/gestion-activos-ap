@@ -909,6 +909,8 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
                 </CardContent>
               </Card>
 
+              <ContractPanel saleId={selectedSale.id} supabase={supabase} />
+
               {/* Payments */}
               <Card>
                 <CardHeader className="pb-2">

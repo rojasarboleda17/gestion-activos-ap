@@ -4,6 +4,7 @@ import { logger } from "@/lib/logger";
 import { toast } from "sonner";
 import type {
   Customer,
+  IdentityDocumentType,
   PaymentMethod,
   Reservation,
   Sale,
@@ -22,13 +23,14 @@ export function useVehicleSalesData({ vehicleId, orgId }: UseVehicleSalesDataPar
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [vehicleStages, setVehicleStages] = useState<VehicleStage[]>([]);
+  const [identityDocumentTypes, setIdentityDocumentTypes] = useState<IdentityDocumentType[]>([]);
 
   const refetch = useCallback(async () => {
     setLoading(true);
     try {
       logger.debug("[VehicleSalesTab] Fetching data for vehicle:", vehicleId);
 
-      const [reservationsResponse, salesResponse, paymentMethodsResponse, vehicleStagesResponse] = await Promise.all([
+      const [reservationsResponse, salesResponse, paymentMethodsResponse, vehicleStagesResponse, identityDocTypesResponse] = await Promise.all([
         supabase
           .from("reservations")
           .select("*, customers(full_name, phone)")
@@ -48,12 +50,16 @@ export function useVehicleSalesData({ vehicleId, orgId }: UseVehicleSalesDataPar
           .select("code, name")
           .eq("is_terminal", false)
           .order("sort_order"),
+        supabase
+          .from("identity_document_types")
+          .select("code, name")
+          .order("name"),
       ]);
 
       const customersResponse = orgId
         ? await supabase
             .from("customers")
-            .select("id, full_name, phone")
+            .select("id, full_name, phone, document_id, id_type_code, address, city")
             .eq("org_id", orgId)
             .order("full_name")
         : { data: [], error: null };
@@ -63,6 +69,7 @@ export function useVehicleSalesData({ vehicleId, orgId }: UseVehicleSalesDataPar
         salesResponse.error ||
         paymentMethodsResponse.error ||
         vehicleStagesResponse.error ||
+        identityDocTypesResponse.error ||
         customersResponse.error
       ) {
         const error =
@@ -70,6 +77,7 @@ export function useVehicleSalesData({ vehicleId, orgId }: UseVehicleSalesDataPar
           salesResponse.error ||
           paymentMethodsResponse.error ||
           vehicleStagesResponse.error ||
+          identityDocTypesResponse.error ||
           customersResponse.error;
 
         logger.error("[VehicleSalesTab] Error fetching data:", error);
@@ -82,6 +90,7 @@ export function useVehicleSalesData({ vehicleId, orgId }: UseVehicleSalesDataPar
       setCustomers((customersResponse.data || []) as Customer[]);
       setPaymentMethods((paymentMethodsResponse.data || []) as PaymentMethod[]);
       setVehicleStages((vehicleStagesResponse.data || []) as VehicleStage[]);
+      setIdentityDocumentTypes((identityDocTypesResponse.data || []) as IdentityDocumentType[]);
     } catch (err) {
       logger.error("[VehicleSalesTab] Error fetching data:", err);
       toast.error("Error al cargar datos");
@@ -105,6 +114,7 @@ export function useVehicleSalesData({ vehicleId, orgId }: UseVehicleSalesDataPar
     customers,
     paymentMethods,
     vehicleStages,
+    identityDocumentTypes,
     refetch,
     appendCustomer,
   };

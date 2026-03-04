@@ -228,6 +228,10 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
           .from("vehicles")
           .select("id, license_plate, brand, line, model_year, stage_code, is_archived")
           .eq("org_id", profile.org_id)
+<<<<<<< codex/revisar-modulo-ventas-por-informacion-incompleta-0qye9o
+=======
+          .eq("is_archived", false)
+>>>>>>> main
           .order("brand"),
         supabase
           .from("customers")
@@ -580,7 +584,11 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
     .reduce((sum, p) => sum + p.amount_cop, 0);
 
   // Available vehicles for new sale
+<<<<<<< codex/revisar-modulo-ventas-por-informacion-incompleta-0qye9o
   const availableVehicles = vehicles.filter((v) => !v.is_archived && ["publicado", "bloqueado"].includes(v.stage_code));
+=======
+  const availableVehicles = vehicles.filter((v) => ["publicado", "bloqueado"].includes(v.stage_code));
+>>>>>>> main
 
   if (loading) return <LoadingState variant="table" />;
 

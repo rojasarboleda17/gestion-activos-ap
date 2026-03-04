@@ -85,9 +85,6 @@ interface Reservation {
     full_name: string;
     phone: string | null;
     document_id: string | null;
-    id_type_code: string | null;
-    address: string | null;
-    city: string | null;
   };
   vehicle?: {
     license_plate: string | null;
@@ -113,14 +110,6 @@ interface Customer {
   full_name: string;
   phone: string | null;
   document_id: string | null;
-  id_type_code: string | null;
-  address: string | null;
-  city: string | null;
-}
-
-interface IdentityDocumentType {
-  code: string;
-  name: string;
 }
 
 interface PaymentMethod {
@@ -146,8 +135,11 @@ const STATUS_LABELS: Record<string, string> = {
 
 const DEFAULT_ADVISOR = "Esteban Ocampo";
 
+const normalizePdfText = (value: string) =>
+  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
 const escapePdfText = (value: string) =>
-  value
+  normalizePdfText(value)
     .replace(/\\/g, "\\\\")
     .replace(/\(/g, "\\(")
     .replace(/\)/g, "\\)")
@@ -246,14 +238,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
   });
 
   const [quickCustomerOpen, setQuickCustomerOpen] = useState(false);
-  const [quickCustomerForm, setQuickCustomerForm] = useState({
-    full_name: "",
-    phone: "",
-    document_id: "",
-    id_type_code: "",
-    address: "",
-    city: "",
-  });
+  const [quickCustomerForm, setQuickCustomerForm] = useState({ full_name: "", phone: "", document_id: "" });
   const [quickCustomerSaving, setQuickCustomerSaving] = useState(false);
 
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -264,6 +249,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [generatingReceiptId, setGeneratingReceiptId] = useState<string | null>(null);
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingReservation, setEditingReservation] = useState<Reservation | null>(null);
@@ -282,12 +268,12 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
     setLoading(true);
 
     try {
-      const [resRes, vehRes, custRes, pmRes, idTypesRes] = await Promise.all([
+      const [resRes, vehRes, custRes, pmRes] = await Promise.all([
         supabase
           .from("reservations")
           .select(`
             *,
-            customer:customers(full_name, phone, document_id, id_type_code, address, city),
+            customer:customers(full_name, phone, document_id),
             vehicle:inventory_vehicle_overview(license_plate, brand, line, model_year, listed_price_cop)
           `)
           .eq("org_id", profile.org_id)
@@ -301,7 +287,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
           .order("brand"),
         supabase
           .from("customers")
-          .select("id, full_name, phone, document_id, id_type_code, address, city")
+          .select("id, full_name, phone, document_id")
           .eq("org_id", profile.org_id)
           .order("full_name"),
         supabase
@@ -322,7 +308,6 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
       setVehicles((vehRes.data || []) as Vehicle[]);
       setCustomers((custRes.data || []) as Customer[]);
       setPaymentMethods((pmRes.data || []) as PaymentMethod[]);
-      setIdentityDocumentTypes((idTypesRes.data || []) as IdentityDocumentType[]);
     } catch (err) {
       logger.error("[Reservations] Unexpected error fetching data:", err);
       toast.error("Error al cargar datos");
@@ -357,7 +342,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
         .from("reservations")
         .select(`
           *,
-          customer:customers(full_name, phone, document_id, id_type_code, address, city),
+          customer:customers(full_name, phone, document_id),
           vehicle:inventory_vehicle_overview(license_plate, brand, line, model_year, listed_price_cop)
         `)
         .eq("id", reservation.id)
@@ -461,11 +446,8 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
           full_name: quickCustomerForm.full_name.trim(),
           phone: quickCustomerForm.phone?.trim() || null,
           document_id: quickCustomerForm.document_id?.trim() || null,
-          id_type_code: quickCustomerForm.id_type_code?.trim() || null,
-          address: quickCustomerForm.address?.trim() || null,
-          city: quickCustomerForm.city?.trim() || null,
         })
-        .select("id, full_name, phone, document_id, id_type_code, address, city")
+        .select("id, full_name, phone, document_id")
         .single();
 
       if (error || !data) {
@@ -476,14 +458,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
       setCustomers((prev) => [...prev, data]);
       setForm((prev) => ({ ...prev, customer_id: data.id }));
       setQuickCustomerOpen(false);
-      setQuickCustomerForm({
-        full_name: "",
-        phone: "",
-        document_id: "",
-        id_type_code: "",
-        address: "",
-        city: "",
-      });
+      setQuickCustomerForm({ full_name: "", phone: "", document_id: "" });
       toast.success("Cliente creado");
     } catch (err) {
       toast.error(`Error inesperado: ${getErrorMessage(err, "Error desconocido")}`);
@@ -645,7 +620,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
 
     const nextSeq = (existingRows?.[0]?.receipt_sequence || 0) + 1;
 
-    const { error: updateError } = await supabase
+    const { data: updatedRows, error: updateError } = await supabase
       .from("reservations")
       .update({
         receipt_year: year,
@@ -653,14 +628,36 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
         receipt_generated_at: new Date().toISOString(),
       })
       .eq("id", reservation.id)
-      .is("receipt_sequence", null);
+      .is("receipt_sequence", null)
+      .select("receipt_year, receipt_sequence")
+      .limit(1);
 
     if (updateError) throw updateError;
 
-    return `CR-${String(nextSeq).padStart(4, "0")}`;
+    const updated = updatedRows?.[0];
+    if (updated?.receipt_year === year && updated?.receipt_sequence) {
+      return `CR-${String(updated.receipt_sequence).padStart(4, "0")}`;
+    }
+
+    // If another request set it first, use the already-assigned value.
+    const { data: currentRow, error: currentError } = await supabase
+      .from("reservations")
+      .select("receipt_year, receipt_sequence")
+      .eq("id", reservation.id)
+      .single();
+
+    if (currentError) throw currentError;
+    if (currentRow.receipt_year === year && currentRow.receipt_sequence) {
+      return `CR-${String(currentRow.receipt_sequence).padStart(4, "0")}`;
+    }
+
+    throw new Error("No se pudo asignar consecutivo de comprobante");
   };
 
   const generateReceiptPdf = async (reservation: Reservation) => {
+    if (generatingReceiptId) return;
+
+    setGeneratingReceiptId(reservation.id);
     try {
       const fullReservation = selectedReservation?.id === reservation.id ? selectedReservation : reservation;
       const receiptNumber = await getOrCreateReceiptNumber(fullReservation);
@@ -672,67 +669,73 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
 
       const commands: string[] = [];
 
+      // Header
       commands.push(...pdfText("AutoPremium del Eje", 50, 748, 24, true));
-      commands.push(...pdfText("Comprobante de Reserva", 50, 710, 22, true));
+      commands.push(...pdfText("Comprobante de Reserva", 50, 716, 20, true));
       commands.push(pdfLine(50, 700, 560, 700));
 
-      commands.push(...pdfText("Mall Santa Lucia del Bosque - KM +1 Santa Rosa de Cabal - Dosquebradas", 50, 680, 10));
-      commands.push(...pdfText("Telefono: +57 313 701 4401", 50, 665, 10));
-      commands.push(...pdfText("Correo: autopremiumdeleje@gmail.com", 50, 650, 10));
+      commands.push(...pdfText("Mall Santa Lucia del Bosque - KM +1 Santa Rosa de Cabal - Dosquebradas", 50, 684, 10));
+      commands.push(...pdfText("Telefono: +57 313 701 4401", 50, 669, 10));
+      commands.push(...pdfText("Correo: autopremiumdeleje@gmail.com", 50, 654, 10));
 
-      commands.push(...pdfText(`N.° Comprobante: ${receiptNumber}`, 390, 710, 11, true));
-      commands.push(...pdfText(`Fecha de emisión: ${today}`, 390, 693, 10));
+      commands.push(...pdfText(`Comprobante: ${receiptNumber}`, 360, 716, 11, true));
+      commands.push(...pdfText(`Fecha de emision: ${today}`, 360, 699, 10));
 
-      commands.push(pdfRect(50, 560, 510, 72));
-      commands.push(pdfLine(305, 560, 305, 632));
-      commands.push(...pdfText("A la atención de", 60, 615, 11, true));
-      commands.push(...pdfText(fullReservation.customer?.full_name || "N/D", 60, 598, 11));
-      commands.push(...pdfText(`Doc: ${fullReservation.customer?.document_id || "N/D"}`, 60, 582, 10));
-      commands.push(...pdfText(`Tel: ${fullReservation.customer?.phone || "N/D"}`, 60, 567, 10));
+      // Customer + vehicle block
+      commands.push(pdfRect(50, 555, 510, 82));
+      commands.push(pdfLine(305, 555, 305, 637));
+      commands.push(...pdfText("Cliente", 60, 620, 11, true));
+      commands.push(...pdfText(fullReservation.customer?.full_name || "N/D", 60, 603, 11));
+      commands.push(...pdfText(`Documento: ${fullReservation.customer?.document_id || "N/D"}`, 60, 586, 10));
+      commands.push(...pdfText(`Telefono: ${fullReservation.customer?.phone || "N/D"}`, 60, 571, 10));
 
-      commands.push(...pdfText("Vehículo", 315, 615, 11, true));
-      commands.push(...pdfText(`${fullReservation.vehicle?.brand || "N/D"} ${fullReservation.vehicle?.line || ""}`.trim(), 315, 598, 11));
-      commands.push(...pdfText(`Placa: ${fullReservation.vehicle?.license_plate || "N/D"}`, 315, 582, 10));
-      commands.push(...pdfText(`Año: ${fullReservation.vehicle?.model_year || "N/D"}`, 315, 567, 10));
-      commands.push(...pdfText(`Asesor: ${fullReservation.advisor_name || DEFAULT_ADVISOR}`, 315, 551, 10));
+      commands.push(...pdfText("Vehiculo", 315, 620, 11, true));
+      commands.push(...pdfText(`${fullReservation.vehicle?.brand || "N/D"} ${fullReservation.vehicle?.line || ""}`.trim(), 315, 603, 11));
+      commands.push(...pdfText(`Placa: ${fullReservation.vehicle?.license_plate || "N/D"}`, 315, 586, 10));
+      commands.push(...pdfText(`Ano: ${fullReservation.vehicle?.model_year || "N/D"}`, 315, 571, 10));
+      commands.push(...pdfText(`Asesor: ${fullReservation.advisor_name || DEFAULT_ADVISOR}`, 315, 556, 10));
 
-      commands.push(pdfRect(50, 470, 510, 80));
-      commands.push(pdfLine(290, 470, 290, 550));
-      commands.push(pdfLine(430, 470, 430, 550));
-      commands.push(pdfLine(50, 530, 560, 530));
-      commands.push(...pdfText("Descripción", 60, 537, 11, true));
-      commands.push(...pdfText("Valor vehículo", 305, 537, 11, true));
-      commands.push(...pdfText("Valor abonado", 443, 537, 11, true));
+      // Detail table
+      commands.push(pdfRect(50, 450, 510, 92));
+      commands.push(pdfLine(295, 450, 295, 542));
+      commands.push(pdfLine(430, 450, 430, 542));
+      commands.push(pdfLine(50, 520, 560, 520));
+      commands.push(...pdfText("Descripcion", 60, 527, 11, true));
+      commands.push(...pdfText("Valor vehiculo", 308, 527, 11, true));
+      commands.push(...pdfText("Valor abonado", 443, 527, 11, true));
 
-      const descLines = wrapPdfText(`Reserva ${fullReservation.vehicle?.brand || "vehículo"} ${fullReservation.vehicle?.line || ""}`.trim(), 34);
-      commands.push(...pdfText(descLines[0] || "Reserva de vehículo", 60, 510, 10));
-      if (descLines[1]) commands.push(...pdfText(descLines[1], 60, 496, 10));
-      commands.push(...pdfText(money(vehicleValue), 305, 510, 10));
-      commands.push(...pdfText(money(totalAbonado), 443, 510, 10));
+      const descLines = wrapPdfText(`Reserva ${fullReservation.vehicle?.brand || "vehiculo"} ${fullReservation.vehicle?.line || ""}`.trim(), 36);
+      commands.push(...pdfText(descLines[0] || "Reserva de vehiculo", 60, 500, 10));
+      if (descLines[1]) commands.push(...pdfText(descLines[1], 60, 486, 10));
+      commands.push(...pdfText(money(vehicleValue), 308, 500, 10));
+      commands.push(...pdfText(money(totalAbonado), 443, 500, 10));
 
-      commands.push(...pdfText(`Subtotal: ${money(vehicleValue)}`, 360, 440, 11));
-      commands.push(...pdfText(`Total abonado: ${money(totalAbonado)}`, 360, 424, 11));
-      commands.push(...pdfText(`Saldo pendiente: ${money(saldo)}`, 360, 406, 14, true));
-
-      commands.push(...pdfText("Notas:", 50, 420, 11, true));
-      const noteLines = wrapPdfText(fullReservation.notes || "Sin notas", 80).slice(0, 3);
+      // Notes and totals
+      commands.push(...pdfText("Notas", 50, 415, 11, true));
+      const noteLines = wrapPdfText(fullReservation.notes || "Sin notas", 52).slice(0, 3);
       noteLines.forEach((line, index) => {
-        commands.push(...pdfText(line, 50, 402 - (index * 14), 10));
+        commands.push(...pdfText(line, 50, 397 - (index * 14), 10));
       });
 
-      commands.push(pdfLine(50, 340, 560, 340));
-      commands.push(...pdfText("Documento de soporte interno/comercial. No reemplaza factura electrónica DIAN.", 50, 325, 9));
-      commands.push(...pdfText("Formato carta vertical - Moneda COP", 50, 312, 9));
+      commands.push(...pdfText(`Subtotal: ${money(vehicleValue)}`, 350, 415, 11));
+      commands.push(...pdfText(`Total abonado: ${money(totalAbonado)}`, 350, 398, 11));
+      commands.push(...pdfText(`Saldo pendiente: ${money(saldo)}`, 350, 378, 15, true));
+
+      commands.push(pdfLine(50, 335, 560, 335));
+      commands.push(...pdfText("Documento de soporte interno/comercial. No reemplaza factura electronica DIAN.", 50, 320, 9));
 
       const blob = buildStyledPdfBlob(commands);
+      const sanitizedPlate = (fullReservation.vehicle?.license_plate || "sin-placa").replace(/[^a-zA-Z0-9_-]/g, "");
+      const fileName = `${receiptNumber}_${sanitizedPlate || fullReservation.id}.pdf`;
+
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `${receiptNumber}_${fullReservation.vehicle?.license_plate || fullReservation.id}.pdf`;
+      link.download = fileName;
       document.body.appendChild(link);
       link.click();
       link.remove();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
 
       logAudit({
         action: "reservation_convert",
@@ -746,6 +749,8 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
     } catch (err) {
       logger.error("[Reservations] PDF generation error", err);
       toast.error(`No se pudo descargar el comprobante: ${getErrorMessage(err, "error desconocido")}`);
+    } finally {
+      setGeneratingReceiptId(null);
     }
   };
 
@@ -865,7 +870,13 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
                         <Button variant="ghost" size="sm" onClick={() => openDetail(r)}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => generateReceiptPdf(r)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => generateReceiptPdf(r)}
+                          disabled={generatingReceiptId === r.id}
+                          title={generatingReceiptId === r.id ? "Generando comprobante..." : "Descargar comprobante PDF"}
+                        >
                           <FileDown className="h-4 w-4" />
                         </Button>
                         {r.status === "active" && isAdmin && (
@@ -916,9 +927,15 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
                       <Eye className="h-4 w-4 mr-1" />
                       Ver
                     </Button>
-                    <Button size="sm" variant="outline" className="flex-1" onClick={() => generateReceiptPdf(r)}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => generateReceiptPdf(r)}
+                      disabled={generatingReceiptId === r.id}
+                    >
                       <FileDown className="h-4 w-4 mr-1" />
-                      PDF
+                      {generatingReceiptId === r.id ? "Generando..." : "PDF"}
                     </Button>
                   </div>
                   {r.status === "active" && isAdmin && (
@@ -1063,15 +1080,20 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
         </DialogContent>
       </Dialog>
 
-      <VehicleQuickCustomerDialog
-        open={quickCustomerOpen}
-        form={quickCustomerForm}
-        onOpenChange={setQuickCustomerOpen}
-        onFormChange={setQuickCustomerForm}
-        onSubmit={handleQuickCreateCustomer}
-        identityDocumentTypes={identityDocumentTypes}
-        submitting={quickCustomerSaving}
-      />
+      <Dialog open={quickCustomerOpen} onOpenChange={setQuickCustomerOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Crear Cliente Rápido</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2"><Label>Nombre *</Label><Input value={quickCustomerForm.full_name} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, full_name: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Documento</Label><Input value={quickCustomerForm.document_id} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, document_id: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Teléfono</Label><Input value={quickCustomerForm.phone} onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, phone: e.target.value })} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setQuickCustomerOpen(false)}>Cancelar</Button>
+            <Button onClick={handleQuickCreateCustomer} disabled={quickCustomerSaving}>{quickCustomerSaving ? "Creando..." : "Crear"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
@@ -1085,10 +1107,8 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex justify-between"><span className="text-muted-foreground">Nombre</span><span>{selectedReservation.customer?.full_name || "N/D"}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Documento</span><span>{selectedReservation.customer?.document_id || "N/D"}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Tipo de documento</span><span>{selectedReservation.customer?.id_type_code || "N/D"}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Teléfono</span><span>{selectedReservation.customer?.phone || "N/D"}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Dirección</span><span>{selectedReservation.customer?.address || "N/D"}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Ciudad</span><span>{selectedReservation.customer?.city || "N/D"}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Dirección</span><span>N/D</span></div>
                 </CardContent>
               </Card>
 
@@ -1114,7 +1134,14 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
               </Card>
 
               <div className="space-y-2">
-                <Button className="w-full" onClick={() => generateReceiptPdf(selectedReservation)}><FileDown className="h-4 w-4 mr-2" />Generar Comprobante PDF</Button>
+                <Button
+                  className="w-full"
+                  onClick={() => generateReceiptPdf(selectedReservation)}
+                  disabled={generatingReceiptId === selectedReservation.id}
+                >
+                  <FileDown className="h-4 w-4 mr-2" />
+                  {generatingReceiptId === selectedReservation.id ? "Generando PDF..." : "Generar Comprobante PDF"}
+                </Button>
                 {selectedReservation.status === "active" && isAdmin && (
                   <>
                     <Button className="w-full" variant="outline" onClick={() => openEdit(selectedReservation)}><Pencil className="h-4 w-4 mr-2" />Editar / Cambiar reserva</Button>

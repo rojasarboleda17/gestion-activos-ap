@@ -31,7 +31,6 @@ import { VehicleInfoTab } from "@/components/vehicle/VehicleInfoTab";
 import { VehicleAcquisitionTab } from "@/components/vehicle/VehicleAcquisitionTab";
 import { VehicleComplianceTab } from "@/components/vehicle/VehicleComplianceTab";
 import { VehicleLegalTab } from "@/components/vehicle/VehicleLegalTab";
-import { VehicleFilesTab } from "@/components/vehicle/VehicleFilesTab";
 import { VehicleSalesTab } from "@/components/vehicle/VehicleSalesTab";
 
 import { Trash2, Archive } from "lucide-react";
@@ -43,10 +42,6 @@ interface VehicleStage {
   name: string;
 }
 
-type InternalSectionKey = "acquisition" | "compliance" | "files";
-type SaveCollector = (() => Promise<void>) | null;
-type UnifiedSaveStatus = "clean" | "dirty" | "saving" | "saved";
-
 export default function VehicleDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -56,99 +51,7 @@ export default function VehicleDetail() {
   const [error, setError] = useState<string | null>(null);
   const [changingStage, setChangingStage] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
-  const [dirtyMap, setDirtyMap] = useState<Record<InternalSectionKey, boolean>>({
-    acquisition: false,
-    compliance: false,
-    files: false,
-  });
-  const [collectors, setCollectors] = useState<Record<InternalSectionKey, SaveCollector>>({
-    acquisition: null,
-    compliance: null,
-    files: null,
-  });
-  const [savingAll, setSavingAll] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<UnifiedSaveStatus>("clean");
   const { log: logAudit } = useAudit();
-
-  const hasPendingChanges = Object.values(dirtyMap).some(Boolean);
-
-  useEffect(() => {
-    if (savingAll) {
-      setSaveStatus("saving");
-      return;
-    }
-
-    if (hasPendingChanges) {
-      setSaveStatus("dirty");
-      return;
-    }
-
-    setSaveStatus((current) => (current === "saved" ? "saved" : "clean"));
-  }, [hasPendingChanges, savingAll]);
-
-  useEffect(() => {
-    if (saveStatus !== "saved") return;
-    const timeout = window.setTimeout(() => setSaveStatus("clean"), 2200);
-    return () => window.clearTimeout(timeout);
-  }, [saveStatus]);
-
-  const handleSectionDirtyChange = useCallback((section: InternalSectionKey, isDirty: boolean) => {
-    setDirtyMap((prev) => ({ ...prev, [section]: isDirty }));
-  }, []);
-
-  const handleCollectPayload = useCallback((section: InternalSectionKey, collector: SaveCollector) => {
-    setCollectors((prev) => ({ ...prev, [section]: collector }));
-  }, []);
-
-  const saveOrder: InternalSectionKey[] = ["acquisition", "compliance", "files"];
-
-  const handleSaveAll = async () => {
-    const sectionsToSave = saveOrder.filter((section) => dirtyMap[section]);
-
-    if (sectionsToSave.length === 0) {
-      toast.info("No hay cambios pendientes");
-      return;
-    }
-
-    setSavingAll(true);
-    const failures: string[] = [];
-    const labels: Record<InternalSectionKey, string> = {
-      acquisition: "adquisición",
-      compliance: "cumplimiento",
-      files: "archivos",
-    };
-
-    for (const section of sectionsToSave) {
-      const collector = collectors[section];
-      if (!collector) {
-        failures.push(`${labels[section]}: sin payload de guardado`);
-        continue;
-      }
-
-      try {
-        await collector();
-      } catch (err: unknown) {
-        failures.push(`${labels[section]}: ${getErrorMessage(err, "error al guardar")}`);
-      }
-    }
-
-    setSavingAll(false);
-
-    if (failures.length > 0) {
-      toast.error(`Errores por bloque: ${failures.join(" | ")}`);
-      return;
-    }
-
-    setSaveStatus("saved");
-    toast.success("Todos los bloques se guardaron correctamente");
-  };
-
-  const unifiedStatusLabel: Record<UnifiedSaveStatus, string> = {
-    clean: "Sin cambios",
-    dirty: "Cambios pendientes",
-    saving: "Guardando...",
-    saved: "Guardado",
-  };
 
   const fetchVehicle = useCallback(async () => {
     if (!id) return;
@@ -349,7 +252,6 @@ export default function VehicleDetail() {
               <TabsTrigger value="overview" className="text-xs sm:text-sm px-2 sm:px-3">General</TabsTrigger>
               <TabsTrigger value="info" className="text-xs sm:text-sm px-2 sm:px-3">Detalle</TabsTrigger>
               <TabsTrigger value="operations" className="text-xs sm:text-sm px-2 sm:px-3">Alistamiento</TabsTrigger>
-              <TabsTrigger value="internal" className="text-xs sm:text-sm px-2 sm:px-3">Otros</TabsTrigger>
             </TabsList>
           </div>
 
@@ -361,6 +263,8 @@ export default function VehicleDetail() {
           <TabsContent value="info" className="mt-4 space-y-4">
             <VehicleInfoTab vehicle={vehicle} onUpdate={(v) => setVehicle(v)} onAudit={logAudit} />
             <VehicleLegalTab vehicleId={vehicle.id} />
+            <VehicleAcquisitionTab vehicleId={vehicle.id} />
+            <VehicleComplianceTab vehicleId={vehicle.id} />
           </TabsContent>
 
           <TabsContent value="operations" className="mt-4 space-y-4">
@@ -369,40 +273,6 @@ export default function VehicleDetail() {
             </div>
           </TabsContent>
 
-          <TabsContent value="internal" className="mt-4 space-y-4">
-            <VehicleAcquisitionTab
-              vehicleId={vehicle.id}
-              onDirtyChange={(isDirty) => handleSectionDirtyChange("acquisition", isDirty)}
-              onCollectPayload={(collector) => handleCollectPayload("acquisition", collector)}
-            />
-            <VehicleComplianceTab
-              vehicleId={vehicle.id}
-              onDirtyChange={(isDirty) => handleSectionDirtyChange("compliance", isDirty)}
-              onCollectPayload={(collector) => handleCollectPayload("compliance", collector)}
-            />
-            <VehicleFilesTab
-              vehicleId={vehicle.id}
-              onDirtyChange={(isDirty) => handleSectionDirtyChange("files", isDirty)}
-              onCollectPayload={(collector) => handleCollectPayload("files", collector)}
-            />
-
-            <div className="sticky bottom-0 z-20 rounded-lg border bg-background/95 backdrop-blur p-3 shadow-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="text-sm text-muted-foreground">
-                  <span className="font-medium">Estado:</span> {unifiedStatusLabel[saveStatus]}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    onClick={() => void handleSaveAll()}
-                    disabled={savingAll || !hasPendingChanges}
-                    className="w-full sm:w-auto"
-                  >
-                    {savingAll ? "Guardando..." : "Guardar todo"}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </TabsContent>
         </Tabs>
       </div>
     </AdminLayout>

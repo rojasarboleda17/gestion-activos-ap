@@ -10,13 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { logger } from "@/lib/logger";
 
-interface Props {
-  vehicleId: string;
-  onDirtyChange?: (isDirty: boolean) => void;
-  onCollectPayload?: (collector: (() => Promise<void>) | null) => void;
-}
-
-export function VehicleAcquisitionTab({ vehicleId, onDirtyChange, onCollectPayload }: Props) {
+export function VehicleAcquisitionTab({ vehicleId }: { vehicleId: string }) {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -107,14 +101,6 @@ export function VehicleAcquisitionTab({ vehicleId, onDirtyChange, onCollectPaylo
     form.purchase_date !== initialForm.purchase_date ||
     form.supplier_name !== initialForm.supplier_name;
 
-  useEffect(() => {
-    onDirtyChange?.(isDirty);
-  }, [isDirty, onDirtyChange]);
-
-  useEffect(() => {
-    onCollectPayload?.(() => handleSave(true));
-    return () => onCollectPayload?.(null);
-  }, [handleSave, onCollectPayload]);
 
   if (loading) return <LoadingState variant="detail" />;
 

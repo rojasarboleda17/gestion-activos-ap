@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "@/components/layouts/AdminLayout";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -11,12 +12,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
-import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { logger } from "@/lib/logger";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { toast } from "sonner";
 
 interface VehicleStage {
   code: string;
@@ -52,8 +52,12 @@ const TRANSMISSIONS = [
   { value: "CVT", label: "CVT" },
 ];
 
-export default function VehicleNew() {
-  const navigate = useNavigate();
+interface VehicleNewFormProps {
+  onCancel: () => void;
+  onSuccess: (vehicleId: string) => void;
+}
+
+export function VehicleNewForm({ onCancel, onSuccess }: VehicleNewFormProps) {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [stages, setStages] = useState<VehicleStage[]>([]);
@@ -72,8 +76,6 @@ export default function VehicleNew() {
     fuel_type: "",
     transmission: "",
     color: "",
-    is_listed: false,
-    listed_price_cop: "",
   });
 
   useEffect(() => {
@@ -94,54 +96,22 @@ export default function VehicleNew() {
       }
     };
 
-    fetchData();
+    void fetchData();
   }, []);
 
-  const handleChange = (field: string, value: string | boolean) => {
+  const handleChange = (field: string, value: string) => {
     setForm((f) => ({ ...f, [field]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!form.license_plate.trim()) {
-      toast.error("La placa es requerida");
-      return;
-    }
-
-    if (!form.brand.trim()) {
-      toast.error("La marca es requerida");
-      return;
-    }
-
-    if (!form.line.trim()) {
-      toast.error("La línea es requerida");
-      return;
-    }
-
-    if (!form.model_year) {
-      toast.error("El modelo es requerido");
-      return;
-    }
-
-    if (!form.stage_code) {
-      toast.error("El estado inicial es requerido");
-      return;
-    }
-
-    const listedPrice = form.listed_price_cop
-      ? parseInt(form.listed_price_cop, 10)
-      : null;
-
-    if (form.is_listed && (!listedPrice || listedPrice <= 0)) {
-      toast.error("Si el vehículo está publicado, el precio debe ser mayor a 0");
-      return;
-    }
-
-    if (!profile?.org_id) {
-      toast.error("Error de sesión");
-      return;
-    }
+    if (!form.license_plate.trim()) return toast.error("La placa es requerida");
+    if (!form.brand.trim()) return toast.error("La marca es requerida");
+    if (!form.line.trim()) return toast.error("La línea es requerida");
+    if (!form.model_year) return toast.error("El modelo es requerido");
+    if (!form.stage_code) return toast.error("El estado inicial es requerido");
+    if (!profile?.org_id) return toast.error("Error de sesión");
 
     setLoading(true);
     try {
@@ -174,28 +144,14 @@ export default function VehicleNew() {
       const orgId = profile.org_id;
 
       await Promise.all([
-        supabase.from("vehicle_listing").upsert({
-          vehicle_id: vehicleId,
-          org_id: orgId,
-          is_listed: form.is_listed,
-          listed_price_cop: listedPrice,
-        }),
-        supabase.from("vehicle_compliance").upsert({
-          vehicle_id: vehicleId,
-          org_id: orgId,
-        }),
-        supabase.from("vehicle_financials").upsert({
-          vehicle_id: vehicleId,
-          org_id: orgId,
-        }),
-        supabase.from("vehicle_property_card").upsert({
-          vehicle_id: vehicleId,
-          org_id: orgId,
-        }),
+        supabase.from("vehicle_listing").upsert({ vehicle_id: vehicleId, org_id: orgId }),
+        supabase.from("vehicle_compliance").upsert({ vehicle_id: vehicleId, org_id: orgId }),
+        supabase.from("vehicle_financials").upsert({ vehicle_id: vehicleId, org_id: orgId }),
+        supabase.from("vehicle_property_card").upsert({ vehicle_id: vehicleId, org_id: orgId }),
       ]);
 
       toast.success("Vehículo creado exitosamente");
-      navigate(`/admin/vehicles/${vehicleId}`);
+      onSuccess(vehicleId);
     } catch (error: unknown) {
       logger.error("Error creating vehicle:", error);
       toast.error(error instanceof Error ? error.message : "Error al crear vehículo");
@@ -203,6 +159,201 @@ export default function VehicleNew() {
       setLoading(false);
     }
   };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="license_plate">Placa *</Label>
+          <Input
+            id="license_plate"
+            required
+            value={form.license_plate}
+            onChange={(e) => handleChange("license_plate", e.target.value.toUpperCase())}
+            placeholder="ABC123"
+            maxLength={10}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="branch_id">Sede</Label>
+          <Select value={form.branch_id} onValueChange={(v) => handleChange("branch_id", v)}>
+            <SelectTrigger id="branch_id">
+              <SelectValue placeholder="Seleccionar sede" />
+            </SelectTrigger>
+            <SelectContent>
+              {branches
+                .filter((b) => b.is_active)
+                .map((b) => (
+                  <SelectItem key={b.id} value={b.id}>
+                    {b.name}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="brand">Marca *</Label>
+          <Input
+            id="brand"
+            required
+            value={form.brand}
+            onChange={(e) => handleChange("brand", e.target.value)}
+            placeholder="Toyota, Mazda..."
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="line">Línea *</Label>
+          <Input
+            id="line"
+            required
+            value={form.line}
+            onChange={(e) => handleChange("line", e.target.value)}
+            placeholder="Corolla, CX-5..."
+          />
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="model_year">Modelo (año) *</Label>
+          <Input
+            id="model_year"
+            required
+            type="number"
+            min="1900"
+            max="2100"
+            value={form.model_year}
+            onChange={(e) => handleChange("model_year", e.target.value)}
+            placeholder="2024"
+          />
+        </div>
+      </div>
+
+      <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="rounded-lg border">
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium"
+          >
+            <span>Características específicas del vehículo (opcional)</span>
+            {advancedOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+        </CollapsibleTrigger>
+
+        <CollapsibleContent className="border-t px-4 py-4">
+          <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="color">Color</Label>
+                <Input
+                  id="color"
+                  value={form.color}
+                  onChange={(e) => handleChange("color", e.target.value)}
+                  placeholder="Negro, Blanco..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="fuel_type">Combustible</Label>
+                <Select value={form.fuel_type} onValueChange={(v) => handleChange("fuel_type", v)}>
+                  <SelectTrigger id="fuel_type">
+                    <SelectValue placeholder="Seleccionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FUEL_TYPES.map((f) => (
+                      <SelectItem key={f.value} value={f.value}>
+                        {f.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="transmission">Transmisión</Label>
+                <Select value={form.transmission} onValueChange={(v) => handleChange("transmission", v)}>
+                  <SelectTrigger id="transmission">
+                    <SelectValue placeholder="Seleccionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TRANSMISSIONS.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="mileage_km">Kilometraje</Label>
+                <Input
+                  id="mileage_km"
+                  type="number"
+                  min="0"
+                  value={form.mileage_km}
+                  onChange={(e) => handleChange("mileage_km", e.target.value)}
+                  placeholder="50000"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="vehicle_class">Clase</Label>
+                <Select value={form.vehicle_class} onValueChange={(v) => handleChange("vehicle_class", v)}>
+                  <SelectTrigger id="vehicle_class">
+                    <SelectValue placeholder="Seleccionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {VEHICLE_CLASSES.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>
+                        {c.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+
+      <div className="space-y-2">
+        <Label htmlFor="stage_code">Estado inicial *</Label>
+        <Select value={form.stage_code} onValueChange={(v) => handleChange("stage_code", v)}>
+          <SelectTrigger id="stage_code">
+            <SelectValue placeholder="Seleccionar estado" />
+          </SelectTrigger>
+          <SelectContent>
+            {stages.map((s) => (
+              <SelectItem key={s.code} value={s.code}>
+                {s.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex flex-wrap gap-3 pt-2">
+        <Button type="submit" disabled={loading}>
+          {loading ? "Guardando..." : "Crear Vehículo"}
+        </Button>
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancelar
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+export default function VehicleNew() {
+  const navigate = useNavigate();
 
   return (
     <AdminLayout
@@ -213,194 +364,12 @@ export default function VehicleNew() {
         { label: "Nuevo" },
       ]}
     >
-      <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-5">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="license_plate">Placa *</Label>
-                <Input
-                  id="license_plate"
-                  required
-                  value={form.license_plate}
-                  onChange={(e) => handleChange("license_plate", e.target.value.toUpperCase())}
-                  placeholder="ABC123"
-                  maxLength={10}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="branch_id">Sede</Label>
-                <Select value={form.branch_id} onValueChange={(v) => handleChange("branch_id", v)}>
-                  <SelectTrigger id="branch_id">
-                    <SelectValue placeholder="Seleccionar sede" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {branches
-                      .filter((b) => b.is_active)
-                      .map((b) => (
-                        <SelectItem key={b.id} value={b.id}>
-                          {b.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="brand">Marca *</Label>
-                <Input
-                  id="brand"
-                  required
-                  value={form.brand}
-                  onChange={(e) => handleChange("brand", e.target.value)}
-                  placeholder="Toyota, Mazda..."
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="line">Línea *</Label>
-                <Input
-                  id="line"
-                  required
-                  value={form.line}
-                  onChange={(e) => handleChange("line", e.target.value)}
-                  placeholder="Corolla, CX-5..."
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="model_year">Modelo (año) *</Label>
-                <Input
-                  id="model_year"
-                  required
-                  type="number"
-                  min="1900"
-                  max="2100"
-                  value={form.model_year}
-                  onChange={(e) => handleChange("model_year", e.target.value)}
-                  placeholder="2024"
-                />
-              </div>
-            </div>
-
-            <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="rounded-lg border">
-              <CollapsibleTrigger asChild>
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium"
-                >
-                  <span>Características específicas del vehículo (opcional)</span>
-                  {advancedOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </button>
-              </CollapsibleTrigger>
-
-              <CollapsibleContent className="border-t px-4 py-4">
-                <div className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="color">Color</Label>
-                      <Input
-                        id="color"
-                        value={form.color}
-                        onChange={(e) => handleChange("color", e.target.value)}
-                        placeholder="Negro, Blanco..."
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="fuel_type">Combustible</Label>
-                      <Select value={form.fuel_type} onValueChange={(v) => handleChange("fuel_type", v)}>
-                        <SelectTrigger id="fuel_type">
-                          <SelectValue placeholder="Seleccionar" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {FUEL_TYPES.map((f) => (
-                            <SelectItem key={f.value} value={f.value}>
-                              {f.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="transmission">Transmisión</Label>
-                      <Select value={form.transmission} onValueChange={(v) => handleChange("transmission", v)}>
-                        <SelectTrigger id="transmission">
-                          <SelectValue placeholder="Seleccionar" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {TRANSMISSIONS.map((t) => (
-                            <SelectItem key={t.value} value={t.value}>
-                              {t.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="mileage_km">Kilometraje</Label>
-                      <Input
-                        id="mileage_km"
-                        type="number"
-                        min="0"
-                        value={form.mileage_km}
-                        onChange={(e) => handleChange("mileage_km", e.target.value)}
-                        placeholder="50000"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="vehicle_class">Clase</Label>
-                      <Select value={form.vehicle_class} onValueChange={(v) => handleChange("vehicle_class", v)}>
-                        <SelectTrigger id="vehicle_class">
-                          <SelectValue placeholder="Seleccionar" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {VEHICLE_CLASSES.map((c) => (
-                            <SelectItem key={c.value} value={c.value}>
-                              {c.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-
-            <div className="space-y-2">
-              <Label htmlFor="stage_code">Estado inicial *</Label>
-              <Select value={form.stage_code} onValueChange={(v) => handleChange("stage_code", v)}>
-                <SelectTrigger id="stage_code">
-                  <SelectValue placeholder="Seleccionar estado" />
-                </SelectTrigger>
-                <SelectContent>
-                  {stages.map((s) => (
-                    <SelectItem key={s.code} value={s.code}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-wrap gap-3 pt-2">
-              <Button type="submit" disabled={loading}>
-                {loading ? "Guardando..." : "Crear Vehículo"}
-              </Button>
-              <Button type="button" variant="outline" onClick={() => navigate("/admin/vehicles")}>
-                Cancelar
-              </Button>
-            </div>
-      </form>
+      <div className="mx-auto max-w-2xl">
+        <VehicleNewForm
+          onCancel={() => navigate("/admin/vehicles")}
+          onSuccess={(vehicleId) => navigate(`/admin/vehicles/${vehicleId}`)}
+        />
+      </div>
     </AdminLayout>
   );
 }

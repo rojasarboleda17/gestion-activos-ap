@@ -204,7 +204,6 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
           .select("id, license_plate, brand, line, model_year, stage_code")
           .eq("org_id", profile.org_id)
           .eq("is_archived", false)
-          .in("stage_code", ["publicado", "bloqueado"])
           .order("brand"),
         supabase
           .from("customers")
@@ -551,7 +550,7 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
     .reduce((sum, p) => sum + p.amount_cop, 0);
 
   // Available vehicles for new sale
-  const availableVehicles = vehicles.filter(v => v.stage_code !== "vendido");
+  const availableVehicles = vehicles.filter((v) => ["publicado", "bloqueado"].includes(v.stage_code));
 
   if (loading) return <LoadingState variant="table" />;
 

@@ -68,7 +68,6 @@ export default function VehicleNew() {
     model_year: "",
     stage_code: "",
     vehicle_class: "AUTOMOVIL",
-    vin: "",
     mileage_km: "",
     fuel_type: "",
     transmission: "",
@@ -150,7 +149,7 @@ export default function VehicleNew() {
         org_id: profile.org_id,
         branch_id: form.branch_id || null,
         license_plate: form.license_plate.toUpperCase().trim(),
-        vin: form.vin.trim() || null,
+        vin: null,
         brand: form.brand.trim(),
         line: form.line.trim(),
         model_year: parseInt(form.model_year, 10),
@@ -371,15 +370,6 @@ export default function VehicleNew() {
                           ))}
                         </SelectContent>
                       </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="vin">VIN</Label>
-                      <Input
-                        id="vin"
-                        value={form.vin}
-                        onChange={(e) => handleChange("vin", e.target.value)}
-                        placeholder="Número VIN"
-                      />
                     </div>
                   </div>
                 </div>

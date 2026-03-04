@@ -38,6 +38,9 @@ const navigation = [
   { name: "Operaciones", href: "/admin/operations", icon: Wrench },
   { name: "Ventas", href: "/admin/sales", icon: ShoppingCart },
   { name: "Archivos", href: "/admin/files", icon: FileText },
+];
+
+const adminSettingsNavigation = [
   { name: "Usuarios", href: "/admin/users", icon: Users },
   { name: "Sedes", href: "/admin/branches", icon: Building2 },
   { name: "Auditoría", href: "/admin/audit", icon: ClipboardList },
@@ -141,9 +144,22 @@ export function AdminLayout({
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>Mi cuenta</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              {profile?.role === "admin" && (
+                <>
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">
+                    Configuración
+                  </DropdownMenuLabel>
+                  {adminSettingsNavigation.map((item) => (
+                    <DropdownMenuItem key={item.name} asChild>
+                      <Link to={item.href} onClick={() => setSidebarOpen(false)}>
+                        <item.icon className="mr-2 h-4 w-4" />
+                        {item.name}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuItem onClick={handleSignOut}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Cerrar sesión

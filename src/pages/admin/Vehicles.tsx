@@ -6,6 +6,12 @@ import { DataTable, Column } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -39,6 +45,7 @@ import { toast } from "sonner";
 import { VehicleFilters } from "@/components/vehicle/VehicleFilters";
 import { VehicleKanban } from "@/components/vehicle/VehicleKanban";
 import { VehicleQuickEdit } from "@/components/vehicle/VehicleQuickEdit";
+import { VehicleNewForm } from "./VehicleNew";
 import { logger } from "@/lib/logger";
 import { useAudit } from "@/hooks/use-audit";
 
@@ -147,6 +154,7 @@ export default function AdminVehicles() {
   // Quick edit modal
   const [editVehicle, setEditVehicle] = useState<VehicleRow | null>(null);
   const [quickEditOpen, setQuickEditOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -476,7 +484,7 @@ export default function AdminVehicles() {
         { label: "Inventario" },
       ]}
       actions={
-        <Button onClick={() => navigate("/admin/vehicles/new")}>
+        <Button onClick={() => setCreateOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Crear Vehículo
         </Button>
@@ -555,7 +563,7 @@ export default function AdminVehicles() {
               emptyDescription="Agrega tu primer vehículo al inventario."
               emptyAction={{
                 label: "Crear Vehículo",
-                onClick: () => navigate("/admin/vehicles/new"),
+                onClick: () => setCreateOpen(true),
               }}
               onRowClick={(row) => navigate(`/admin/vehicles/${(row as any).id}`)}
               getRowId={(row) => (row as any).id}
@@ -607,6 +615,22 @@ export default function AdminVehicles() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Nuevo Vehículo</DialogTitle>
+          </DialogHeader>
+          <VehicleNewForm
+            onCancel={() => setCreateOpen(false)}
+            onSuccess={(vehicleId) => {
+              setCreateOpen(false);
+              void fetchData();
+              navigate(`/admin/vehicles/${vehicleId}`);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
       <VehicleQuickEdit
         vehicle={editVehicle}

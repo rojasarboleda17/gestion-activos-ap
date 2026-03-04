@@ -23,7 +23,6 @@ import AdminFiles from "./pages/admin/Files";
 import AdminUsers from "./pages/admin/Users";
 import AdminBranches from "./pages/admin/Branches";
 import AdminAudit from "./pages/admin/Audit";
-import AdminFinance from "./pages/admin/Finance";
 
 const queryClient = new QueryClient();
 
@@ -60,7 +59,6 @@ const AppRoutes = () => (
     <Route path="/admin/files" element={<ProtectedRoute requiredRole="admin"><AdminFiles /></ProtectedRoute>} />
     <Route path="/admin/users" element={<ProtectedRoute requiredRole="admin"><AdminUsers /></ProtectedRoute>} />
     <Route path="/admin/branches" element={<ProtectedRoute requiredRole="admin"><AdminBranches /></ProtectedRoute>} />
-    <Route path="/admin/finance" element={<ProtectedRoute requiredRole="admin"><AdminFinance /></ProtectedRoute>} />
     <Route path="/admin/audit" element={<ProtectedRoute requiredRole="admin"><AdminAudit /></ProtectedRoute>} />
     
     {/* Catch-all */}

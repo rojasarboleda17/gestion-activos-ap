@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layouts/AdminLayout";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -260,11 +261,36 @@ export default function VehicleDetail() {
             <VehicleSalesTab vehicleId={vehicle.id} vehicleStageCode={vehicle.stage_code} onRefresh={fetchVehicle} />
           </TabsContent>
 
-          <TabsContent value="info" className="mt-4 space-y-4">
-            <VehicleInfoTab vehicle={vehicle} onUpdate={(v) => setVehicle(v)} onAudit={logAudit} />
-            <VehicleLegalTab vehicleId={vehicle.id} />
-            <VehicleAcquisitionTab vehicleId={vehicle.id} />
-            <VehicleComplianceTab vehicleId={vehicle.id} />
+          <TabsContent value="info" className="mt-4">
+            <Accordion type="multiple" defaultValue={["datos", "legal"]} className="w-full rounded-lg border px-4">
+              <AccordionItem value="datos">
+                <AccordionTrigger className="text-sm sm:text-base">Información del vehículo</AccordionTrigger>
+                <AccordionContent className="pt-3">
+                  <VehicleInfoTab vehicle={vehicle} onUpdate={(v) => setVehicle(v)} onAudit={logAudit} />
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="legal">
+                <AccordionTrigger className="text-sm sm:text-base">Legal y matrícula</AccordionTrigger>
+                <AccordionContent className="pt-3">
+                  <VehicleLegalTab vehicleId={vehicle.id} />
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="acquisition">
+                <AccordionTrigger className="text-sm sm:text-base">Adquisición</AccordionTrigger>
+                <AccordionContent className="pt-3">
+                  <VehicleAcquisitionTab vehicleId={vehicle.id} />
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="compliance">
+                <AccordionTrigger className="text-sm sm:text-base">Cumplimiento y Documentos</AccordionTrigger>
+                <AccordionContent className="pt-3">
+                  <VehicleComplianceTab vehicleId={vehicle.id} />
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </TabsContent>
 
           <TabsContent value="operations" className="mt-4 space-y-4">

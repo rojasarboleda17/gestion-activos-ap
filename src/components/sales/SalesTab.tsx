@@ -52,6 +52,7 @@ import { formatCOP, formatDate } from "@/lib/format";
 import { ShoppingCart, Search, Eye, XCircle, DollarSign, CreditCard, Plus } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { VehicleQuickCustomerDialog } from "@/components/vehicle/VehicleQuickCustomerDialog";
+import { ContractPanel } from "@/components/sales/ContractPanel";
 
 interface Sale {
   id: string;
@@ -96,6 +97,7 @@ interface Vehicle {
   line: string | null;
   model_year: number | null;
   stage_code: string;
+  is_archived: boolean;
 }
 
 interface Customer {
@@ -124,6 +126,29 @@ const getErrorMessage = (error: unknown, fallback: string) =>
 const STATUS_LABELS: Record<string, string> = {
   active: "Activa",
   voided: "Anulada",
+};
+
+const getVehicleSnapshotData = (snapshot: unknown) => {
+  if (!snapshot || typeof snapshot !== "object") return null;
+
+  const raw = snapshot as Record<string, unknown>;
+  const source = raw.vehicle && typeof raw.vehicle === "object"
+    ? (raw.vehicle as Record<string, unknown>)
+    : raw;
+
+  const modelYearRaw = source.model_year;
+  const modelYear = typeof modelYearRaw === "number"
+    ? modelYearRaw
+    : typeof modelYearRaw === "string"
+      ? Number(modelYearRaw)
+      : null;
+
+  return {
+    license_plate: typeof source.license_plate === "string" ? source.license_plate : null,
+    brand: typeof source.brand === "string" ? source.brand : "",
+    line: typeof source.line === "string" ? source.line : null,
+    model_year: Number.isFinite(modelYear) ? modelYear : null,
+  };
 };
 
 export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
@@ -201,9 +226,12 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
           .order("sort_order"),
         supabase
           .from("vehicles")
-          .select("id, license_plate, brand, line, model_year, stage_code")
+          .select("id, license_plate, brand, line, model_year, stage_code, is_archived")
           .eq("org_id", profile.org_id)
+<<<<<<< codex/revisar-modulo-ventas-por-informacion-incompleta-0qye9o
+=======
           .eq("is_archived", false)
+>>>>>>> main
           .order("brand"),
         supabase
           .from("customers")
@@ -225,23 +253,28 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
       const vehicleMap = new Map((vehiclesRes.data || []).map((v) => [v.id, v]));
 
       setSales(
-        (salesRes.data || []).map((sale) => ({
-          ...sale,
-          customer: customerMap.get(sale.customer_id)
-            ? {
-                full_name: customerMap.get(sale.customer_id)?.full_name || "",
-                phone: customerMap.get(sale.customer_id)?.phone || null,
-              }
-            : undefined,
-          vehicle: vehicleMap.get(sale.vehicle_id)
-            ? {
-                license_plate: vehicleMap.get(sale.vehicle_id)?.license_plate || null,
-                brand: vehicleMap.get(sale.vehicle_id)?.brand || "",
-                line: vehicleMap.get(sale.vehicle_id)?.line || null,
-                model_year: vehicleMap.get(sale.vehicle_id)?.model_year || null,
-              }
-            : undefined,
-        }))
+        (salesRes.data || []).map((sale) => {
+          const snapshotVehicle = getVehicleSnapshotData(sale.vehicle_snapshot);
+          const currentVehicle = vehicleMap.get(sale.vehicle_id);
+
+          return {
+            ...sale,
+            customer: customerMap.get(sale.customer_id)
+              ? {
+                  full_name: customerMap.get(sale.customer_id)?.full_name || "",
+                  phone: customerMap.get(sale.customer_id)?.phone || null,
+                }
+              : undefined,
+            vehicle: currentVehicle || snapshotVehicle
+              ? {
+                  license_plate: currentVehicle?.license_plate || snapshotVehicle?.license_plate || null,
+                  brand: currentVehicle?.brand || snapshotVehicle?.brand || "",
+                  line: currentVehicle?.line || snapshotVehicle?.line || null,
+                  model_year: currentVehicle?.model_year || snapshotVehicle?.model_year || null,
+                }
+              : undefined,
+          };
+        })
       );
       setPaymentMethods((pmRes.data || []) as PaymentMethod[]);
       setVehicleStages((stagesRes.data || []) as VehicleStage[]);
@@ -534,8 +567,9 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
     if (statusFilter !== "all" && s.status !== statusFilter) return false;
     if (search) {
       const q = search.toLowerCase();
-      const plate = s.vehicle?.license_plate?.toLowerCase() || "";
-      const brand = s.vehicle?.brand?.toLowerCase() || "";
+      const vehicleSnapshot = getVehicleSnapshotData(s.vehicle_snapshot);
+      const plate = (s.vehicle?.license_plate || vehicleSnapshot?.license_plate || "").toLowerCase();
+      const brand = (s.vehicle?.brand || vehicleSnapshot?.brand || "").toLowerCase();
       const customer = s.customer?.full_name?.toLowerCase() || "";
       if (!plate.includes(q) && !brand.includes(q) && !customer.includes(q)) return false;
     }
@@ -550,7 +584,11 @@ export function SalesTab({ onRefresh, preselectedVehicleId }: Props) {
     .reduce((sum, p) => sum + p.amount_cop, 0);
 
   // Available vehicles for new sale
+<<<<<<< codex/revisar-modulo-ventas-por-informacion-incompleta-0qye9o
+  const availableVehicles = vehicles.filter((v) => !v.is_archived && ["publicado", "bloqueado"].includes(v.stage_code));
+=======
   const availableVehicles = vehicles.filter((v) => ["publicado", "bloqueado"].includes(v.stage_code));
+>>>>>>> main
 
   if (loading) return <LoadingState variant="table" />;
 

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "@/components/layouts/AdminLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -67,7 +66,7 @@ export default function VehicleNew() {
     brand: "",
     line: "",
     model_year: "",
-    stage_code: "prospecto",
+    stage_code: "",
     vehicle_class: "AUTOMOVIL",
     vin: "",
     mileage_km: "",
@@ -123,6 +122,11 @@ export default function VehicleNew() {
 
     if (!form.model_year) {
       toast.error("El modelo es requerido");
+      return;
+    }
+
+    if (!form.stage_code) {
+      toast.error("El estado inicial es requerido");
       return;
     }
 
@@ -203,23 +207,14 @@ export default function VehicleNew() {
 
   return (
     <AdminLayout
-      title="Crear Vehículo"
+      title="Nuevo Vehículo"
       breadcrumbs={[
         { label: "Inicio", href: "/admin/vehicles" },
         { label: "Inventario", href: "/admin/vehicles" },
         { label: "Nuevo" },
       ]}
     >
-      <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-4">
-        <Card className="shadow-sm">
-          <CardHeader className="pb-4">
-            <CardTitle>Registro básico del vehículo</CardTitle>
-            <CardDescription>
-              Completa lo mínimo para crear el vehículo. El resto lo puedes agregar después en el detalle.
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent className="space-y-5">
+      <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-5">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="license_plate">Placa *</Label>
@@ -289,22 +284,6 @@ export default function VehicleNew() {
                   onChange={(e) => handleChange("model_year", e.target.value)}
                   placeholder="2024"
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="stage_code">Estado inicial *</Label>
-                <Select value={form.stage_code} onValueChange={(v) => handleChange("stage_code", v)}>
-                  <SelectTrigger id="stage_code">
-                    <SelectValue placeholder="Seleccionar estado" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {stages.map((s) => (
-                      <SelectItem key={s.code} value={s.code}>
-                        {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
             </div>
 
@@ -407,6 +386,22 @@ export default function VehicleNew() {
               </CollapsibleContent>
             </Collapsible>
 
+            <div className="space-y-2">
+              <Label htmlFor="stage_code">Estado inicial *</Label>
+              <Select value={form.stage_code} onValueChange={(v) => handleChange("stage_code", v)}>
+                <SelectTrigger id="stage_code">
+                  <SelectValue placeholder="Seleccionar estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  {stages.map((s) => (
+                    <SelectItem key={s.code} value={s.code}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="flex flex-wrap gap-3 pt-2">
               <Button type="submit" disabled={loading}>
                 {loading ? "Guardando..." : "Crear Vehículo"}
@@ -415,8 +410,6 @@ export default function VehicleNew() {
                 Cancelar
               </Button>
             </div>
-          </CardContent>
-        </Card>
       </form>
     </AdminLayout>
   );

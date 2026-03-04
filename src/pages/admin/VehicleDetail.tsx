@@ -31,8 +31,6 @@ import { VehicleInfoTab } from "@/components/vehicle/VehicleInfoTab";
 import { VehicleAcquisitionTab } from "@/components/vehicle/VehicleAcquisitionTab";
 import { VehicleComplianceTab } from "@/components/vehicle/VehicleComplianceTab";
 import { VehicleLegalTab } from "@/components/vehicle/VehicleLegalTab";
-import { VehicleWorkOrdersTab } from "@/components/vehicle/VehicleWorkOrdersTab";
-import { VehicleExpensesTab } from "@/components/vehicle/VehicleExpensesTab";
 import { VehicleFilesTab } from "@/components/vehicle/VehicleFilesTab";
 import { VehicleSalesTab } from "@/components/vehicle/VehicleSalesTab";
 
@@ -357,7 +355,7 @@ export default function VehicleDetail() {
 
           <TabsContent value="overview" className="mt-4 space-y-4">
             <VehicleSummaryTab vehicle={vehicle} />
-            <VehicleSalesTab vehicleId={vehicle.id} />
+            <VehicleSalesTab vehicleId={vehicle.id} vehicleStageCode={vehicle.stage_code} onRefresh={fetchVehicle} />
           </TabsContent>
 
           <TabsContent value="info" className="mt-4 space-y-4">
@@ -366,8 +364,9 @@ export default function VehicleDetail() {
           </TabsContent>
 
           <TabsContent value="operations" className="mt-4 space-y-4">
-            <VehicleWorkOrdersTab vehicleId={vehicle.id} />
-            <VehicleExpensesTab vehicleId={vehicle.id} />
+            <div className="rounded-lg border border-dashed bg-muted/30 p-8 text-center">
+              <p className="text-lg font-semibold">En construcción</p>
+            </div>
           </TabsContent>
 
           <TabsContent value="internal" className="mt-4 space-y-4">

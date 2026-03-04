@@ -65,6 +65,7 @@ import {
   ReceiptText,
 } from "lucide-react";
 import { logger } from "@/lib/logger";
+import { VehicleQuickCustomerDialog } from "@/components/vehicle/VehicleQuickCustomerDialog";
 
 interface Reservation {
   id: string;
@@ -220,6 +221,7 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [identityDocumentTypes, setIdentityDocumentTypes] = useState<IdentityDocumentType[]>([]);
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -292,6 +294,10 @@ export function ReservationsTab({ onConvertToSale, onRefresh, preselectedVehicle
           .from("payment_methods")
           .select("code, name")
           .eq("is_active", true),
+        supabase
+          .from("identity_document_types")
+          .select("code, name")
+          .order("name"),
       ]);
 
       if (resRes.error) {

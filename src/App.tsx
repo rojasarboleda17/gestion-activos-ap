@@ -16,7 +16,6 @@ import NotFound from "./pages/NotFound";
 
 // Admin Pages
 import AdminVehicles from "./pages/admin/Vehicles";
-import AdminVehicleNew from "./pages/admin/VehicleNew";
 import AdminVehicleDetail from "./pages/admin/VehicleDetail";
 import AdminOperations from "./pages/admin/Operations";
 import AdminSales from "./pages/admin/Sales";
@@ -24,7 +23,6 @@ import AdminFiles from "./pages/admin/Files";
 import AdminUsers from "./pages/admin/Users";
 import AdminBranches from "./pages/admin/Branches";
 import AdminAudit from "./pages/admin/Audit";
-import AdminFinance from "./pages/admin/Finance";
 
 const queryClient = new QueryClient();
 
@@ -54,14 +52,13 @@ const AppRoutes = () => (
     
     {/* Admin routes */}
     <Route path="/admin/vehicles" element={<ProtectedRoute requiredRole="admin"><AdminVehicles /></ProtectedRoute>} />
-    <Route path="/admin/vehicles/new" element={<ProtectedRoute requiredRole="admin"><AdminVehicleNew /></ProtectedRoute>} />
+    <Route path="/admin/vehicles/new" element={<Navigate to="/admin/vehicles" replace />} />
     <Route path="/admin/vehicles/:id" element={<ProtectedRoute requiredRole="admin"><AdminVehicleDetail /></ProtectedRoute>} />
     <Route path="/admin/operations" element={<ProtectedRoute requiredRole="admin"><AdminOperations /></ProtectedRoute>} />
     <Route path="/admin/sales" element={<ProtectedRoute requiredRole="admin"><AdminSales /></ProtectedRoute>} />
     <Route path="/admin/files" element={<ProtectedRoute requiredRole="admin"><AdminFiles /></ProtectedRoute>} />
     <Route path="/admin/users" element={<ProtectedRoute requiredRole="admin"><AdminUsers /></ProtectedRoute>} />
     <Route path="/admin/branches" element={<ProtectedRoute requiredRole="admin"><AdminBranches /></ProtectedRoute>} />
-    <Route path="/admin/finance" element={<ProtectedRoute requiredRole="admin"><AdminFinance /></ProtectedRoute>} />
     <Route path="/admin/audit" element={<ProtectedRoute requiredRole="admin"><AdminAudit /></ProtectedRoute>} />
     
     {/* Catch-all */}

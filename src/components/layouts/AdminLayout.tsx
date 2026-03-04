@@ -11,7 +11,6 @@ import {
   Users,
   Building2,
   ClipboardList,
-  Landmark,
   LogOut,
   Menu,
   X,
@@ -39,9 +38,11 @@ const navigation = [
   { name: "Operaciones", href: "/admin/operations", icon: Wrench },
   { name: "Ventas", href: "/admin/sales", icon: ShoppingCart },
   { name: "Archivos", href: "/admin/files", icon: FileText },
+];
+
+const adminSettingsNavigation = [
   { name: "Usuarios", href: "/admin/users", icon: Users },
   { name: "Sedes", href: "/admin/branches", icon: Building2 },
-  { name: "Finanzas", href: "/admin/finance", icon: Landmark },
   { name: "Auditoría", href: "/admin/audit", icon: ClipboardList },
 ];
 
@@ -62,7 +63,7 @@ export function AdminLayout({
   };
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-screen overflow-hidden bg-background">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -74,7 +75,7 @@ export function AdminLayout({
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-sidebar transition-transform duration-300 lg:static lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-sidebar transition-transform duration-300 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -143,9 +144,22 @@ export function AdminLayout({
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>Mi cuenta</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              {profile?.role === "admin" && (
+                <>
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">
+                    Configuración
+                  </DropdownMenuLabel>
+                  {adminSettingsNavigation.map((item) => (
+                    <DropdownMenuItem key={item.name} asChild>
+                      <Link to={item.href} onClick={() => setSidebarOpen(false)}>
+                        <item.icon className="mr-2 h-4 w-4" />
+                        {item.name}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuItem onClick={handleSignOut}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Cerrar sesión
@@ -156,7 +170,7 @@ export function AdminLayout({
       </aside>
 
       {/* Main content */}
-      <div className="flex flex-1 flex-col min-w-0">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* Top bar */}
         <header className="sticky top-0 z-30 flex min-h-[56px] items-center gap-2 border-b bg-background/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:gap-4 sm:px-4 lg:px-6 safe-area-top">
           <Button

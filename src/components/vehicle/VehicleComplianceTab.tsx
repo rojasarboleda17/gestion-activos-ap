@@ -12,13 +12,7 @@ import { toast } from "sonner";
 import { LoadingState } from "@/components/ui/loading-state";
 import { logger } from "@/lib/logger";
 
-interface Props {
-  vehicleId: string;
-  onDirtyChange?: (isDirty: boolean) => void;
-  onCollectPayload?: (collector: (() => Promise<void>) | null) => void;
-}
-
-export function VehicleComplianceTab({ vehicleId, onDirtyChange, onCollectPayload }: Props) {
+export function VehicleComplianceTab({ vehicleId }: { vehicleId: string }) {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -104,14 +98,6 @@ export function VehicleComplianceTab({ vehicleId, onDirtyChange, onCollectPayloa
     form.fines_amount_cop !== initialForm.fines_amount_cop ||
     form.compliance_notes !== initialForm.compliance_notes;
 
-  useEffect(() => {
-    onDirtyChange?.(isDirty);
-  }, [isDirty, onDirtyChange]);
-
-  useEffect(() => {
-    onCollectPayload?.(() => handleSave(true));
-    return () => onCollectPayload?.(null);
-  }, [handleSave, onCollectPayload]);
 
   if (loading) return <LoadingState variant="detail" />;
 

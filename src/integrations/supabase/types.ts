@@ -501,6 +501,7 @@ export type Database = {
       }
       reservations: {
         Row: {
+          advisor_name: string | null
           cancel_reason: string | null
           cancelled_at: string | null
           cancelled_by: string | null
@@ -511,12 +512,16 @@ export type Database = {
           notes: string | null
           org_id: string
           payment_method_code: string
+          receipt_generated_at: string | null
+          receipt_sequence: number | null
+          receipt_year: number | null
           reserved_at: string
           status: string
           updated_at: string
           vehicle_id: string
         }
         Insert: {
+          advisor_name?: string | null
           cancel_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
@@ -527,12 +532,16 @@ export type Database = {
           notes?: string | null
           org_id?: string
           payment_method_code: string
+          receipt_generated_at?: string | null
+          receipt_sequence?: number | null
+          receipt_year?: number | null
           reserved_at?: string
           status?: string
           updated_at?: string
           vehicle_id: string
         }
         Update: {
+          advisor_name?: string | null
           cancel_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
@@ -543,6 +552,9 @@ export type Database = {
           notes?: string | null
           org_id?: string
           payment_method_code?: string
+          receipt_generated_at?: string | null
+          receipt_sequence?: number | null
+          receipt_year?: number | null
           reserved_at?: string
           status?: string
           updated_at?: string
